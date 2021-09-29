@@ -1,0 +1,17 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "attrsapi"
+version = "0.1"
+description = ""
+authors = [{name = "Tin Tvrtkovic", email = "tinchester@gmail.com"}]
+classifiers = ["License :: OSI Approved :: Apache Software License"]
+dependencies = ["aiohttp >= 3.7.4", "cattrs", "ujson", "wrapt"]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "flake8",
+]
