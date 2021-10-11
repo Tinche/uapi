@@ -1,22 +1,109 @@
-from attr import fields
+from enum import Enum, unique
+from typing import Optional, Union
+
+from attr import Factory, fields, frozen
+from cattr import GenConverter, override
+from cattr.gen import make_dict_unstructure_fn
+
+converter = GenConverter(omit_if_default=True)
+
+
+@frozen
+class Reference:
+    ref: str
+
+
+@frozen
+class Schema:
+    type: str
+    items: Optional["Schema"] = None
+    properties: Optional[dict[str, "Schema"]] = None
+    format: Optional[str] = None
+
+
+@frozen
+class MediaType:
+    schema: Union[Reference, Schema]
+
+
+@frozen
+class Response:
+    description: str
+    content: dict[str, MediaType] = Factory(dict)
+
+
+@frozen
+class Parameter:
+    @unique
+    class Kind(str, Enum):
+        QUERY = "query"
+        HEADER = "header"
+        PATH = "path"
+        COOKIE = "cookie"
+
+    name: str
+    kind: Kind
+    required: bool = False
+    schema: Union[Schema, Reference, None] = None
+
+
+@frozen
+class OpenAPI:
+    @frozen
+    class Info:
+        title: str
+        version: str
+
+    @frozen
+    class Components:
+        schemas: dict[str, Union[Schema, Reference]]
+
+    @frozen
+    class PathItem:
+        @frozen
+        class Operation:
+            responses: dict[str, Response]
+            parameters: list[Parameter] = Factory(list)
+
+        get: Optional[Operation] = None
+
+    @frozen
+    class Path:
+        pass
+
+    openapi: str
+    info: Info
+    paths: dict[str, PathItem]
+    components: Components
+
 
 PYTHON_PRIMITIVES_TO_OPENAPI = {
-    str: ("string", None),
-    int: ("integer", None),
-    bool: ("boolean", None),
-    float: ("number", "double"),
+    str: Schema("string"),
+    int: Schema("integer"),
+    bool: Schema("boolean"),
+    float: Schema("number", format="double"),
 }
 
 
-def build_attrs_schema(type: type) -> dict:
+def build_attrs_schema(type: type) -> Schema:
     properties = {}
     for a in fields(type):
-        attr_prop = {}
         if a.type in PYTHON_PRIMITIVES_TO_OPENAPI:
-            t, format = PYTHON_PRIMITIVES_TO_OPENAPI[a.type]
-            attr_prop["type"] = t
-            if format is not None:
-                attr_prop["format"] = format
-        properties[a.name] = attr_prop
+            schema = PYTHON_PRIMITIVES_TO_OPENAPI[a.type]
+        else:
+            schema = Schema("")
+        properties[a.name] = schema
 
-    return {"type": "object", "properties": properties}
+    return Schema(type="object", properties=properties)
+
+
+converter.register_unstructure_hook(
+    Reference,
+    make_dict_unstructure_fn(Reference, converter, ref=override(rename="$ref")),
+)
+converter.register_unstructure_hook(
+    Parameter,
+    make_dict_unstructure_fn(
+        Parameter, converter, omit_if_default=True, kind=override(rename="in")
+    ),
+)

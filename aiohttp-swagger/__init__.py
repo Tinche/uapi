@@ -3,8 +3,12 @@ from pathlib import Path
 from aiohttp import web
 from aiohttp.web import Request, Response
 from attr import define
-from attrsapi import SwattrsRouteTableDef, make_openapi_spec
+from rich import print
 from ujson import dumps
+
+from attrsapi import Header, parameters
+from attrsapi.aiohttp import SwattrsRouteTableDef, make_openapi_spec
+from attrsapi.openapi import converter
 
 routes = SwattrsRouteTableDef()
 
@@ -21,8 +25,8 @@ class User:
 
 
 @routes.get("/users/{user_id}")
-async def fetch_user() -> User:
-    return User(1, "test")
+async def fetch_user(user_id: int) -> User:
+    return User(user_id, "test")
 
 
 @routes.post("/user")
@@ -32,13 +36,24 @@ async def create_user(user: User) -> User:
 
 
 @routes.get("/users")
-async def fetch_users() -> list[User]:
+async def fetch_users(page: int = 0) -> list[User]:
+    print(repr(page))
     return [User(1, "test")]
+
+
+@routes.get("/header")
+@parameters(a_nice_header=Header("a-nice-header"))
+async def show_header(a_nice_header: str) -> str:
+    return a_nice_header
 
 
 @routes.get("/openapi.json")
 async def openapi(_) -> Response:
-    res = dumps(make_openapi_spec(routes), escape_forward_slashes=False)
+    res = dumps(
+        converter.unstructure(s := make_openapi_spec(routes)),
+        escape_forward_slashes=False,
+    )
+    print(s)
     print(res)
     return Response(body=res)
 
