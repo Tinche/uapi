@@ -35,10 +35,93 @@ def parse_path_params(path_str: str) -> list[str]:
 def _should_ignore(handler: _HandlerType) -> bool:
     """These handlers should be skipped."""
     fullargspec = getfullargspec(handler)
-    return len(fullargspec.args) == 1 and (
-        (first_arg_name := fullargspec.args[0]) not in fullargspec.annotations
-        or issubclass(fullargspec.annotations[first_arg_name], AiohttpRequest)
+    return (
+        len(fullargspec.args) == 1
+        and fullargspec.args[0] in fullargspec.annotations
+        and issubclass(fullargspec.annotations[fullargspec.args[0]], AiohttpRequest)
     )
+
+
+def _generate_wrapper(
+    handler: Callable,
+    path: str,
+    body_dumper=lambda p: AiohttpResponse(body=unstructure(p)),
+    path_loader=structure,
+    query_loader=structure,
+) -> Callable[[AiohttpRequest], AiohttpResponse]:
+    sig = signature(handler)
+    params_meta = getattr(handler, "__attrs_api_meta__", {})
+    path_params = parse_path_params(path)
+    lines = []
+    lines.append("async def handler(request: Request):")
+
+    try:
+        res_is_native = (
+            (ret_type := sig.return_annotation)
+            and ret_type is not InspectParameter.empty
+            and issubclass(ret_type, AiohttpResponse)
+        )
+    except TypeError:
+        res_is_native = False
+
+    globs = {
+        "inner": handler,
+        "Request": AiohttpRequest,
+    }
+
+    if res_is_native:
+        lines.append("  return await inner(")
+    else:
+        lines.append("  return dumper(await inner(")
+        globs["dumper"] = body_dumper
+
+    for arg, arg_param in sig.parameters.items():
+        if arg in path_params:
+            arg_annotation = sig.parameters[arg].annotation
+            if arg_annotation in (InspectParameter.empty, str):
+                lines.append(f"    request.match_info['{arg}'],")
+            else:
+                lines.append(
+                    f"    path_loader(request.match_info['{arg}'], __{arg}_type),"
+                )
+                globs["path_loader"] = path_loader
+                globs[f"__{arg}_type"] = arg_annotation
+        elif arg_meta := params_meta.get(arg):
+            if isinstance(arg_meta, Header):
+                # A header param.
+                lines.append(f"    request.headers['{arg_meta.name}'],")
+        elif (arg_type := arg_param.annotation) is not InspectParameter.empty and has(
+            arg_type
+        ):
+            # defaulting to body
+            pass
+        else:
+            # defaulting to query
+            if arg_param.default is InspectParameter.empty:
+                expr = f"request.query['{arg}']"
+            else:
+                expr = f"request.query.get('{arg}', __{arg}_default)"
+                globs[f"__{arg}_default"] = arg_param.default
+
+            if (
+                arg_param.annotation is not str
+                and arg_param.annotation is not InspectParameter.empty
+            ):
+                expr = f"query_loader({expr}, __{arg}_type)"
+                globs["query_loader"] = query_loader
+                globs[f"__{arg}_type"] = arg_param.annotation
+            lines.append(f"    {expr},")
+
+    lines.append("  )")
+    if not res_is_native:
+        lines[-1] = lines[-1] + ")"
+
+    ls = "\n".join(lines)
+    eval(compile(ls, "", "exec"), globs)
+
+    fn = globs["handler"]
+
+    return fn
 
 
 @define
@@ -51,6 +134,7 @@ class SwattrsRouteTableDef(RouteTableDef):
         content_type="application/json",
     )
     query_loader: Callable[[str, type], Any] = structure
+    path_loader: Callable[[str, type], Any] = structure
 
     def __attrs_post_init__(self):
         super().__init__()
@@ -61,66 +145,7 @@ class SwattrsRouteTableDef(RouteTableDef):
             if _should_ignore(handler):
                 self._items.append(RouteDef(method, path, handler, kwargs))
             else:
-                fullargspec = getfullargspec(handler)
-                sig = signature(handler)
-                params_meta = getattr(handler, "__attrs_api_meta__", {})
-                path_params = parse_path_params(path)
-                lines = []
-                lines.append("async def handler(request: Request):")
-
-                try:
-                    res_is_native = (
-                        ret_type := fullargspec.annotations.get("return")
-                    ) and issubclass(ret_type, AiohttpResponse)
-                except TypeError:
-                    res_is_native = False
-
-                if res_is_native:
-                    lines.append("  return await inner(")
-                else:
-                    lines.append("  return dumper(await inner(")
-
-                globs = {
-                    "inner": handler,
-                    "Request": AiohttpRequest,
-                    "dumper": self.dumper,
-                }
-
-                for arg, arg_param in sig.parameters.items():
-                    if arg in path_params:
-                        lines.append(f"    request.match_info['{arg}'],")
-                    elif arg_meta := params_meta.get(arg):
-                        if isinstance(arg_meta, Header):
-                            # A header param.
-                            lines.append(f"    request.headers['{arg_meta.name}'],")
-                    elif (
-                        arg_type := arg_param.annotation
-                    ) is not InspectParameter.empty and has(arg_type):
-                        # defaulting to body
-                        pass
-                    else:
-                        # defaulting to query
-                        if arg_param.default is InspectParameter.empty:
-                            expr = f"request.query['{arg}']"
-                        else:
-                            expr = f"request.query.get('{arg}', __{arg}_default)"
-                            globs[f"__{arg}_default"] = arg_param.default
-                        if (
-                            arg_param.annotation is not str
-                            and arg_param.annotation is not InspectParameter.empty
-                        ):
-                            expr = f"query_loader({expr}, __{arg}_type)"
-                            globs["query_loader"] = self.query_loader
-                            globs[f"__{arg}_type"] = arg_param.annotation
-                        lines.append(f"    {expr},")
-
-                lines.append("  )")
-                if not res_is_native:
-                    lines[-1] = lines[-1] + ")"
-
-                eval(compile("\n".join(lines), "", "exec"), globs)
-
-                fn = globs["handler"]
+                fn = _generate_wrapper(handler, path)
                 fn.__attrsapi_handler__ = handler
 
                 self._items.append(RouteDef(method, path, fn, kwargs))

@@ -8,13 +8,20 @@ version = "0.1"
 description = ""
 authors = [{name = "Tin Tvrtkovic", email = "tinchester@gmail.com"}]
 classifiers = ["License :: OSI Approved :: Apache Software License"]
-dependencies = ["aiohttp >= 3.7.4", "cattrs", "ujson", "wrapt"]
+dependencies = ["cattrs"]
 requires-python = ">=3.9"
 
 [project.optional-dependencies]
 dev = [
     "black",
     "flake8",
+    "pytest-asyncio",
+    "httpx",
+    "aiohttp",
+    "flask",
+    "quart",
+    "starlette",
+    "hypercorn",
 ]
 
 [tool.isort]
