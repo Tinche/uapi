@@ -15,6 +15,7 @@ requires-python = ">=3.9"
 dev = [
     "black",
     "flake8",
+    "isort",
     "pytest-asyncio",
     "httpx",
     "aiohttp",

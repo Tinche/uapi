@@ -8,7 +8,7 @@ from hypercorn.middleware import AsyncioWSGIMiddleware
 from attrsapi.flask import route
 
 
-async def run_server(port: int, shutdown_event: Event):
+def make_app():
     app = Flask("flask")
 
     @app.get("/")
@@ -31,8 +31,16 @@ async def run_server(port: int, shutdown_event: Event):
     def query(page: int) -> Response:
         return Response(str(page + 1))
 
+    @route("/query-default", app)
+    def query_default(page: int = 0) -> Response:
+        return Response(str(page + 1))
+
+    return app
+
+
+async def run_server(port: int, shutdown_event: Event):
     config = Config()
     config.bind = [f"localhost:{port}"]
 
-    asyncio_app = AsyncioWSGIMiddleware(app)
+    asyncio_app = AsyncioWSGIMiddleware(make_app())
     await serve(asyncio_app, config, shutdown_trigger=shutdown_event.wait)

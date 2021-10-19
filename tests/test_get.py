@@ -48,3 +48,17 @@ async def test_query_parameter(server):
         resp = await client.get(f"http://localhost:{server}/query", params={"page": 10})
         assert resp.status_code == 200
         assert resp.text == "11"
+
+
+@pytest.mark.asyncio
+async def test_query_parameter_default(server):
+    """Test query parameter handling."""
+    async with AsyncClient() as client:
+        resp = await client.get(
+            f"http://localhost:{server}/query-default", params={"page": 10}
+        )
+        assert resp.status_code == 200
+        assert resp.text == "11"
+        resp = await client.get(f"http://localhost:{server}/query-default")
+        assert resp.status_code == 200
+        assert resp.text == "1"

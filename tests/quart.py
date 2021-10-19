@@ -7,7 +7,7 @@ from quart import Quart, Response
 from attrsapi.quart import route
 
 
-async def run_server(port: int, shutdown_event: Event):
+def make_app() -> Quart:
     app = Quart("flask")
 
     @app.get("/")
@@ -30,7 +30,15 @@ async def run_server(port: int, shutdown_event: Event):
     async def query(page: int) -> Response:
         return Response(str(page + 1))
 
+    @route("/query-default", app)
+    async def query_default(page: int = 0) -> Response:
+        return Response(str(page + 1))
+
+    return app
+
+
+async def run_server(port: int, shutdown_event: Event):
     config = Config()
     config.bind = [f"localhost:{port}"]
 
-    await serve(app, config, shutdown_trigger=shutdown_event.wait)
+    await serve(make_app(), config, shutdown_trigger=shutdown_event.wait)

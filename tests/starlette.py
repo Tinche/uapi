@@ -8,7 +8,7 @@ from starlette.responses import Response
 from attrsapi.starlette import route
 
 
-async def run_server(port: int, shutdown_event: Event):
+def make_app() -> Starlette:
     async def hello():
         return "Hello, world"
 
@@ -24,6 +24,9 @@ async def run_server(port: int, shutdown_event: Event):
     async def query(page: int) -> Response:
         return Response(str(page + 1))
 
+    async def query_default(page: int = 0) -> Response:
+        return Response(str(page + 1))
+
     app = Starlette(
         routes=[
             route("/", hello),
@@ -31,10 +34,15 @@ async def run_server(port: int, shutdown_event: Event):
             route("/query/unannotated", query_unannotated),
             route("/query/string", query_string),
             route("/query", query),
+            route("/query-default", query_default),
         ]
     )
+    return app
+
+
+async def run_server(port: int, shutdown_event: Event):
 
     config = Config()
     config.bind = [f"localhost:{port}"]
 
-    await serve(app, config, shutdown_trigger=shutdown_event.wait)
+    await serve(make_app(), config, shutdown_trigger=shutdown_event.wait)  # type: ignore

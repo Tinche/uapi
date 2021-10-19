@@ -1,0 +1,168 @@
+"""Test the OpenAPI schema generation."""
+import pytest
+
+from attrsapi.aiohttp import make_openapi_spec as aiohttp_make_openapi_spec
+from attrsapi.flask import make_openapi_spec as flask_make_openapi_spec
+from attrsapi.openapi import OpenAPI, Parameter, Schema
+from attrsapi.quart import make_openapi_spec as quart_make_openapi_spec
+from attrsapi.starlette import make_openapi_spec as starlette_make_openapi_spec
+
+from .aiohttp import make_app as aiohttp_make_app
+from .flask import make_app as flask_make_app
+from .quart import make_app as quart_make_app
+from .starlette import make_app as starlette_make_app
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        (aiohttp_make_app, aiohttp_make_openapi_spec),
+        (flask_make_app, flask_make_openapi_spec),
+        (quart_make_app, quart_make_openapi_spec),
+        (starlette_make_app, starlette_make_openapi_spec),
+    ],
+)
+def test_get_index(app_factory):
+    app = app_factory[0]()
+    spec: OpenAPI = app_factory[1](app)
+
+    op = spec.paths["/"]
+    assert op is not None
+    assert op.get.parameters == []
+    assert len(op.get.responses) == 1
+    assert op.get.responses["200"]
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        (aiohttp_make_app, aiohttp_make_openapi_spec),
+        (flask_make_app, flask_make_openapi_spec),
+        (quart_make_app, quart_make_openapi_spec),
+        (starlette_make_app, starlette_make_openapi_spec),
+    ],
+)
+def test_get_path_param(app_factory):
+    app = app_factory[0]()
+    spec: OpenAPI = app_factory[1](app)
+
+    op = spec.paths["/path/{path_id}"]
+    assert op is not None
+    assert op.get.parameters == [
+        Parameter(
+            name="path_id",
+            kind=Parameter.Kind.PATH,
+            required=True,
+            schema=Schema(type="integer"),
+        )
+    ]
+    assert len(op.get.responses) == 1
+    assert op.get.responses["200"]
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        (aiohttp_make_app, aiohttp_make_openapi_spec),
+        (flask_make_app, flask_make_openapi_spec),
+        (quart_make_app, quart_make_openapi_spec),
+        (starlette_make_app, starlette_make_openapi_spec),
+    ],
+)
+def test_get_query_int(app_factory):
+    app = app_factory[0]()
+    spec: OpenAPI = app_factory[1](app)
+
+    op = spec.paths["/query"]
+    assert op is not None
+    assert op.get.parameters == [
+        Parameter(
+            name="page",
+            kind=Parameter.Kind.QUERY,
+            required=True,
+            schema=Schema(type="integer"),
+        )
+    ]
+    assert len(op.get.responses) == 1
+    assert op.get.responses["200"]
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        (aiohttp_make_app, aiohttp_make_openapi_spec),
+        (flask_make_app, flask_make_openapi_spec),
+        (quart_make_app, quart_make_openapi_spec),
+        (starlette_make_app, starlette_make_openapi_spec),
+    ],
+)
+def test_get_query_default(app_factory):
+    app = app_factory[0]()
+    spec: OpenAPI = app_factory[1](app)
+
+    op = spec.paths["/query-default"]
+    assert op is not None
+    assert op.get.parameters == [
+        Parameter(
+            name="page",
+            kind=Parameter.Kind.QUERY,
+            required=False,
+            schema=Schema(type="integer"),
+        )
+    ]
+    assert len(op.get.responses) == 1
+    assert op.get.responses["200"]
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        (aiohttp_make_app, aiohttp_make_openapi_spec),
+        (flask_make_app, flask_make_openapi_spec),
+        (quart_make_app, quart_make_openapi_spec),
+        (starlette_make_app, starlette_make_openapi_spec),
+    ],
+)
+def test_get_query_unannotated(app_factory):
+    app = app_factory[0]()
+    spec: OpenAPI = app_factory[1](app)
+
+    op = spec.paths["/query/unannotated"]
+    assert op is not None
+    assert op.get.parameters == [
+        Parameter(
+            name="query",
+            kind=Parameter.Kind.QUERY,
+            required=True,
+            schema=Schema(type="string"),
+        )
+    ]
+    assert len(op.get.responses) == 1
+    assert op.get.responses["200"]
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        (aiohttp_make_app, aiohttp_make_openapi_spec),
+        (flask_make_app, flask_make_openapi_spec),
+        (quart_make_app, quart_make_openapi_spec),
+        (starlette_make_app, starlette_make_openapi_spec),
+    ],
+)
+def test_get_query_string(app_factory):
+    app = app_factory[0]()
+    spec: OpenAPI = app_factory[1](app)
+
+    op = spec.paths["/query/string"]
+    assert op is not None
+    assert op.get.parameters == [
+        Parameter(
+            name="query",
+            kind=Parameter.Kind.QUERY,
+            required=True,
+            schema=Schema(type="string"),
+        )
+    ]
+    assert len(op.get.responses) == 1
+    assert op.get.responses["200"]

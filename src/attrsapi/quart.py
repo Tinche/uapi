@@ -1,18 +1,20 @@
 from inspect import Parameter, signature
-from typing import Callable
+from typing import Callable, cast
 
 from attr import has
 from cattr import structure, unstructure
+from flask.app import Flask
 from quart import Quart
 from quart import Response as QuartResponse
 from quart import request
 
 from . import Header
-from .flask import parse_path_params
+from .flask import make_openapi_spec as flask_openapi_spec
+from .path import parse_angle_path_params
 
 
 def _generate_wrapper(
-    handler: callable,
+    handler: Callable,
     path: str,
     body_dumper=lambda p: QuartResponse(unstructure(p)),
     path_loader=structure,
@@ -20,7 +22,7 @@ def _generate_wrapper(
 ):
     sig = signature(handler)
     params_meta = getattr(handler, "__attrs_api_meta__", {})
-    path_params = parse_path_params(path)
+    path_params = parse_angle_path_params(path)
     lines = []
     lines.append(f"async def handler({', '.join(path_params)}):")
 
@@ -98,3 +100,9 @@ def route(path: str, app: Quart, methods=["GET"]) -> Callable[[Callable], Callab
         return handler
 
     return inner
+
+
+def make_openapi_spec(app: Quart, title: str = "Server", version: str = "1.0"):
+    return flask_openapi_spec(
+        cast(Flask, app), title, version, native_response_cl=QuartResponse
+    )

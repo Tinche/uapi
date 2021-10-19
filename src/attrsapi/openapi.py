@@ -16,7 +16,7 @@ class Reference:
 @frozen
 class Schema:
     type: str
-    items: Optional["Schema"] = None
+    items: Union["Schema", Reference, None] = None
     properties: Optional[dict[str, "Schema"]] = None
     format: Optional[str] = None
 
