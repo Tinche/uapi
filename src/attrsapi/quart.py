@@ -24,20 +24,26 @@ def _generate_wrapper(
     params_meta = getattr(handler, "__attrs_api_meta__", {})
     path_params = parse_angle_path_params(path)
     lines = []
-    lines.append(f"async def handler({', '.join(path_params)}):")
+    lines.append(f"async def handler({', '.join(path_params)}) -> __attrsapi_Response:")
 
-    try:
-        res_is_native = (
-            (ret_type := sig.return_annotation)
-            and ret_type is not Parameter.empty
-            and issubclass(ret_type, QuartResponse)
-        )
-    except TypeError:
-        res_is_native = False
+    res_is_present = True
+    if (ret_type := sig.return_annotation) in (Parameter.empty, None):
+        res_is_present = False
+    else:
+        try:
+            res_is_native = issubclass(ret_type, QuartResponse)
+        except TypeError:
+            res_is_native = False
 
-    globs = {"__attrsapi_inner": handler, "__attrsapi_request": request}
+    globs = {
+        "__attrsapi_inner": handler,
+        "__attrsapi_request": request,
+        "__attrsapi_Response": QuartResponse,
+    }
 
-    if res_is_native:
+    if not res_is_present:
+        lines.append("  await __attrsapi_inner(")
+    elif res_is_native:
         lines.append("  return await __attrsapi_inner(")
     else:
         globs["__attrsapi_dumper"] = body_dumper
@@ -81,7 +87,9 @@ def _generate_wrapper(
             lines.append(f"    {expr},")
 
     lines.append("  )")
-    if not res_is_native:
+    if not res_is_present:
+        lines.append("  return __attrsapi_Response(b'')")
+    elif not res_is_native:
         lines[-1] = lines[-1] + ")"
 
     ls = "\n".join(lines)

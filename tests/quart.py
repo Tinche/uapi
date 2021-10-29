@@ -34,6 +34,14 @@ def make_app() -> Quart:
     async def query_default(page: int = 0) -> Response:
         return Response(str(page + 1))
 
+    @route("/post/no-body-native-response", app, methods=["post"])
+    async def post_no_body() -> Response:
+        return Response("post", status=201)
+
+    @route("/post/no-body-no-response", app, methods=["post"])
+    async def post_no_body_no_resp() -> None:
+        return
+
     return app
 
 

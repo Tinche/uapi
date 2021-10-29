@@ -15,6 +15,6 @@ Support is planned for: FastAPI, Django, Sanic.
 
 ``attrsapi`` provides a unified interface supporting:
 
-* the GET HTTP method
+* the GET and POST HTTP methods
 * path parameters (strings, and anything loadable with cattrs)
 * query parameters (strings, and anything loadable with cattrs)

@@ -167,8 +167,10 @@ def build_operation(
                     )
 
         if (
-            ret_type := sig.return_annotation
-        ) is not Parameter.empty and not issubclass(ret_type, native_response):
+            (ret_type := sig.return_annotation) is not Parameter.empty
+            and ret_type is not None
+            and not issubclass(ret_type, native_response)
+        ):
             if has(ret_type):
                 responses["200"] = evolve(
                     responses["200"],
@@ -205,10 +207,12 @@ def build_operation(
 def build_pathitem(
     path: str, path_routes: dict[str, Callable], components, native_response: type
 ) -> OpenAPI.PathItem:
-    get = None
+    get = post = None
     if get_route := path_routes.get("get"):
         get = build_operation(get_route, path, components, native_response)
-    return OpenAPI.PathItem(get=get)
+    if post_route := path_routes.get("post"):
+        post = build_operation(post_route, path, components, native_response)
+    return OpenAPI.PathItem(get=get, post=post)
 
 
 def routes_to_paths(

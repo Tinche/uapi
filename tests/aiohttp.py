@@ -31,6 +31,14 @@ def make_app() -> web.Application:
     async def query_default(page: int = 0) -> Response:
         return Response(text=str(page + 1))
 
+    @route(routes, "post", "/post/no-body-native-response")
+    async def post_no_body() -> Response:
+        return Response(text="post", status=201)
+
+    @route(routes, "post", "/post/no-body-no-response")
+    async def post_no_body_no_resp() -> None:
+        return
+
     app = web.Application()
     app.add_routes(routes)
     return app

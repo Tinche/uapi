@@ -9,7 +9,7 @@ from attrsapi.starlette import route
 
 
 def make_app() -> Starlette:
-    async def hello():
+    async def hello() -> str:
         return "Hello, world"
 
     async def path(path_id: int) -> Response:
@@ -27,6 +27,12 @@ def make_app() -> Starlette:
     async def query_default(page: int = 0) -> Response:
         return Response(str(page + 1))
 
+    async def post_no_body() -> Response:
+        return Response("post", 201)
+
+    async def post_no_body_no_response() -> None:
+        return
+
     app = Starlette(
         routes=[
             route("/", hello),
@@ -35,6 +41,10 @@ def make_app() -> Starlette:
             route("/query/string", query_string),
             route("/query", query),
             route("/query-default", query_default),
+            route("/post/no-body-native-response", post_no_body, methods=["post"]),
+            route(
+                "/post/no-body-no-response", post_no_body_no_response, methods=["post"]
+            ),
         ]
     )
     return app

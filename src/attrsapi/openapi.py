@@ -66,6 +66,7 @@ class OpenAPI:
             parameters: list[Parameter] = Factory(list)
 
         get: Optional[Operation] = None
+        post: Optional[Operation] = None
 
     @frozen
     class Path:

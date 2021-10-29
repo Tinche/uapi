@@ -1,6 +1,6 @@
 from collections import defaultdict
 from inspect import Parameter, signature
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 from attr import evolve, has
 from cattr import structure, unstructure
@@ -28,20 +28,26 @@ def _generate_wrapper(
     params_meta = getattr(handler, "__attrs_api_meta__", {})
     path_params = parse_curly_path_params(path)
     lines = []
-    lines.append("async def handler(request: Request):")
+    lines.append("async def handler(request: Request) -> Response:")
 
-    try:
-        res_is_native = (
-            (ret_type := sig.return_annotation)
-            and ret_type is not Parameter.empty
-            and issubclass(ret_type, StarletteResponse)
-        )
-    except TypeError:
-        res_is_native = False
+    res_is_present = True
+    if (ret_type := sig.return_annotation) in (Parameter.empty, None):
+        res_is_present = False
+    else:
+        try:
+            res_is_native = issubclass(ret_type, StarletteResponse)
+        except TypeError:
+            res_is_native = False
 
-    globs = {"__attrsapi_inner": handler, "Request": StarletteRequest}
+    globs = {
+        "__attrsapi_inner": handler,
+        "Request": StarletteRequest,
+        "Response": StarletteResponse,
+    }
 
-    if res_is_native:
+    if not res_is_present:
+        lines.append("  await __attrsapi_inner(")
+    elif res_is_native:
         lines.append("  return await __attrsapi_inner(")
     else:
         globs["__attrsapi_dumper"] = body_dumper
@@ -85,7 +91,10 @@ def _generate_wrapper(
             lines.append(f"    {expr},")
 
     lines.append("  )")
-    if not res_is_native:
+
+    if not res_is_present:
+        lines.append("  return Response()")
+    elif not res_is_native:
         lines[-1] = lines[-1] + ")"
 
     ls = "\n".join(lines)
@@ -96,11 +105,11 @@ def _generate_wrapper(
     return fn
 
 
-def route(path: str, handler: Callable) -> Route:
+def route(path: str, handler: Callable, methods: Optional[list[str]] = None) -> Route:
     adapted = _generate_wrapper(handler, path)
     adapted.__attrsapi_handler__ = handler
 
-    return Route(path, adapted)
+    return Route(path, adapted, methods=methods)
 
 
 def build_operation(
@@ -161,8 +170,10 @@ def build_operation(
                     )
 
         if (
-            ret_type := sig.return_annotation
-        ) is not Parameter.empty and not issubclass(ret_type, StarletteResponse):
+            (ret_type := sig.return_annotation) is not Parameter.empty
+            and ret_type is not None
+            and not issubclass(ret_type, StarletteResponse)
+        ):
             if has(ret_type):
                 responses["200"] = evolve(
                     responses["200"],
@@ -199,10 +210,12 @@ def build_operation(
 def build_pathitem(
     path: str, path_routes: dict[str, Callable], components
 ) -> OpenAPI.PathItem:
-    get = None
+    get = post = None
     if get_route := path_routes.get("get"):
         get = build_operation(get_route, path, components)
-    return OpenAPI.PathItem(get=get)
+    if post_route := path_routes.get("post"):
+        post = build_operation(post_route, path, components)
+    return OpenAPI.PathItem(get=get, post=post)
 
 
 def routes_to_paths(

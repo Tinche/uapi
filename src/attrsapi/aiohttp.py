@@ -58,21 +58,29 @@ def _generate_wrapper(
     lines = []
     lines.append("async def handler(request: Request):")
 
-    try:
-        res_is_native = (
-            (ret_type := sig.return_annotation)
-            and ret_type is not InspectParameter.empty
-            and issubclass(ret_type, AiohttpResponse)
-        )
-    except TypeError:
-        res_is_native = False
-
     globs: dict[str, Any] = {
         "inner": handler,
         "Request": AiohttpRequest,
     }
 
-    if res_is_native:
+    no_result = False
+    if sig.return_annotation is None:
+        no_result = True
+        res_is_native = False
+        globs["Response"] = AiohttpResponse
+    else:
+        try:
+            res_is_native = (
+                (ret_type := sig.return_annotation)
+                and ret_type is not InspectParameter.empty
+                and issubclass(ret_type, AiohttpResponse)
+            )
+        except TypeError:
+            res_is_native = False
+
+    if no_result:
+        lines.append("  await inner(")
+    elif res_is_native:
         lines.append("  return await inner(")
     else:
         lines.append("  return dumper(await inner(")
@@ -116,7 +124,9 @@ def _generate_wrapper(
             lines.append(f"    {expr},")
 
     lines.append("  )")
-    if not res_is_native:
+    if no_result:
+        lines.append("  return Response()")
+    if not res_is_native and not no_result:
         lines[-1] = lines[-1] + ")"
 
     ls = "\n".join(lines)
@@ -255,8 +265,10 @@ def build_operation(
                     )
 
         if (
-            ret_type := sig.return_annotation
-        ) is not InspectParameter.empty and not issubclass(ret_type, AiohttpResponse):
+            (ret_type := sig.return_annotation) is not InspectParameter.empty
+            and ret_type is not None
+            and not issubclass(ret_type, AiohttpResponse)
+        ):
             if has(ret_type):
                 responses["200"] = evolve(
                     responses["200"],
@@ -293,10 +305,12 @@ def build_operation(
 def build_pathitem(
     path: str, path_routes: dict[str, _WebHandler], components
 ) -> OpenAPI.PathItem:
-    get = None
+    get = post = None
     if get_route := path_routes.get("get"):
         get = build_operation(get_route, path, components)
-    return OpenAPI.PathItem(get=get)
+    if post_route := path_routes.get("post"):
+        post = build_operation(post_route, path, components)
+    return OpenAPI.PathItem(get=get, post=post)
 
 
 def routes_to_paths(
