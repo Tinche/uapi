@@ -11,12 +11,14 @@ from quart import request
 from . import Header
 from .flask import make_openapi_spec as flask_openapi_spec
 from .path import parse_angle_path_params
+from .responses import returns_status_code
+from .types import is_subclass
 
 
 def _generate_wrapper(
     handler: Callable,
     path: str,
-    body_dumper=lambda p: QuartResponse(unstructure(p)),
+    body_dumper=unstructure,
     path_loader=structure,
     query_loader=structure,
 ):
@@ -24,16 +26,8 @@ def _generate_wrapper(
     params_meta = getattr(handler, "__attrs_api_meta__", {})
     path_params = parse_angle_path_params(path)
     lines = []
+    post_lines = []
     lines.append(f"async def handler({', '.join(path_params)}) -> __attrsapi_Response:")
-
-    res_is_present = True
-    if (ret_type := sig.return_annotation) in (Parameter.empty, None):
-        res_is_present = False
-    else:
-        try:
-            res_is_native = issubclass(ret_type, QuartResponse)
-        except TypeError:
-            res_is_native = False
 
     globs = {
         "__attrsapi_inner": handler,
@@ -41,13 +35,32 @@ def _generate_wrapper(
         "__attrsapi_Response": QuartResponse,
     }
 
-    if not res_is_present:
+    res_is_native = False
+    if (ret_type := sig.return_annotation) in (None, Parameter.empty):
+        lines.append("  __attrsapi_sc = 200")
         lines.append("  await __attrsapi_inner(")
-    elif res_is_native:
-        lines.append("  return await __attrsapi_inner(")
+        post_lines.append("  return __attrsapi_Response('', status=__attrsapi_sc)")
     else:
-        globs["__attrsapi_dumper"] = body_dumper
-        lines.append("  return __attrsapi_dumper(await __attrsapi_inner(")
+        if returns_status_code(ret_type):
+            lines.append("  __attrsapi_sc, __attrsapi_res = await __attrsapi_inner(")
+            post_lines.append(
+                "  return __attrsapi_Response(response=dumper(__attrsapi_res), status=__attrsapi_sc)"
+            )
+            globs["dumper"] = body_dumper
+        else:
+            res_is_native = ret_type is not Parameter.empty and is_subclass(
+                ret_type, QuartResponse
+            )
+
+            if res_is_native:
+                # The response is native.
+                lines.append("  return await __attrsapi_inner(")
+            else:
+                lines.append(
+                    "  return Response(response=dumper(await __attrsapi_inner("
+                )
+                post_lines.append("  )")
+                globs["dumper"] = body_dumper
 
     for arg, arg_param in sig.parameters.items():
         if arg in path_params:
@@ -87,12 +100,8 @@ def _generate_wrapper(
             lines.append(f"    {expr},")
 
     lines.append("  )")
-    if not res_is_present:
-        lines.append("  return __attrsapi_Response(b'')")
-    elif not res_is_native:
-        lines[-1] = lines[-1] + ")"
 
-    ls = "\n".join(lines)
+    ls = "\n".join(lines + post_lines)
     eval(compile(ls, "", "exec"), globs)
 
     fn = globs["handler"]

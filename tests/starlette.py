@@ -1,4 +1,5 @@
 from asyncio import Event
+from typing import Literal
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
@@ -33,6 +34,9 @@ def make_app() -> Starlette:
     async def post_no_body_no_response() -> None:
         return
 
+    async def post_201() -> tuple[Literal[201], str]:
+        return 201, "test"
+
     app = Starlette(
         routes=[
             route("/", hello),
@@ -45,6 +49,7 @@ def make_app() -> Starlette:
             route(
                 "/post/no-body-no-response", post_no_body_no_response, methods=["post"]
             ),
+            route("/post/201", post_201, methods=["post"]),
         ]
     )
     return app

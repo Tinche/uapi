@@ -18,3 +18,4 @@ Support is planned for: FastAPI, Django, Sanic.
 * the GET and POST HTTP methods
 * path parameters (strings, and anything loadable with cattrs)
 * query parameters (strings, and anything loadable with cattrs)
+* custom response codes (``200`` by default, customize by annotating the return type of the handler with ``tuple[Literal[201], <Result>]``)

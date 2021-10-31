@@ -2,9 +2,8 @@ from collections import defaultdict
 from inspect import Parameter, signature
 from typing import Callable, Union
 
-from attr import evolve, has
+from attr import has
 from cattr import structure, unstructure
-from cattr._compat import get_args, is_sequence
 from flask import Flask
 from flask import Response as FlaskResponse
 from flask import request
@@ -15,12 +14,14 @@ from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
 from .path import angle_to_curly, parse_angle_path_params
+from .responses import get_status_code_results, returns_status_code
+from .types import is_subclass
 
 
 def _generate_wrapper(
     handler: Callable,
     path: str,
-    body_dumper=lambda p: FlaskResponse(unstructure(p)),
+    body_dumper=unstructure,
     path_loader=structure,
     query_loader=structure,
 ):
@@ -28,24 +29,37 @@ def _generate_wrapper(
     params_meta = getattr(handler, "__attrs_api_meta__", {})
     path_params = parse_angle_path_params(path)
     lines = []
+    post_lines = []
     lines.append(f"def handler({', '.join(path_params)}):")
-
-    try:
-        res_is_native = (
-            (ret_type := sig.return_annotation)
-            and ret_type is not Parameter.empty
-            and issubclass(ret_type, FlaskResponse)
-        )
-    except TypeError:
-        res_is_native = False
 
     globs = {"__attrsapi_inner": handler, "__attrsapi_request": request}
 
-    if res_is_native:
-        lines.append("  return __attrsapi_inner(")
+    res_is_native = False
+    if (ret_type := sig.return_annotation) in (None, Parameter.empty):
+        globs["Response"] = FlaskResponse
+        lines.append("  __attrsapi_sc = 200")
+        lines.append("  __attrsapi_inner(")
+        post_lines.append("  return Response(status=__attrsapi_sc)")
     else:
-        globs["__attrsapi_dumper"] = body_dumper
-        lines.append("  return __attrsapi_dumper(__attrsapi_inner(")
+        if returns_status_code(ret_type):
+            lines.append("  __attrsapi_sc, __attrsapi_res = __attrsapi_inner(")
+            post_lines.append(
+                "  return Response(response=dumper(__attrsapi_res), status=__attrsapi_sc)"
+            )
+            globs["dumper"] = body_dumper
+            globs["Response"] = FlaskResponse
+        else:
+            try:
+                res_is_native = ret_type is not Parameter.empty and issubclass(
+                    ret_type, FlaskResponse
+                )
+            except TypeError:
+                lines.append("  return dumper(__attrsapi_inner(")
+                globs["dumper"] = body_dumper
+            else:
+                if res_is_native:
+                    # The response is native.
+                    lines.append("  return __attrsapi_inner(")
 
     for arg, arg_param in sig.parameters.items():
         if arg in path_params:
@@ -85,10 +99,8 @@ def _generate_wrapper(
             lines.append(f"    {expr},")
 
     lines.append("  )")
-    if not res_is_native:
-        lines[-1] = lines[-1] + ")"
 
-    ls = "\n".join(lines)
+    ls = "\n".join(lines + post_lines)
     eval(compile(ls, "", "exec"), globs)
 
     fn = globs["handler"]
@@ -169,38 +181,27 @@ def build_operation(
         if (
             (ret_type := sig.return_annotation) is not Parameter.empty
             and ret_type is not None
-            and not issubclass(ret_type, native_response)
+            and not is_subclass(ret_type, native_response)
         ):
-            if has(ret_type):
-                responses["200"] = evolve(
-                    responses["200"],
-                    content={
-                        ct: MediaType(
-                            Reference(f"#/components/schemas/{components[ret_type]}")
-                        )
-                    },
-                )
-            elif is_sequence(ret_type):
-                args = get_args(ret_type)
-                if has(args[0]):
-                    responses["200"] = evolve(
-                        responses["200"],
-                        content={
+            statuses = get_status_code_results(ret_type)
+            responses = {}
+            for status_code, result_type in statuses:
+                if has(result_type):
+                    responses[str(status_code)] = Response(
+                        "OK",
+                        {
                             ct: MediaType(
-                                Schema(
-                                    type="array",
-                                    items=Reference(
-                                        f"#/components/schemas/{components[args[0]]}"
-                                    ),
+                                Reference(
+                                    f"#/components/schemas/{components[result_type]}"
                                 )
                             )
                         },
                     )
-            else:
-                responses["200"] = evolve(
-                    responses["200"],
-                    content={ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[ret_type])},
-                )
+                else:
+                    responses[str(status_code)] = Response(
+                        "OK",
+                        {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])},
+                    )
     return OpenAPI.PathItem.Operation(responses, params)
 
 

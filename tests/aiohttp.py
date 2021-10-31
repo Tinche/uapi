@@ -1,3 +1,5 @@
+from typing import Literal
+
 from aiohttp import web
 from aiohttp.web import Response, RouteTableDef
 
@@ -38,6 +40,10 @@ def make_app() -> web.Application:
     @route(routes, "post", "/post/no-body-no-response")
     async def post_no_body_no_resp() -> None:
         return
+
+    @route(routes, "post", "/post/201")
+    async def post_201() -> tuple[Literal[201], str]:
+        return 201, "test"
 
     app = web.Application()
     app.add_routes(routes)

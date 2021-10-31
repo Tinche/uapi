@@ -1,4 +1,5 @@
 from asyncio import Event
+from typing import Literal
 
 from flask import Flask, Response
 from hypercorn.asyncio import serve
@@ -42,6 +43,10 @@ def make_app():
     @route("/post/no-body-no-response", app, methods=["post"])
     def post_no_body_no_resp() -> None:
         return
+
+    @route("/post/201", app, methods=["post"])
+    def post_201() -> tuple[Literal[201], str]:
+        return 201, "test"
 
     return app
 

@@ -1,7 +1,7 @@
 from collections import defaultdict
 from inspect import Parameter as InspectParameter
 from inspect import getfullargspec, signature
-from typing import Any, Awaitable, Callable, Union, get_args
+from typing import Any, Awaitable, Callable, Union
 
 from aiohttp.web import Request as AiohttpRequest
 from aiohttp.web import Response as AiohttpResponse
@@ -16,9 +16,8 @@ from aiohttp.web_urldispatcher import (
     RoutesView,
     _WebHandler,
 )
-from attr import define, evolve, has
+from attr import define, has
 from cattr import structure, unstructure
-from cattr._compat import is_sequence
 from ujson import dumps, loads
 
 from . import Header
@@ -33,6 +32,8 @@ from .openapi import (
     build_attrs_schema,
 )
 from .path import parse_curly_path_params
+from .responses import get_status_code_results, returns_status_code
+from .types import is_subclass
 
 
 def _should_ignore(handler: _HandlerType) -> bool:
@@ -41,14 +42,14 @@ def _should_ignore(handler: _HandlerType) -> bool:
     return (
         len(fullargspec.args) == 1
         and fullargspec.args[0] in fullargspec.annotations
-        and issubclass(fullargspec.annotations[fullargspec.args[0]], AiohttpRequest)
+        and is_subclass(fullargspec.annotations[fullargspec.args[0]], AiohttpRequest)
     )
 
 
 def _generate_wrapper(
     handler: Callable,
     path: str,
-    body_dumper=lambda p: AiohttpResponse(body=unstructure(p)),
+    body_dumper=unstructure,
     path_loader=structure,
     query_loader=structure,
 ) -> Callable[[AiohttpRequest], Awaitable[AiohttpResponse]]:
@@ -56,6 +57,7 @@ def _generate_wrapper(
     params_meta = getattr(handler, "__attrs_api_meta__", {})
     path_params = parse_curly_path_params(path)
     lines = []
+    post_lines = []
     lines.append("async def handler(request: Request):")
 
     globs: dict[str, Any] = {
@@ -63,28 +65,32 @@ def _generate_wrapper(
         "Request": AiohttpRequest,
     }
 
-    no_result = False
-    if sig.return_annotation is None:
-        no_result = True
-        res_is_native = False
+    res_is_native = False
+    if (ret_type := sig.return_annotation) in (None, InspectParameter.empty):
         globs["Response"] = AiohttpResponse
-    else:
-        try:
-            res_is_native = (
-                (ret_type := sig.return_annotation)
-                and ret_type is not InspectParameter.empty
-                and issubclass(ret_type, AiohttpResponse)
-            )
-        except TypeError:
-            res_is_native = False
-
-    if no_result:
+        lines.append("  __attrsapi_sc = 200")
         lines.append("  await inner(")
-    elif res_is_native:
-        lines.append("  return await inner(")
+        post_lines.append("  return Response(status=__attrsapi_sc)")
     else:
-        lines.append("  return dumper(await inner(")
-        globs["dumper"] = body_dumper
+        if returns_status_code(ret_type):
+            lines.append("  __attrsapi_sc, __attrsapi_res = await inner(")
+            post_lines.append(
+                "  return Response(body=dumper(__attrsapi_res), status=__attrsapi_sc)"
+            )
+            globs["dumper"] = body_dumper
+            globs["Response"] = AiohttpResponse
+        else:
+            try:
+                res_is_native = ret_type is not InspectParameter.empty and issubclass(
+                    ret_type, AiohttpResponse
+                )
+            except TypeError:
+                lines.append("  return dumper(await inner(")
+                globs["dumper"] = body_dumper
+            else:
+                if res_is_native:
+                    # The response is native.
+                    lines.append("  return await inner(")
 
     for arg, arg_param in sig.parameters.items():
         if arg in path_params:
@@ -124,12 +130,8 @@ def _generate_wrapper(
             lines.append(f"    {expr},")
 
     lines.append("  )")
-    if no_result:
-        lines.append("  return Response()")
-    if not res_is_native and not no_result:
-        lines[-1] = lines[-1] + ")"
 
-    ls = "\n".join(lines)
+    ls = "\n".join(lines + post_lines)
     eval(compile(ls, "", "exec"), globs)
 
     fn = globs["handler"]
@@ -267,38 +269,27 @@ def build_operation(
         if (
             (ret_type := sig.return_annotation) is not InspectParameter.empty
             and ret_type is not None
-            and not issubclass(ret_type, AiohttpResponse)
+            and not is_subclass(ret_type, AiohttpResponse)
         ):
-            if has(ret_type):
-                responses["200"] = evolve(
-                    responses["200"],
-                    content={
-                        ct: MediaType(
-                            Reference(f"#/components/schemas/{components[ret_type]}")
-                        )
-                    },
-                )
-            elif is_sequence(ret_type):
-                args = get_args(ret_type)
-                if has(args[0]):
-                    responses["200"] = evolve(
-                        responses["200"],
-                        content={
+            statuses = get_status_code_results(ret_type)
+            responses = {}
+            for status_code, result_type in statuses:
+                if has(result_type):
+                    responses[str(status_code)] = Response(
+                        "OK",
+                        {
                             ct: MediaType(
-                                Schema(
-                                    type="array",
-                                    items=Reference(
-                                        f"#/components/schemas/{components[args[0]]}"
-                                    ),
+                                Reference(
+                                    f"#/components/schemas/{components[result_type]}"
                                 )
                             )
                         },
                     )
-            else:
-                responses["200"] = evolve(
-                    responses["200"],
-                    content={ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[ret_type])},
-                )
+                else:
+                    responses[str(status_code)] = Response(
+                        "OK",
+                        {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])},
+                    )
     return OpenAPI.PathItem.Operation(responses, params)
 
 
