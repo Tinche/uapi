@@ -1,5 +1,5 @@
 from asyncio import Event
-from typing import Literal
+from typing import Literal, Union
 
 from flask import Flask, Response
 from hypercorn.asyncio import serve
@@ -47,6 +47,12 @@ def make_app():
     @route("/post/201", app, methods=["post"])
     def post_201() -> tuple[Literal[201], str]:
         return 201, "test"
+
+    @route("/post/multiple", app, methods=["post"])
+    def post_multiple_codes() -> Union[
+        tuple[Literal[200], str], tuple[Literal[201], int]
+    ]:
+        return 201, 5
 
     return app
 

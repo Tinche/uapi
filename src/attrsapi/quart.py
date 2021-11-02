@@ -1,5 +1,5 @@
 from inspect import Parameter, signature
-from typing import Callable, cast
+from typing import Any, Callable, Union, cast
 
 from attr import has
 from cattr import structure, unstructure
@@ -14,16 +14,27 @@ from .path import parse_angle_path_params
 from .responses import returns_status_code
 from .types import is_subclass
 
+try:
+    from functools import partial
+
+    from ujson import dumps as usjon_dumps
+
+    dumps: Callable[[Any], Union[bytes, str]] = partial(
+        usjon_dumps, ensure_ascii=False, escape_forward_slashes=False
+    )
+except ImportError:
+    from json import dumps
+
 
 def _generate_wrapper(
     handler: Callable,
     path: str,
-    body_dumper=unstructure,
+    body_dumper=lambda v: dumps(unstructure(v)),
     path_loader=structure,
     query_loader=structure,
 ):
     sig = signature(handler)
-    params_meta = getattr(handler, "__attrs_api_meta__", {})
+    params_meta: dict[str, Header] = getattr(handler, "__attrs_api_meta__", {})
     path_params = parse_angle_path_params(path)
     lines = []
     post_lines = []

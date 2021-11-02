@@ -14,19 +14,19 @@ from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
 from .path import parse_curly_path_params
-from .responses import get_status_code_results, returns_status_code
+from .responses import dumps, get_status_code_results, returns_status_code
 from .types import is_subclass
 
 
 def _generate_wrapper(
     handler: Callable,
     path: str,
-    body_dumper=unstructure,
+    body_dumper=lambda v: dumps(unstructure(v)),
     path_loader=structure,
     query_loader=structure,
 ):
     sig = signature(handler)
-    params_meta = getattr(handler, "__attrs_api_meta__", {})
+    params_meta: dict[str, Header] = getattr(handler, "__attrs_api_meta__", {})
     path_params = parse_curly_path_params(path)
     lines = []
     post_lines = []
@@ -103,7 +103,6 @@ def _generate_wrapper(
     lines.append("  )")
 
     ls = "\n".join(lines + post_lines)
-    print(ls)
     eval(compile(ls, "", "exec"), globs)
 
     fn = globs["handler"]
@@ -128,7 +127,9 @@ def build_operation(
     if original_handler := getattr(handler, "__attrsapi_handler__", None):
         sig = signature(original_handler)
         path_params = parse_curly_path_params(path)
-        meta_params = getattr(original_handler, "__attrs_api_meta__", {})
+        meta_params: dict[str, Header] = getattr(
+            original_handler, "__attrs_api_meta__", {}
+        )
         for path_param in path_params:
             if path_param not in sig.parameters:
                 raise Exception(f"Path parameter {path_param} not found")

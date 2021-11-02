@@ -23,6 +23,7 @@ dev = [
     "quart",
     "starlette",
     "hypercorn",
+    "mypy",
 ]
 
 [tool.isort]

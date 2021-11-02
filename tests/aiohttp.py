@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, Union
 
 from aiohttp import web
 from aiohttp.web import Response, RouteTableDef
@@ -44,6 +44,12 @@ def make_app() -> web.Application:
     @route(routes, "post", "/post/201")
     async def post_201() -> tuple[Literal[201], str]:
         return 201, "test"
+
+    @route(routes, "post", "/post/multiple")
+    async def post_multiple_codes() -> Union[
+        tuple[Literal[200], str], tuple[Literal[201], int]
+    ]:
+        return 201, 5
 
     app = web.Application()
     app.add_routes(routes)

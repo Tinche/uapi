@@ -18,7 +18,7 @@ from aiohttp.web_urldispatcher import (
 )
 from attr import define, has
 from cattr import structure, unstructure
-from ujson import dumps, loads
+from ujson import loads
 
 from . import Header
 from .openapi import (
@@ -32,7 +32,7 @@ from .openapi import (
     build_attrs_schema,
 )
 from .path import parse_curly_path_params
-from .responses import get_status_code_results, returns_status_code
+from .responses import dumps, get_status_code_results, returns_status_code
 from .types import is_subclass
 
 
@@ -49,12 +49,12 @@ def _should_ignore(handler: _HandlerType) -> bool:
 def _generate_wrapper(
     handler: Callable,
     path: str,
-    body_dumper=unstructure,
+    body_dumper=lambda v: dumps(unstructure(v)),
     path_loader=structure,
     query_loader=structure,
 ) -> Callable[[AiohttpRequest], Awaitable[AiohttpResponse]]:
     sig = signature(handler)
-    params_meta = getattr(handler, "__attrs_api_meta__", {})
+    params_meta: dict[str, Header] = getattr(handler, "__attrs_api_meta__", {})
     path_params = parse_curly_path_params(path)
     lines = []
     post_lines = []
@@ -156,7 +156,7 @@ class RouteTableDef(AiohttpRouteTableDef):
         loads(body), type
     )
     dumper: Callable[[Any], AiohttpResponse] = lambda payload: AiohttpResponse(
-        body=dumps(unstructure(payload), escape_forward_slashes=False),
+        body=dumps(unstructure(payload)),
         content_type="application/json",
     )
     query_loader: Callable[[str, type], Any] = structure
@@ -218,7 +218,9 @@ def build_operation(
     if original_handler := getattr(handler, "__attrsapi_handler__", None):
         sig = signature(original_handler)
         path_params = parse_curly_path_params(path)
-        meta_params = getattr(original_handler, "__attrs_api_meta__", {})
+        meta_params: dict[str, Header] = getattr(
+            original_handler, "__attrs_api_meta__", {}
+        )
         for path_param in path_params:
             if path_param not in sig.parameters:
                 raise Exception(f"Path parameter {path_param} not found")

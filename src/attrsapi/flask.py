@@ -1,6 +1,6 @@
 from collections import defaultdict
 from inspect import Parameter, signature
-from typing import Callable, Union
+from typing import Any, Callable, Union
 
 from attr import has
 from cattr import structure, unstructure
@@ -17,16 +17,27 @@ from .path import angle_to_curly, parse_angle_path_params
 from .responses import get_status_code_results, returns_status_code
 from .types import is_subclass
 
+try:
+    from functools import partial
+
+    from ujson import dumps as usjon_dumps
+
+    dumps: Callable[[Any], Union[bytes, str]] = partial(
+        usjon_dumps, ensure_ascii=False, escape_forward_slashes=False
+    )
+except ImportError:
+    from json import dumps
+
 
 def _generate_wrapper(
     handler: Callable,
     path: str,
-    body_dumper=unstructure,
+    body_dumper=lambda v: dumps(unstructure(v)),
     path_loader=structure,
     query_loader=structure,
 ):
     sig = signature(handler)
-    params_meta = getattr(handler, "__attrs_api_meta__", {})
+    params_meta: dict[str, Header] = getattr(handler, "__attrs_api_meta__", {})
     path_params = parse_angle_path_params(path)
     lines = []
     post_lines = []
@@ -131,7 +142,9 @@ def build_operation(
     if original_handler := getattr(handler, "__attrsapi_handler__", None):
         sig = signature(original_handler)
         path_params = parse_angle_path_params(path)
-        meta_params = getattr(original_handler, "__attrs_api_meta__", {})
+        meta_params: dict[str, Header] = getattr(
+            original_handler, "__attrs_api_meta__", {}
+        )
         for path_param in path_params:
             if path_param not in sig.parameters:
                 raise Exception(f"Path parameter {path_param} not found")
