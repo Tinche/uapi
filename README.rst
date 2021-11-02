@@ -19,3 +19,4 @@ Support is planned for: FastAPI, Django, Sanic.
 * path parameters (strings, and anything loadable with cattrs)
 * query parameters (strings, and anything loadable with cattrs)
 * custom response codes (``200`` by default, customize by annotating the return type of the handler with ``tuple[Literal[201], <Result>]``)
+* a handler can declare it returns multiple status codes by annotating the return type as a union of tuples of literals and result types
