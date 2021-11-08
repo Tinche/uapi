@@ -1,5 +1,6 @@
-from asyncio import Event, create_task
+from asyncio import Event, create_task, new_event_loop
 from asyncio.exceptions import CancelledError
+from typing import Callable
 
 import pytest
 
@@ -9,8 +10,14 @@ from .quart import run_server as quart_run_server
 from .starlette import run_server as starlette_run_server
 
 
-@pytest.fixture(params=["aiohttp", "flask", "quart", "starlette"])
-async def server(request, unused_tcp_port: int):
+@pytest.fixture(scope="session")
+def event_loop():
+    return new_event_loop()
+
+
+@pytest.fixture(params=["aiohttp", "flask", "quart", "starlette"], scope="session")
+async def server(request, unused_tcp_port_factory: Callable[..., int]):
+    unused_tcp_port = unused_tcp_port_factory()
     if request.param == "aiohttp":
         t = create_task(aiohttp_run_server(unused_tcp_port))
         yield unused_tcp_port

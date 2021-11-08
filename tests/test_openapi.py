@@ -31,6 +31,7 @@ def test_get_index(app_factory):
     assert op.get.parameters == []
     assert len(op.get.responses) == 1
     assert op.get.responses["200"]
+    assert op.get.responses["200"].content["text/plain"].schema.type == "string"
 
 
 @pytest.mark.parametrize(
@@ -177,6 +178,29 @@ def test_get_query_string(app_factory):
         (starlette_make_app, starlette_make_openapi_spec),
     ],
 )
+def test_get_bytes(app_factory):
+    app = app_factory[0]()
+    spec: OpenAPI = app_factory[1](app)
+
+    op = spec.paths["/query-bytes"]
+    assert op is not None
+    assert op.get.parameters == []
+    assert len(op.get.responses) == 1
+    assert op.get.responses["200"]
+    assert op.get.responses["200"].content["application/json"].schema == Schema(
+        "string", format="binary"
+    )
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        (aiohttp_make_app, aiohttp_make_openapi_spec),
+        (flask_make_app, flask_make_openapi_spec),
+        (quart_make_app, quart_make_openapi_spec),
+        (starlette_make_app, starlette_make_openapi_spec),
+    ],
+)
 def test_post_no_body_native_response(app_factory):
     app = app_factory[0]()
     spec: OpenAPI = app_factory[1](app)
@@ -254,6 +278,33 @@ def test_post_multiple_statuses(app_factory):
     assert op.post.parameters == []
     assert len(op.post.responses) == 2
     assert op.post.responses["200"]
-    assert op.post.responses["200"].content["application/json"].schema.type == "string"
+    assert op.post.responses["200"].content["text/plain"].schema.type == "string"
     assert op.post.responses["201"]
-    assert op.post.responses["201"].content["application/json"].schema.type == "integer"
+    assert not op.post.responses["201"].content
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        (aiohttp_make_app, aiohttp_make_openapi_spec),
+        (flask_make_app, flask_make_openapi_spec),
+        (quart_make_app, quart_make_openapi_spec),
+        (starlette_make_app, starlette_make_openapi_spec),
+    ],
+)
+def test_put_cookie(app_factory):
+    app = app_factory[0]()
+    spec: OpenAPI = app_factory[1](app)
+
+    op = spec.paths["/put/cookie"]
+    assert op is not None
+    assert op.get is None
+    assert op.post is None
+    assert op.put is not None
+    assert op.put.parameters == [
+        Parameter(
+            "a_cookie", Parameter.Kind.COOKIE, required=True, schema=Schema("string")
+        )
+    ]
+    assert op.put.responses["200"]
+    assert op.put.responses["200"].content["text/plain"].schema.type == "string"

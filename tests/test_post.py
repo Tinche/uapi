@@ -32,4 +32,4 @@ async def test_multiple(server):
     async with AsyncClient() as client:
         resp = await client.post(f"http://localhost:{server}/post/multiple")
         assert resp.status_code == 201
-        assert resp.text == "5"
+        assert resp.read() == b""

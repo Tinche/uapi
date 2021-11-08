@@ -67,6 +67,7 @@ class OpenAPI:
 
         get: Optional[Operation] = None
         post: Optional[Operation] = None
+        put: Optional[Operation] = None
 
     @frozen
     class Path:
@@ -83,6 +84,7 @@ PYTHON_PRIMITIVES_TO_OPENAPI = {
     int: Schema("integer"),
     bool: Schema("boolean"),
     float: Schema("number", format="double"),
+    bytes: Schema("string", format="binary"),
 }
 
 

@@ -5,13 +5,14 @@ from attr import has
 from cattr import structure, unstructure
 from flask.app import Flask
 from quart import Quart
-from quart import Response as QuartResponse
+from quart import Response as FrameworkResponse
 from quart import request
 
 from . import Header
 from .flask import make_openapi_spec as flask_openapi_spec
 from .path import parse_angle_path_params
-from .responses import returns_status_code
+from .requests import get_cookie_name
+from .responses import get_status_code_results, returns_status_code
 from .types import is_subclass
 
 try:
@@ -43,35 +44,53 @@ def _generate_wrapper(
     globs = {
         "__attrsapi_inner": handler,
         "__attrsapi_request": request,
-        "__attrsapi_Response": QuartResponse,
+        "__attrsapi_Response": FrameworkResponse,
     }
 
-    res_is_native = False
     if (ret_type := sig.return_annotation) in (None, Parameter.empty):
         lines.append("  __attrsapi_sc = 200")
         lines.append("  await __attrsapi_inner(")
-        post_lines.append("  return __attrsapi_Response('', status=__attrsapi_sc)")
+        post_lines.append(
+            "  return __attrsapi_Response(response=b'', status=__attrsapi_sc)"
+        )
     else:
-        if returns_status_code(ret_type):
-            lines.append("  __attrsapi_sc, __attrsapi_res = await __attrsapi_inner(")
-            post_lines.append(
-                "  return __attrsapi_Response(response=dumper(__attrsapi_res), status=__attrsapi_sc)"
-            )
-            globs["dumper"] = body_dumper
+        if is_subclass(ret_type, FrameworkResponse):
+            # The response is native.
+            lines.append("  return await __attrsapi_inner(")
         else:
-            res_is_native = ret_type is not Parameter.empty and is_subclass(
-                ret_type, QuartResponse
-            )
-
-            if res_is_native:
-                # The response is native.
-                lines.append("  return await __attrsapi_inner(")
-            else:
+            sc_results = get_status_code_results(ret_type)
+            if returns_status_code(ret_type):
                 lines.append(
-                    "  return Response(response=dumper(await __attrsapi_inner("
+                    "  __attrsapi_sc, __attrsapi_res = await __attrsapi_inner("
                 )
-                post_lines.append("  )")
-                globs["dumper"] = body_dumper
+            else:
+                lines.append("  __attrsapi_sc = 200")
+                lines.append("  __attrsapi_res = await __attrsapi_inner(")
+
+            resp_processors = {}
+            for sc, rt in sc_results:
+                if rt in (bytes, str):
+                    resp_processors[sc] = "__attrsapi_res", lambda r: r
+                elif rt is None:
+                    resp_processors[sc] = "b''", lambda r: b""
+                elif has(rt):
+                    resp_processors[sc] = (
+                        "__attrsapi_dumper(__attrsapi_res)",
+                        body_dumper,
+                    )
+                    globs["__attrsapi_dumper"] = body_dumper
+                else:
+                    raise Exception(f"Cannot handle response type {ret_type}/{rt}")
+
+            if len({v[0] for v in resp_processors.values()}) == 1:
+                body_expr = next(iter(resp_processors.values()))[0]
+            else:
+                body_expr = "(__attrsapi_rp[__attrsapi_sc])(__attrsapi_res)"
+                globs["__attrsapi_rp"] = {k: v[1] for k, v in resp_processors.items()}
+
+            post_lines.append(
+                f"  return __attrsapi_Response(response={body_expr}, status=__attrsapi_sc)"
+            )
 
     for arg, arg_param in sig.parameters.items():
         if arg in path_params:
@@ -93,6 +112,14 @@ def _generate_wrapper(
         ):
             # defaulting to body
             pass
+        elif cookie_name := get_cookie_name(arg_type, arg):
+            if arg_param.default is Parameter.empty:
+                lines.append(f"    __attrsapi_request.cookies['{cookie_name}'],")
+            else:
+                lines.append(
+                    f"    __attrsapi_request.cookies.get('{cookie_name}', __{arg}_default),"
+                )
+                globs[f"__{arg}_default"] = arg_param.default
         else:
             # defaulting to query
             if arg_param.default is Parameter.empty:
@@ -132,5 +159,5 @@ def route(path: str, app: Quart, methods=["GET"]) -> Callable[[Callable], Callab
 
 def make_openapi_spec(app: Quart, title: str = "Server", version: str = "1.0"):
     return flask_openapi_spec(
-        cast(Flask, app), title, version, native_response_cl=QuartResponse
+        cast(Flask, app), title, version, native_response_cl=FrameworkResponse
     )

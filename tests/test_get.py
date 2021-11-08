@@ -62,3 +62,12 @@ async def test_query_parameter_default(server):
         resp = await client.get(f"http://localhost:{server}/query-default")
         assert resp.status_code == 200
         assert resp.text == "1"
+
+
+@pytest.mark.asyncio
+async def test_query_bytes(server):
+    """Test byte responses."""
+    async with AsyncClient() as client:
+        resp = await client.get(f"http://localhost:{server}/query-bytes")
+        assert resp.status_code == 200
+        assert resp.read() == b"2"

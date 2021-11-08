@@ -1,4 +1,4 @@
-from typing import Callable, Union
+from typing import Callable, Optional, Union
 
 from attr import frozen
 
@@ -6,6 +6,11 @@ from attr import frozen
 @frozen
 class Header:
     name: str
+
+
+@frozen
+class Cookie:
+    name: Optional[str] = None
 
 
 Parameter = Union[Header]

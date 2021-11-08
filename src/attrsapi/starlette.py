@@ -6,7 +6,7 @@ from attr import has
 from cattr import structure, unstructure
 from starlette.applications import Starlette
 from starlette.requests import Request as StarletteRequest
-from starlette.responses import Response as StarletteResponse
+from starlette.responses import Response as FrameworkResponse
 from starlette.routing import BaseRoute, Route
 
 from . import Header
@@ -14,6 +14,7 @@ from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
 from .path import parse_curly_path_params
+from .requests import get_cookie_name
 from .responses import dumps, get_status_code_results, returns_status_code
 from .types import is_subclass
 
@@ -30,65 +31,92 @@ def _generate_wrapper(
     path_params = parse_curly_path_params(path)
     lines = []
     post_lines = []
-    lines.append("async def handler(request: Request) -> Response:")
+    lines.append(
+        "async def handler(__attrsapi_request: Request) -> __attrsapi_Response:"
+    )
 
     globs = {
         "__attrsapi_inner": handler,
         "Request": StarletteRequest,
-        "Response": StarletteResponse,
+        "__attrsapi_Response": FrameworkResponse,
     }
 
-    res_is_native = False
     if (ret_type := sig.return_annotation) in (None, Parameter.empty):
         lines.append("  __attrsapi_sc = 200")
         lines.append("  await __attrsapi_inner(")
-        post_lines.append("  return Response(status_code=__attrsapi_sc)")
+        post_lines.append("  return __attrsapi_Response(status_code=__attrsapi_sc)")
     else:
-        if returns_status_code(ret_type):
-            lines.append("  __attrsapi_sc, __attrsapi_res = await __attrsapi_inner(")
-            post_lines.append(
-                "  return Response(content=dumper(__attrsapi_res), status_code=__attrsapi_sc)"
-            )
-            globs["dumper"] = body_dumper
-            globs["Response"] = StarletteResponse
+        if is_subclass(ret_type, FrameworkResponse):
+            # The response is native.
+            lines.append("  return await __attrsapi_inner(")
         else:
-            res_is_native = ret_type is not Parameter.empty and is_subclass(
-                ret_type, StarletteResponse
-            )
-            if res_is_native:
-                # The response is native.
-                lines.append("  return await __attrsapi_inner(")
+            sc_results = get_status_code_results(ret_type)
+            if returns_status_code(ret_type):
+                lines.append(
+                    "  __attrsapi_sc, __attrsapi_res = await __attrsapi_inner("
+                )
             else:
-                lines.append("  return Response(content=dumper(await __attrsapi_inner(")
-                post_lines.append("  ))")
-                globs["dumper"] = body_dumper
+                lines.append("  __attrsapi_sc = 200")
+                lines.append("  __attrsapi_res = await __attrsapi_inner(")
 
+            resp_processors = {}
+            for sc, rt in sc_results:
+                if rt in (bytes, str):
+                    resp_processors[sc] = "__attrsapi_res", lambda r: r
+                elif rt is None:
+                    resp_processors[sc] = "b''", lambda r: b""
+                elif has(rt):
+                    resp_processors[sc] = (
+                        "__attrsapi_dumper(__attrsapi_res)",
+                        body_dumper,
+                    )
+                    globs["__attrsapi_dumper"] = body_dumper
+                else:
+                    raise Exception(f"Cannot handle response type {ret_type}/{rt}")
+
+            if len({v[0] for v in resp_processors.values()}) == 1:
+                body_expr = next(iter(resp_processors.values()))[0]
+            else:
+                body_expr = "(__attrsapi_rp[__attrsapi_sc])(__attrsapi_res)"
+                globs["__attrsapi_rp"] = {k: v[1] for k, v in resp_processors.items()}
+
+            post_lines.append(
+                f"  return __attrsapi_Response(content={body_expr}, status_code=__attrsapi_sc)"
+            )
     for arg, arg_param in sig.parameters.items():
         if arg in path_params:
             arg_annotation = sig.parameters[arg].annotation
             if arg_annotation in (Parameter.empty, str):
-                lines.append(f"    request.path_params['{arg}'],")
+                lines.append(f"    __attrsapi_request.path_params['{arg}'],")
             else:
                 lines.append(
-                    f"    __attrsapi_path_loader(request.path_params['{arg}'], __attrsapi_{arg}_type),"
+                    f"    __attrsapi_path_loader(__attrsapi_request.path_params['{arg}'], __attrsapi_{arg}_type),"
                 )
                 globs["__attrsapi_path_loader"] = path_loader
                 globs[f"__attrsapi_{arg}_type"] = arg_annotation
         elif arg_meta := params_meta.get(arg):
             if isinstance(arg_meta, Header):
                 # A header param.
-                lines.append(f"    request.headers['{arg_meta.name}'],")
+                lines.append(f"    __attrsapi_request.headers['{arg_meta.name}'],")
         elif (arg_type := arg_param.annotation) is not Parameter.empty and has(
             arg_type
         ):
             # defaulting to body
             pass
+        elif cookie_name := get_cookie_name(arg_type, arg):
+            if arg_param.default is Parameter.empty:
+                lines.append(f"    __attrsapi_request.cookies['{cookie_name}'],")
+            else:
+                lines.append(
+                    f"    __attrsapi_request.cookies.get('{cookie_name}', __{arg}_default),"
+                )
+                globs[f"__{arg}_default"] = arg_param.default
         else:
             # defaulting to query
             if arg_param.default is Parameter.empty:
-                expr = f"request.query_params['{arg}']"
+                expr = f"__attrsapi_request.query_params['{arg}']"
             else:
-                expr = f"request.query_params.get('{arg}', __attrsapi_{arg}_default)"
+                expr = f"__attrsapi_request.query_params.get('{arg}', __attrsapi_{arg}_default)"
                 globs[f"__attrsapi_{arg}_default"] = arg_param.default
 
             if (
@@ -158,7 +186,19 @@ def build_operation(
                     )
             else:
                 arg_type = arg_param.annotation
-                if arg_type is not Parameter.empty and has(arg_type):
+                if cookie_name := get_cookie_name(arg_type, arg):
+                    params.append(
+                        OpenApiParameter(
+                            cookie_name,
+                            OpenApiParameter.Kind.COOKIE,
+                            arg_param.default is Parameter.empty,
+                            PYTHON_PRIMITIVES_TO_OPENAPI.get(
+                                arg_param.annotation,
+                                PYTHON_PRIMITIVES_TO_OPENAPI[str],
+                            ),
+                        )
+                    )
+                elif arg_type is not Parameter.empty and has(arg_type):
                     request_body["content"] = {
                         ct: MediaType(
                             Reference(f"#/components/schemas/{components[arg_type]}")
@@ -176,15 +216,22 @@ def build_operation(
                         )
                     )
 
-        if (
-            (ret_type := sig.return_annotation) is not Parameter.empty
-            and ret_type is not None
-            and not is_subclass(ret_type, StarletteResponse)
-        ):
+        ret_type = sig.return_annotation
+        if ret_type is Parameter.empty:
+            ret_type = None
+        if not is_subclass(ret_type, FrameworkResponse):
             statuses = get_status_code_results(ret_type)
             responses = {}
             for status_code, result_type in statuses:
-                if has(result_type):
+                if result_type is str:
+                    ct = "text/plain"
+                    responses[str(status_code)] = Response(
+                        "OK",
+                        {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])},
+                    )
+                elif result_type is None:
+                    responses[str(status_code)] = Response("OK")
+                elif has(result_type):
                     responses[str(status_code)] = Response(
                         "OK",
                         {
@@ -206,12 +253,14 @@ def build_operation(
 def build_pathitem(
     path: str, path_routes: dict[str, Callable], components
 ) -> OpenAPI.PathItem:
-    get = post = None
+    get = post = put = None
     if get_route := path_routes.get("get"):
         get = build_operation(get_route, path, components)
     if post_route := path_routes.get("post"):
         post = build_operation(post_route, path, components)
-    return OpenAPI.PathItem(get=get, post=post)
+    if put_route := path_routes.get("put"):
+        put = build_operation(put_route, path, components)
+    return OpenAPI.PathItem(get=get, post=post, put=put)
 
 
 def routes_to_paths(
