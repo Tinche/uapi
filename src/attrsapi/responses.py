@@ -13,6 +13,8 @@ try:
 except ImportError:
     from json import dumps as dumps
 
+__all__ = ["dumps", "returns_status_code", "get_status_code_results"]
+
 
 def returns_status_code(t: type) -> bool:
     return all(

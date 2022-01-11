@@ -69,6 +69,11 @@ def make_app():
     ) -> str:
         return a_cookie if a_cookie is not None else "missing"
 
+    def put_response_headers() -> tuple[
+        Literal[200], None, tuple[tuple[Literal["X-RESPONSE"], str]]
+    ]:
+        return 200, None, (("X-RESPONSE", "test-header"),)
+
     return app
 
 
