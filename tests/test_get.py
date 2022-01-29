@@ -50,7 +50,6 @@ async def test_query_parameter(server):
         assert resp.text == "11"
 
 
-@pytest.mark.asyncio
 async def test_query_parameter_default(server):
     """Test query parameter handling."""
     async with AsyncClient() as client:

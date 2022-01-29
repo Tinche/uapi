@@ -21,6 +21,7 @@ from .starlette import make_app as starlette_make_app
         (quart_make_app, quart_make_openapi_spec),
         (starlette_make_app, starlette_make_openapi_spec),
     ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_index(app_factory):
     app = app_factory[0]()
@@ -42,6 +43,7 @@ def test_get_index(app_factory):
         (quart_make_app, quart_make_openapi_spec),
         (starlette_make_app, starlette_make_openapi_spec),
     ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_path_param(app_factory):
     app = app_factory[0]()
@@ -69,6 +71,7 @@ def test_get_path_param(app_factory):
         (quart_make_app, quart_make_openapi_spec),
         (starlette_make_app, starlette_make_openapi_spec),
     ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_query_int(app_factory):
     app = app_factory[0]()
@@ -96,6 +99,7 @@ def test_get_query_int(app_factory):
         (quart_make_app, quart_make_openapi_spec),
         (starlette_make_app, starlette_make_openapi_spec),
     ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_query_default(app_factory):
     app = app_factory[0]()
@@ -123,6 +127,7 @@ def test_get_query_default(app_factory):
         (quart_make_app, quart_make_openapi_spec),
         (starlette_make_app, starlette_make_openapi_spec),
     ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_query_unannotated(app_factory):
     app = app_factory[0]()
@@ -150,6 +155,7 @@ def test_get_query_unannotated(app_factory):
         (quart_make_app, quart_make_openapi_spec),
         (starlette_make_app, starlette_make_openapi_spec),
     ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_query_string(app_factory):
     app = app_factory[0]()
@@ -177,6 +183,7 @@ def test_get_query_string(app_factory):
         (quart_make_app, quart_make_openapi_spec),
         (starlette_make_app, starlette_make_openapi_spec),
     ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_bytes(app_factory):
     app = app_factory[0]()
@@ -200,6 +207,7 @@ def test_get_bytes(app_factory):
         (quart_make_app, quart_make_openapi_spec),
         (starlette_make_app, starlette_make_openapi_spec),
     ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_post_no_body_native_response(app_factory):
     app = app_factory[0]()
@@ -222,6 +230,7 @@ def test_post_no_body_native_response(app_factory):
         (quart_make_app, quart_make_openapi_spec),
         (starlette_make_app, starlette_make_openapi_spec),
     ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_post_no_body_no_response(app_factory):
     app = app_factory[0]()
@@ -244,6 +253,7 @@ def test_post_no_body_no_response(app_factory):
         (quart_make_app, quart_make_openapi_spec),
         (starlette_make_app, starlette_make_openapi_spec),
     ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_post_custom_status(app_factory):
     app = app_factory[0]()
@@ -266,6 +276,7 @@ def test_post_custom_status(app_factory):
         (quart_make_app, quart_make_openapi_spec),
         (starlette_make_app, starlette_make_openapi_spec),
     ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_post_multiple_statuses(app_factory):
     app = app_factory[0]()
@@ -291,6 +302,7 @@ def test_post_multiple_statuses(app_factory):
         (quart_make_app, quart_make_openapi_spec),
         (starlette_make_app, starlette_make_openapi_spec),
     ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_put_cookie(app_factory):
     app = app_factory[0]()

@@ -1,6 +1,8 @@
 from typing import Callable, Optional, Union
 
-from attr import frozen
+from attrs import Factory, define, frozen
+from cattrs import Converter, GenConverter
+from incant import Incanter
 
 
 @frozen
@@ -22,3 +24,16 @@ def parameters(**kwargs: Parameter) -> Callable[[Callable], Callable]:
         return fn
 
     return inner
+
+
+def make_base_incanter() -> Incanter:
+    """Create the base (non-framework) incanter."""
+    res = Incanter()
+    return res
+
+
+@define
+class BaseApp:
+    framework_incant: Incanter
+    converter: Converter = Factory(GenConverter)
+    base_incant: Incanter = Factory(make_base_incanter)

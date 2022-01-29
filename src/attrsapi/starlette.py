@@ -1,148 +1,170 @@
 from collections import defaultdict
-from inspect import Parameter, signature
-from typing import Callable, Optional, Union
+from inspect import Parameter, Signature, signature
+from typing import Any, Callable, Optional, Tuple, Union
 
-from attr import has
-from cattr import structure, unstructure
+from attrs import Factory, define, has
+from cattr._compat import get_args, get_origin, is_union_type
+from cattrs import Converter
+from incant import Hook, Incanter
 from starlette.applications import Starlette
-from starlette.requests import Request as StarletteRequest
+from starlette.requests import Request as FrameworkRequest
 from starlette.responses import Response as FrameworkResponse
 from starlette.routing import BaseRoute, Route
 
-from . import Header
+from . import BaseApp, Header
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
 from .path import parse_curly_path_params
 from .requests import get_cookie_name
-from .responses import dumps, get_status_code_results, returns_status_code
+from .responses import empty_dict, get_status_code_results
 from .types import is_subclass
 
 
-def _generate_wrapper(
-    handler: Callable,
-    path: str,
-    body_dumper=lambda v: dumps(unstructure(v)),
-    path_loader=structure,
-    query_loader=structure,
-):
-    sig = signature(handler)
-    params_meta: dict[str, Header] = getattr(handler, "__attrs_api_meta__", {})
-    path_params = parse_curly_path_params(path)
-    lines = []
-    post_lines = []
-    lines.append(
-        "async def handler(__attrsapi_request: Request) -> __attrsapi_Response:"
+def make_cookie_dependency(cookie_name: str, default=Signature.empty):
+    if default is Signature.empty:
+
+        def read_cookie(request: FrameworkRequest):
+            return request.cookies[cookie_name]
+
+    else:
+
+        def read_cookie(request: FrameworkRequest):
+            return request.cookies.get(cookie_name, default)
+
+    return read_cookie
+
+
+def make_starlette_incanter(converter: Converter) -> Incanter:
+    """Create the framework incanter for Starlette."""
+    res = Incanter()
+
+    def query_factory(p: Parameter):
+        def read_query(request: FrameworkRequest):
+            return converter.structure(
+                request.query_params[p.name]
+                if p.default is Signature.empty
+                else request.query_params.get(p.name, p.default),
+                p.annotation,
+            )
+
+        return read_query
+
+    res.register_hook_factory(
+        lambda p: p.annotation is not FrameworkRequest,
+        query_factory,
     )
 
-    globs = {
-        "__attrsapi_inner": handler,
-        "Request": StarletteRequest,
-        "__attrsapi_Response": FrameworkResponse,
-    }
-
-    if (ret_type := sig.return_annotation) in (None, Parameter.empty):
-        lines.append("  __attrsapi_sc = 200")
-        lines.append("  await __attrsapi_inner(")
-        post_lines.append("  return __attrsapi_Response(status_code=__attrsapi_sc)")
-    else:
-        if is_subclass(ret_type, FrameworkResponse):
-            # The response is native.
-            lines.append("  return await __attrsapi_inner(")
-        else:
-            sc_results = get_status_code_results(ret_type)
-            if returns_status_code(ret_type):
-                lines.append(
-                    "  __attrsapi_sc, __attrsapi_res = await __attrsapi_inner("
-                )
-            else:
-                lines.append("  __attrsapi_sc = 200")
-                lines.append("  __attrsapi_res = await __attrsapi_inner(")
-
-            resp_processors = {}
-            for sc, rt in sc_results:
-                if rt in (bytes, str):
-                    resp_processors[sc] = "__attrsapi_res", lambda r: r
-                elif rt is None:
-                    resp_processors[sc] = "b''", lambda r: b""
-                elif has(rt):
-                    resp_processors[sc] = (
-                        "__attrsapi_dumper(__attrsapi_res)",
-                        body_dumper,
-                    )
-                    globs["__attrsapi_dumper"] = body_dumper
-                else:
-                    raise Exception(f"Cannot handle response type {ret_type}/{rt}")
-
-            if len({v[0] for v in resp_processors.values()}) == 1:
-                body_expr = next(iter(resp_processors.values()))[0]
-            else:
-                body_expr = "(__attrsapi_rp[__attrsapi_sc])(__attrsapi_res)"
-                globs["__attrsapi_rp"] = {k: v[1] for k, v in resp_processors.items()}
-
-            post_lines.append(
-                f"  return __attrsapi_Response(content={body_expr}, status_code=__attrsapi_sc)"
+    def string_query_factory(p: Parameter):
+        def read_query(request: FrameworkRequest):
+            return (
+                request.query_params[p.name]
+                if p.default is Signature.empty
+                else request.query_params.get(p.name, p.default)
             )
-    for arg, arg_param in sig.parameters.items():
-        if arg in path_params:
-            arg_annotation = sig.parameters[arg].annotation
-            if arg_annotation in (Parameter.empty, str):
-                lines.append(f"    __attrsapi_request.path_params['{arg}'],")
-            else:
-                lines.append(
-                    f"    __attrsapi_path_loader(__attrsapi_request.path_params['{arg}'], __attrsapi_{arg}_type),"
+
+        return read_query
+
+    res.register_hook_factory(
+        lambda p: p.annotation in (Signature.empty, str), string_query_factory
+    )
+    res.register_hook_factory(
+        lambda p: get_cookie_name(p.annotation, p.name) is not None,
+        lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
+    )
+    return res
+
+
+def return_adapter(return_type: Any) -> Optional[Callable[..., Tuple]]:
+    """The aiohttp return adapter."""
+    if return_type in (Signature.empty, FrameworkResponse):
+        # You're on your own, buddy.
+        return None
+    if return_type in (str, bytes):
+        return lambda r: (r, 200, empty_dict)
+    if return_type is None:
+        return lambda r: (None, 200, empty_dict)
+    if get_origin(return_type) is tuple and len(get_args(return_type)) == 2:
+        return lambda r: (r[0], r[1], empty_dict)
+    if is_union_type(return_type):
+        return (
+            lambda r: r
+            if len(r) == 3
+            else ((r[0], r[1], empty_dict) if len(r) == 2 else (r[0], 200, empty_dict))
+        )
+    return None
+
+
+def framework_return_adapter(val: Tuple[Any, int, dict]):
+    return FrameworkResponse(val[0] or b"", val[1], val[2])
+
+
+@define
+class App(BaseApp):
+    framework_incant: Incanter = Factory(
+        lambda self: make_starlette_incanter(self.converter), takes_self=True
+    )
+
+    def route(self, path: str, app: Starlette, methods=["GET"]):
+        def wrapper(handler: Callable) -> Callable:
+            ra = return_adapter(signature(handler).return_annotation)
+            path_params = parse_curly_path_params(path)
+            hooks = [Hook.for_name(p, None) for p in path_params]
+            if ra is None:
+                base_handler = self.base_incant.prepare(handler, is_async=True)
+                prepared = self.framework_incant.prepare(
+                    base_handler, hooks, is_async=True
                 )
-                globs["__attrsapi_path_loader"] = path_loader
-                globs[f"__attrsapi_{arg}_type"] = arg_annotation
-        elif arg_meta := params_meta.get(arg):
-            if isinstance(arg_meta, Header):
-                # A header param.
-                lines.append(f"    __attrsapi_request.headers['{arg_meta.name}'],")
-        elif (arg_type := arg_param.annotation) is not Parameter.empty and has(
-            arg_type
-        ):
-            # defaulting to body
-            pass
-        elif cookie_name := get_cookie_name(arg_type, arg):
-            if arg_param.default is Parameter.empty:
-                lines.append(f"    __attrsapi_request.cookies['{cookie_name}'],")
+                sig = signature(prepared)
+                path_types = {p: sig.parameters[p].annotation for p in path_params}
+
+                async def adapted(
+                    request: FrameworkRequest, _incant=self.framework_incant.aincant
+                ) -> FrameworkResponse:
+                    path_args = {
+                        p: (
+                            self.converter.structure(request.path_params[p], path_type)
+                            if (path_type := path_types[p])
+                            not in (str, Signature.empty)
+                            else request.path_params[p]
+                        )
+                        for p in path_params
+                    }
+                    return await _incant(prepared, request=request, **path_args)
+
             else:
-                lines.append(
-                    f"    __attrsapi_request.cookies.get('{cookie_name}', __{arg}_default),"
+                base_handler = self.base_incant.prepare(handler, is_async=True)
+                prepared = self.framework_incant.prepare(
+                    base_handler, hooks, is_async=True
                 )
-                globs[f"__{arg}_default"] = arg_param.default
-        else:
-            # defaulting to query
-            if arg_param.default is Parameter.empty:
-                expr = f"__attrsapi_request.query_params['{arg}']"
-            else:
-                expr = f"__attrsapi_request.query_params.get('{arg}', __attrsapi_{arg}_default)"
-                globs[f"__attrsapi_{arg}_default"] = arg_param.default
+                sig = signature(prepared)
+                path_types = {p: sig.parameters[p].annotation for p in path_params}
 
-            if (
-                arg_param.annotation is not str
-                and arg_param.annotation is not Parameter.empty
-            ):
-                expr = f"__attrsapi_query_loader({expr}, __attrsapi_{arg}_type)"
-                globs["__attrsapi_query_loader"] = query_loader
-                globs[f"__attrsapi_{arg}_type"] = arg_param.annotation
-            lines.append(f"    {expr},")
+                async def adapted(
+                    request: FrameworkRequest,
+                    _incant=self.framework_incant.aincant,
+                    _ra=ra,
+                    _fra=framework_return_adapter,
+                ) -> FrameworkResponse:
+                    path_args = {
+                        p: (
+                            self.converter.structure(request.path_params[p], path_type)
+                            if (path_type := path_types[p])
+                            not in (str, Signature.empty)
+                            else request.path_params[p]
+                        )
+                        for p in path_params
+                    }
+                    return _fra(
+                        _ra(await _incant(prepared, request=request, **path_args))
+                    )
 
-    lines.append("  )")
+            adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
-    ls = "\n".join(lines + post_lines)
-    eval(compile(ls, "", "exec"), globs)
+            app.add_route(path, adapted, methods=methods)
+            return adapted
 
-    fn = globs["handler"]
-
-    return fn
-
-
-def route(path: str, handler: Callable, methods: Optional[list[str]] = None) -> Route:
-    adapted = _generate_wrapper(handler, path)
-    adapted.__attrsapi_handler__ = handler
-
-    return Route(path, adapted, methods=methods)
+        return wrapper
 
 
 def build_operation(

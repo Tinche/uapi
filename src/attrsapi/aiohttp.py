@@ -1,14 +1,12 @@
 from collections import defaultdict
 from inspect import Parameter as Parameter
-from inspect import getfullargspec, signature
-from typing import Any, Awaitable, Callable, Union
+from inspect import Signature, getfullargspec, signature
+from typing import Any, Callable, Optional, Tuple, Union
 
-from aiohttp.web import Request as AiohttpRequest
+from aiohttp.web import Request as FrameworkRequest
 from aiohttp.web import Response as FrameworkResponse
-from aiohttp.web import RouteDef
-from aiohttp.web import RouteTableDef as AiohttpRouteTableDef
+from aiohttp.web import RouteDef, RouteTableDef
 from aiohttp.web_app import Application
-from aiohttp.web_routedef import _Deco, _HandlerType
 from aiohttp.web_urldispatcher import (
     DynamicResource,
     Handler,
@@ -16,191 +14,167 @@ from aiohttp.web_urldispatcher import (
     ResourceRoute,
     RoutesView,
 )
-from attr import define
-from cattr import structure, unstructure
-from cattr._compat import has
-from ujson import loads
+from attrs import Factory, define
+from cattr._compat import get_args, get_origin, has, is_union_type
+from cattrs import Converter
+from incant import Hook, Incanter
 
 from attrsapi.requests import get_cookie_name
 
-from . import Header
+from . import BaseApp, Header
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
 from .path import parse_curly_path_params
-from .responses import dumps, get_status_code_results, returns_status_code
+from .responses import empty_dict, get_status_code_results
 from .types import is_subclass
 
 
-def _should_ignore(handler: _HandlerType) -> bool:
-    """These handlers should be skipped."""
-    fullargspec = getfullargspec(handler)
-    return (
-        len(fullargspec.args) == 1
-        and fullargspec.args[0] in fullargspec.annotations
-        and is_subclass(fullargspec.annotations[fullargspec.args[0]], AiohttpRequest)
-    )
+def make_cookie_dependency(cookie_name: str, default=Signature.empty):
+    if default is Signature.empty:
 
+        def read_cookie(request: FrameworkRequest):
+            return request.cookies[cookie_name]
 
-def _generate_wrapper(
-    handler: Callable,
-    path: str,
-    body_dumper=lambda v: dumps(unstructure(v)),
-    path_loader=structure,
-    query_loader=structure,
-) -> Callable[[AiohttpRequest], Awaitable[FrameworkResponse]]:
-    sig = signature(handler)
-    params_meta: dict[str, Header] = getattr(handler, "__attrs_api_meta__", {})
-    path_params = parse_curly_path_params(path)
-    lines = []
-    post_lines = []
-    lines.append(
-        "async def handler(__attrsapi_request: Request) -> __attrsapi_Response:"
-    )
-
-    globs: dict[str, Any] = {
-        "__attrsapi_inner": handler,
-        "Request": AiohttpRequest,
-        "__attrsapi_Response": FrameworkResponse,
-    }
-
-    if (ret_type := sig.return_annotation) in (None, Parameter.empty):
-        lines.append("  __attrsapi_sc = 200")
-        lines.append("  await __attrsapi_inner(")
-        post_lines.append("  return __attrsapi_Response(status=__attrsapi_sc)")
     else:
-        if is_subclass(ret_type, FrameworkResponse):
-            # The response is native.
-            lines.append("  return await __attrsapi_inner(")
-        else:
-            sc_results = get_status_code_results(ret_type)
-            if returns_status_code(ret_type):
-                lines.append(
-                    "  __attrsapi_sc, __attrsapi_res = await __attrsapi_inner("
-                )
-            else:
-                lines.append("  __attrsapi_sc = 200")
-                lines.append("  __attrsapi_res = await __attrsapi_inner(")
 
-            resp_processors = {}
-            for sc, rt in sc_results:
-                if rt in (bytes, str):
-                    resp_processors[sc] = "__attrsapi_res", lambda r: r
-                elif rt is None:
-                    resp_processors[sc] = "b''", lambda r: b""
-                elif has(rt):
-                    resp_processors[sc] = (
-                        "__attrsapi_dumper(__attrsapi_res)",
-                        body_dumper,
-                    )
-                    globs["__attrsapi_dumper"] = body_dumper
-                else:
-                    raise Exception(f"Cannot handle response type {ret_type}/{rt}")
+        def read_cookie(request: FrameworkRequest):
+            return request.cookies.get(cookie_name, default)
 
-            if len({v[0] for v in resp_processors.values()}) == 1:
-                body_expr = next(iter(resp_processors.values()))[0]
-            else:
-                body_expr = "(__attrsapi_rp[__attrsapi_sc])(__attrsapi_res)"
-                globs["__attrsapi_rp"] = {k: v[1] for k, v in resp_processors.items()}
+    return read_cookie
 
-            post_lines.append(
-                f"  return __attrsapi_Response(body={body_expr}, status=__attrsapi_sc)"
+
+def make_aiohttp_incanter(converter: Converter) -> Incanter:
+    """Create the framework incanter for Aiohttp."""
+    res = Incanter()
+
+    def query_factory(p: Parameter):
+        def read_query(request: FrameworkRequest):
+            return converter.structure(
+                request.query[p.name]
+                if p.default is Signature.empty
+                else request.query.get(p.name, p.default),
+                p.annotation,
             )
 
-    for arg, arg_param in sig.parameters.items():
-        if arg in path_params:
-            arg_annotation = sig.parameters[arg].annotation
-            if arg_annotation in (Parameter.empty, str):
-                lines.append(f"    __attrsapi_request.match_info['{arg}'],")
-            else:
-                lines.append(
-                    f"    path_loader(__attrsapi_request.match_info['{arg}'], __{arg}_type),"
-                )
-                globs["path_loader"] = path_loader
-                globs[f"__{arg}_type"] = arg_annotation
-        elif arg_meta := params_meta.get(arg):
-            if isinstance(arg_meta, Header):
-                # A header param.
-                lines.append(f"    __attrsapi_request.headers['{arg_meta.name}'],")
-        elif (arg_type := arg_param.annotation) is not Parameter.empty and has(
-            arg_type
-        ):
-            # defaulting to body
-            pass
-        elif cookie_name := get_cookie_name(arg_type, arg):
-            if arg_param.default is Parameter.empty:
-                lines.append(f"    __attrsapi_request.cookies['{cookie_name}'],")
-            else:
-                lines.append(
-                    f"    __attrsapi_request.cookies.get('{cookie_name}', __{arg}_default),"
-                )
-                globs[f"__{arg}_default"] = arg_param.default
-        else:
-            # defaulting to query
-            if arg_param.default is Parameter.empty:
-                expr = f"__attrsapi_request.query['{arg}']"
-            else:
-                expr = f"__attrsapi_request.query.get('{arg}', __{arg}_default)"
-                globs[f"__{arg}_default"] = arg_param.default
+        return read_query
 
-            if (
-                arg_param.annotation is not str
-                and arg_param.annotation is not Parameter.empty
-            ):
-                expr = f"query_loader({expr}, __{arg}_type)"
-                globs["query_loader"] = query_loader
-                globs[f"__{arg}_type"] = arg_param.annotation
-            lines.append(f"    {expr},")
+    res.register_hook_factory(
+        lambda p: p.annotation is not FrameworkRequest,
+        query_factory,
+    )
 
-    lines.append("  )")
+    def string_query_factory(p: Parameter):
+        def read_query(request: FrameworkRequest):
+            return (
+                request.query[p.name]
+                if p.default is Signature.empty
+                else request.query.get(p.name, p.default)
+            )
 
-    ls = "\n".join(lines + post_lines)
-    eval(compile(ls, "", "exec"), globs)
+        return read_query
 
-    fn = globs["handler"]
-
-    return fn
+    res.register_hook_factory(
+        lambda p: p.annotation in (Signature.empty, str), string_query_factory
+    )
+    res.register_hook_factory(
+        lambda p: get_cookie_name(p.annotation, p.name) is not None,
+        lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
+    )
+    return res
 
 
-def route(
-    route_def: AiohttpRouteTableDef, method: str, path: str
-) -> Callable[[Callable], Callable]:
-    def inner(handler: Callable):
-        fn = _generate_wrapper(handler, path)
-        fn.__attrsapi_handler__ = handler  # type: ignore
-        getattr(route_def, method)(path)(fn)
+def return_adapter(return_type: Any) -> Optional[Callable[..., Tuple]]:
+    """The aiohttp return adapter."""
+    if return_type in (Signature.empty, FrameworkResponse):
+        # You're on your own, buddy.
+        return None
+    if return_type in (str, bytes):
+        return lambda r: (r, 200, empty_dict)
+    if return_type is None:
+        return lambda r: (None, 200, empty_dict)
+    if get_origin(return_type) is tuple and len(get_args(return_type)) == 2:
+        return lambda r: (r[0], r[1], empty_dict)
+    if is_union_type(return_type):
+        return (
+            lambda r: r
+            if len(r) == 3
+            else ((r[0], r[1], empty_dict) if len(r) == 2 else (r[0], 200, empty_dict))
+        )
+    return None
 
-    return inner
+
+def framework_return_adapter(val: Tuple[Any, int, dict]):
+    return FrameworkResponse(body=val[0] or b"", status=val[1], headers=val[2])
 
 
 @define
-class RouteTableDef(AiohttpRouteTableDef):
-    loader: Callable[[bytes, Any], Any] = lambda body, type: structure(
-        loads(body), type
+class App(BaseApp):
+    framework_incant: Incanter = Factory(
+        lambda self: make_aiohttp_incanter(self.converter), takes_self=True
     )
-    dumper: Callable[[Any], FrameworkResponse] = lambda payload: FrameworkResponse(
-        body=dumps(unstructure(payload)),
-        content_type="application/json",
-    )
-    query_loader: Callable[[str, type], Any] = structure
-    path_loader: Callable[[str, type], Any] = structure
 
-    def __attrs_post_init__(self):
-        super().__init__()
+    def route(self, path: str, routes: RouteTableDef, methods=["GET"]):
+        def wrapper(handler: Callable) -> Callable:
+            ra = return_adapter(signature(handler).return_annotation)
+            path_params = parse_curly_path_params(path)
+            hooks = [Hook.for_name(p, None) for p in path_params]
+            if ra is None:
+                base_handler = self.base_incant.prepare(handler, is_async=True)
+                prepared = self.framework_incant.prepare(
+                    base_handler, hooks, is_async=True
+                )
+                sig = signature(prepared)
+                path_types = {p: sig.parameters[p].annotation for p in path_params}
 
-    def route(self, method: str, path: str, **kwargs: Any) -> _Deco:
-        def inner(handler: Callable) -> _HandlerType:
-            # Escape hatch for just taking a request.
-            if _should_ignore(handler):
-                self._items.append(RouteDef(method, path, handler, kwargs))
+                async def adapted(
+                    request: FrameworkRequest, _incant=self.framework_incant.aincant
+                ) -> FrameworkResponse:
+                    path_args = {
+                        p: (
+                            self.converter.structure(request.match_info[p], path_type)
+                            if (path_type := path_types[p])
+                            not in (str, Signature.empty)
+                            else request.match_info[p]
+                        )
+                        for p in path_params
+                    }
+                    return await _incant(prepared, request=request, **path_args)
+
             else:
-                fn = _generate_wrapper(handler, path)
-                fn.__attrsapi_handler__ = handler  # type: ignore
+                base_handler = self.base_incant.prepare(handler, is_async=True)
+                prepared = self.framework_incant.prepare(
+                    base_handler, hooks, is_async=True
+                )
+                sig = signature(prepared)
+                path_types = {p: sig.parameters[p].annotation for p in path_params}
 
-                self._items.append(RouteDef(method, path, fn, kwargs))
-            return handler
+                async def adapted(
+                    request: FrameworkRequest,
+                    _incant=self.framework_incant.aincant,
+                    _ra=ra,
+                    _fra=framework_return_adapter,
+                ) -> FrameworkResponse:
+                    path_args = {
+                        p: (
+                            self.converter.structure(request.match_info[p], path_type)
+                            if (path_type := path_types[p])
+                            not in (str, Signature.empty)
+                            else request.match_info[p]
+                        )
+                        for p in path_params
+                    }
+                    return _fra(
+                        _ra(await _incant(prepared, request=request, **path_args))
+                    )
 
-        return inner
+            adapted.__attrsapi_handler__ = base_handler  # type: ignore
+
+            for method in methods:
+                routes.route(method, path)(adapted)  # type: ignore
+            return adapted
+
+        return wrapper
 
 
 def gather_endpoint_components(

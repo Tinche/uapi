@@ -1,159 +1,104 @@
 from collections import defaultdict
-from inspect import Parameter, signature
-from typing import Any, Callable, Union
+from inspect import Parameter, Signature, signature
+from typing import Any, Callable, Tuple, Union
 
-from attr import has
-from cattr import structure, unstructure
+from attrs import Factory, define, has
+from cattrs import Converter
 from flask import Flask
 from flask import Response as FrameworkResponse
 from flask import request
+from incant import Hook, Incanter
 from werkzeug.routing import Rule
 
-from . import Header
+from . import BaseApp, Header
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
-from .path import angle_to_curly, parse_angle_path_params
+from .path import angle_to_curly, parse_angle_path_params, strip_path_param_prefix
 from .requests import get_cookie_name
-from .responses import get_status_code_results, returns_status_code
+from .responses import get_status_code_results, make_return_adapter
 from .types import is_subclass
 
-try:
-    from functools import partial
 
-    from ujson import dumps as usjon_dumps
+def make_cookie_dependency(cookie_name: str, default=Signature.empty):
+    if default is Signature.empty:
 
-    dumps: Callable[[Any], Union[bytes, str]] = partial(
-        usjon_dumps, ensure_ascii=False, escape_forward_slashes=False
-    )
-except ImportError:
-    from json import dumps
+        def read_cookie():
+            return request.cookies[cookie_name]
 
-
-def _generate_wrapper(
-    handler: Callable,
-    path: str,
-    body_dumper=lambda v: dumps(unstructure(v)),
-    path_loader=structure,
-    query_loader=structure,
-):
-    sig = signature(handler)
-    params_meta: dict[str, Header] = getattr(handler, "__attrs_api_meta__", {})
-    path_params = parse_angle_path_params(path)
-    lines = []
-    post_lines = []
-    lines.append(f"def handler({', '.join(path_params)}) -> __attrsapi_Response:")
-
-    globs = {
-        "__attrsapi_inner": handler,
-        "__attrsapi_request": request,
-        "__attrsapi_Response": FrameworkResponse,
-    }
-
-    if (ret_type := sig.return_annotation) in (None, Parameter.empty):
-        lines.append("  __attrsapi_sc = 200")
-        lines.append("  __attrsapi_inner(")
-        post_lines.append("  return __attrsapi_Response(status=__attrsapi_sc)")
     else:
-        if is_subclass(ret_type, FrameworkResponse):
-            # The response is native.
-            lines.append("  return __attrsapi_inner(")
-        else:
-            sc_results = get_status_code_results(ret_type)
-            if returns_status_code(ret_type):
-                lines.append("  __attrsapi_sc, __attrsapi_res = __attrsapi_inner(")
-            else:
-                lines.append("  __attrsapi_sc = 200")
-                lines.append("  __attrsapi_res = __attrsapi_inner(")
 
-            resp_processors = {}
-            for sc, rt in sc_results:
-                if rt in (bytes, str):
-                    resp_processors[sc] = "__attrsapi_res", lambda r: r
-                elif rt is None:
-                    resp_processors[sc] = "b''", lambda r: b""
-                elif has(rt):
-                    resp_processors[sc] = (
-                        "__attrsapi_dumper(__attrsapi_res)",
-                        body_dumper,
-                    )
-                    globs["__attrsapi_dumper"] = body_dumper
-                else:
-                    raise Exception(f"Cannot handle response type {ret_type}/{rt}")
+        def read_cookie():
+            return request.cookies.get(cookie_name, default)
 
-            if len({v[0] for v in resp_processors.values()}) == 1:
-                body_expr = next(iter(resp_processors.values()))[0]
-            else:
-                body_expr = "(__attrsapi_rp[__attrsapi_sc])(__attrsapi_res)"
-                globs["__attrsapi_rp"] = {k: v[1] for k, v in resp_processors.items()}
+    return read_cookie
 
-            post_lines.append(
-                f"  return __attrsapi_Response(response={body_expr}, status=__attrsapi_sc)"
-            )
 
-    for arg, arg_param in sig.parameters.items():
-        if arg in path_params:
-            arg_annotation = sig.parameters[arg].annotation
-            if arg_annotation in (Parameter.empty, str):
-                lines.append(f"    {arg},")
-            else:
-                lines.append(
-                    f"    __attrsapi_path_loader({arg}, __attrsapi_{arg}_type),"
+def make_flask_incanter(converter: Converter) -> Incanter:
+    """Create the framework incanter for Quart."""
+    res = Incanter()
+    res.register_hook_factory(
+        lambda _: True,
+        lambda p: lambda: converter.structure(
+            request.args[p.name]
+            if p.default is Signature.empty
+            else request.args.get(p.name, p.default),
+            p.annotation,
+        ),
+    )
+    res.register_hook_factory(
+        lambda p: p.annotation in (Signature.empty, str),
+        lambda p: lambda: request.args[p.name]
+        if p.default is Signature.empty
+        else request.args.get(p.name, p.default),
+    )
+    res.register_hook_factory(
+        lambda p: get_cookie_name(p.annotation, p.name) is not None,
+        lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
+    )
+    return res
+
+
+def framework_return_adapter(val: Tuple[Any, int, dict]):
+    return FrameworkResponse(val[0] or b"", val[1], val[2])
+
+
+@define
+class App(BaseApp):
+    framework_incant: Incanter = Factory(
+        lambda self: make_flask_incanter(self.converter), takes_self=True
+    )
+
+    def route(self, path: str, app: Flask, methods=["GET"]):
+        def wrapper(handler: Callable) -> Callable:
+            ra = make_return_adapter(signature(handler).return_annotation)
+            path_params = parse_angle_path_params(path)
+            hooks = [Hook.for_name(p, None) for p in path_params]
+
+            if ra is None:
+                base_handler = self.base_incant.prepare(handler, is_async=False)
+                prepared = self.framework_incant.prepare(
+                    base_handler, hooks, is_async=False
                 )
-                globs["__attrsapi_path_loader"] = path_loader
-                globs[f"__attrsapi_{arg}_type"] = arg_annotation
-        elif arg_meta := params_meta.get(arg):
-            if isinstance(arg_meta, Header):
-                # A header param.
-                lines.append(f"    request.headers['{arg_meta.name}'],")
-        elif (arg_type := arg_param.annotation) is not Parameter.empty and has(
-            arg_type
-        ):
-            # defaulting to body
-            pass
-        elif cookie_name := get_cookie_name(arg_type, arg):
-            if arg_param.default is Parameter.empty:
-                lines.append(f"    __attrsapi_request.cookies['{cookie_name}'],")
+
+                def adapted(**kwargs):
+                    return prepared(**kwargs)
+
             else:
-                lines.append(
-                    f"    __attrsapi_request.cookies.get('{cookie_name}', __{arg}_default),"
+                base_handler = self.base_incant.prepare(handler, is_async=False)
+                prepared = self.framework_incant.prepare(
+                    base_handler, hooks, is_async=False
                 )
-                globs[f"__{arg}_default"] = arg_param.default
-        else:
-            # defaulting to query
-            if arg_param.default is Parameter.empty:
-                expr = f"__attrsapi_request.args['{arg}']"
-            else:
-                expr = f"__attrsapi_request.args.get('{arg}', __attrs_{arg}_default)"
-                globs[f"__attrs_{arg}_default"] = arg_param.default
 
-            if (
-                arg_param.annotation is not str
-                and arg_param.annotation is not Parameter.empty
-            ):
-                expr = f"__attrsapi_query_loader({expr}, __attrsapi_{arg}_type)"
-                globs["__attrsapi_query_loader"] = query_loader
-                globs[f"__attrsapi_{arg}_type"] = arg_param.annotation
-            lines.append(f"    {expr},")
+                def adapted(**kwargs):
+                    return framework_return_adapter(ra(prepared(**kwargs)))
 
-    lines.append("  )")
+            adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
-    ls = "\n".join(lines + post_lines)
-    eval(compile(ls, "", "exec"), globs)
+            app.route(path, methods=methods, endpoint=handler.__name__)(adapted)
+            return adapted
 
-    fn = globs["handler"]
-
-    return fn
-
-
-def route(path: str, app: Flask, methods=["GET"]) -> Callable[[Callable], Callable]:
-    def inner(handler: Callable) -> Callable:
-        adapted = _generate_wrapper(handler, path)
-        adapted.__attrsapi_handler__ = handler
-        app.route(path, methods=methods, endpoint=handler.__name__)(adapted)
-        return handler
-
-    return inner
+        return wrapper
 
 
 def build_operation(
@@ -261,6 +206,7 @@ def build_operation(
                         "OK",
                         {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])},
                     )
+
     return OpenAPI.PathItem.Operation(responses, params)
 
 
@@ -291,7 +237,9 @@ def routes_to_paths(
         }
 
     return {
-        angle_to_curly(k): build_pathitem(k, v, components, native_response)
+        strip_path_param_prefix(angle_to_curly(k)): build_pathitem(
+            k, v, components, native_response
+        )
         for k, v in res.items()
     }
 
