@@ -5,7 +5,7 @@ from typing import Any, Callable, Optional, Tuple, Union
 
 from aiohttp.web import Request as FrameworkRequest
 from aiohttp.web import Response as FrameworkResponse
-from aiohttp.web import RouteDef, RouteTableDef
+from aiohttp.web import RouteDef, RouteTableDef, _run_app
 from aiohttp.web_app import Application
 from aiohttp.web_urldispatcher import (
     DynamicResource,
@@ -110,11 +110,25 @@ def framework_return_adapter(val: Tuple[Any, int, dict]):
 
 @define
 class App(BaseApp):
+    routes: RouteTableDef = Factory(RouteTableDef)
     framework_incant: Incanter = Factory(
         lambda self: make_aiohttp_incanter(self.converter), takes_self=True
     )
 
-    def route(self, path: str, routes: RouteTableDef, methods=["GET"]):
+    def get(
+        self, path, name: Optional[str] = None, routes: Optional[RouteTableDef] = None
+    ):
+        return self.route(path, name=name, routes=routes)
+
+    def route(
+        self,
+        path: str,
+        name: Optional[str] = None,
+        routes: Optional[RouteTableDef] = None,
+        methods=["GET"],
+    ):
+        r = routes if routes is not None else self.routes
+
         def wrapper(handler: Callable) -> Callable:
             ra = return_adapter(signature(handler).return_annotation)
             path_params = parse_curly_path_params(path)
@@ -170,11 +184,21 @@ class App(BaseApp):
 
             adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
+            kwargs = {}
+            if name is not None:
+                kwargs["name"] = name
+
             for method in methods:
-                routes.route(method, path)(adapted)  # type: ignore
+                r.route(method, path, **kwargs)(adapted)  # type: ignore
             return adapted
 
         return wrapper
+
+    async def run(self, port: int = 8000):
+        app = Application()
+        app.add_routes(self.routes)
+
+        await _run_app(app, port=port)
 
 
 def gather_endpoint_components(

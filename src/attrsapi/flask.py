@@ -1,6 +1,6 @@
 from collections import defaultdict
 from inspect import Parameter, Signature, signature
-from typing import Any, Callable, Tuple, Union
+from typing import Any, Callable, Optional, Tuple, Union
 
 from attrs import Factory, define, has
 from cattrs import Converter
@@ -65,11 +65,23 @@ def framework_return_adapter(val: Tuple[Any, int, dict]):
 
 @define
 class App(BaseApp):
+    flask: Flask = Factory(lambda: Flask(__name__))
     framework_incant: Incanter = Factory(
         lambda self: make_flask_incanter(self.converter), takes_self=True
     )
 
-    def route(self, path: str, app: Flask, methods=["GET"]):
+    def get(self, path, name: Optional[str] = None, flask: Optional[Flask] = None):
+        return self.route(path, name=name, flask=flask)
+
+    def route(
+        self,
+        path: str,
+        name: Optional[str] = None,
+        flask: Optional[Flask] = None,
+        methods=["GET"],
+    ):
+        f = flask or self.flask
+
         def wrapper(handler: Callable) -> Callable:
             ra = make_return_adapter(signature(handler).return_annotation)
             path_params = parse_angle_path_params(path)
@@ -95,10 +107,17 @@ class App(BaseApp):
 
             adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
-            app.route(path, methods=methods, endpoint=handler.__name__)(adapted)
+            f.route(
+                path,
+                methods=methods,
+                endpoint=name if name is not None else handler.__name__,
+            )(adapted)
             return adapted
 
         return wrapper
+
+    def run(self, port: int = 8000):
+        self.flask.run(port=port)
 
 
 def build_operation(

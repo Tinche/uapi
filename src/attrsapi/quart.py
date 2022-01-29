@@ -1,5 +1,5 @@
 from inspect import Signature, signature
-from typing import Any, Callable, Tuple, Union, cast
+from typing import Any, Callable, Optional, Tuple, cast
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -14,17 +14,6 @@ from .flask import make_openapi_spec as flask_openapi_spec
 from .path import parse_angle_path_params
 from .requests import get_cookie_name
 from .responses import make_return_adapter
-
-try:
-    from functools import partial
-
-    from ujson import dumps as usjon_dumps
-
-    dumps: Callable[[Any], Union[bytes, str]] = partial(
-        usjon_dumps, ensure_ascii=False, escape_forward_slashes=False
-    )
-except ImportError:
-    from json import dumps
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -72,11 +61,23 @@ def framework_return_adapter(val: Tuple[Any, int, dict]):
 
 @define
 class App(BaseApp):
+    quart: Quart = Factory(lambda: Quart(__name__))
     framework_incant: Incanter = Factory(
         lambda self: make_quart_incanter(self.converter), takes_self=True
     )
 
-    def route(self, path: str, app: Quart, methods=["GET"]):
+    def get(self, path, name: Optional[str] = None, quart: Optional[Quart] = None):
+        return self.route(path, name, quart)
+
+    def route(
+        self,
+        path: str,
+        name: Optional[str] = None,
+        quart: Optional[Quart] = None,
+        methods=["GET"],
+    ):
+        q = quart or self.quart
+
         def wrapper(handler: Callable) -> Callable:
             ra = make_return_adapter(signature(handler).return_annotation)
             path_params = parse_angle_path_params(path)
@@ -102,10 +103,21 @@ class App(BaseApp):
 
             adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
-            app.route(path, methods=methods, endpoint=handler.__name__)(adapted)
+            q.route(
+                path,
+                methods=methods,
+                endpoint=name if name is not None else handler.__name__,
+            )(adapted)
             return adapted
 
         return wrapper
+
+    async def run(self, port: int = 8000):
+        from uvicorn import Config, Server
+
+        config = Config(self.quart, port=port, access_log=False)
+        server = Server(config=config)
+        await server.serve()
 
 
 def make_openapi_spec(app: Quart, title: str = "Server", version: str = "1.0"):

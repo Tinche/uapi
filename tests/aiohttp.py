@@ -11,58 +11,57 @@ def make_app() -> web.Application:
     routes = RouteTableDef()
     attrsapi = App()
 
-    @attrsapi.route("/", routes)
+    @attrsapi.get("/", routes=routes)
     async def hello() -> str:
         return "Hello, world"
 
-    @attrsapi.route("/path/{path_id}", routes)
+    @attrsapi.route("/path/{path_id}", routes=routes)
     async def path_param(path_id: int) -> Response:
         return Response(text=str(path_id + 1))
 
-    @attrsapi.route("/query/unannotated", routes)
+    @attrsapi.route("/query/unannotated", routes=routes)
     async def query_unannotated(query) -> Response:
-        print(query)
         return Response(text=query + "suffix")
 
-    @attrsapi.route("/query/string", routes)
+    @attrsapi.route("/query/string", routes=routes)
     async def query_string(query: str) -> Response:
         return Response(text=query + "suffix")
 
-    @attrsapi.route("/query", routes)
+    @attrsapi.route("/query", routes=routes)
     async def query_param(page: int) -> Response:
         return Response(text=str(page + 1))
 
-    @attrsapi.route("/query-default", routes)
+    @attrsapi.route("/query-default", routes=routes)
     async def query_default(page: int = 0) -> Response:
         return Response(text=str(page + 1))
 
-    @attrsapi.route("/query-bytes", routes)
+    @attrsapi.route("/query-bytes", routes=routes)
     async def query_bytes() -> bytes:
         return b"2"
 
-    @attrsapi.route("/post/no-body-native-response", routes, methods=["POST"])
+    @attrsapi.route("/post/no-body-native-response", routes=routes, methods=["POST"])
     async def post_no_body() -> Response:
         return Response(text="post", status=201)
 
-    @attrsapi.route("/post/no-body-no-response", routes, methods=["POST"])
+    @attrsapi.route("/post/no-body-no-response", routes=routes, methods=["POST"])
     async def post_no_body_no_resp() -> None:
         return
 
-    @attrsapi.route("/post/201", routes, methods=["POST"])
+    @attrsapi.route("/post/201", routes=routes, methods=["POST"])
     async def post_201() -> tuple[str, Literal[201]]:
         return "test", 201
 
-    @attrsapi.route("/post/multiple", routes, methods=["POST"])
+    @attrsapi.route("/post/multiple", routes=routes, methods=["POST"])
     async def post_multiple_codes() -> Union[
         tuple[str, Literal[200]], tuple[None, Literal[201]]
     ]:
         return None, 201
 
-    @attrsapi.route("/put/cookie", routes, methods=["PUT"])
+    @attrsapi.route("/put/cookie", routes=routes, methods=["PUT"])
     async def put_cookie(a_cookie: Annotated[str, Cookie()]) -> str:
         return a_cookie
 
-    @attrsapi.route("/put/cookie-optional", routes, methods=["PUT"])
+    @attrsapi.route("/put/cookie-optional", routes=routes, methods=["PUT"])
     async def put_cookie_opt(
         a_cookie: Annotated[Optional[str], Cookie("A-COOKIE")] = None
     ) -> str:
@@ -78,4 +77,6 @@ async def run_server(port: int):
         app = make_app()
     except Exception as exc:
         print(exc)
-    await web._run_app(app, port=port, handle_signals=False)
+        raise
+    else:
+        await web._run_app(app, port=port, handle_signals=False)

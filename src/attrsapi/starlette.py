@@ -101,11 +101,25 @@ def framework_return_adapter(val: Tuple[Any, int, dict]):
 
 @define
 class App(BaseApp):
+    starlette: Starlette = Factory(Starlette)
     framework_incant: Incanter = Factory(
         lambda self: make_starlette_incanter(self.converter), takes_self=True
     )
 
-    def route(self, path: str, app: Starlette, methods=["GET"]):
+    def get(
+        self, path, name: Optional[str] = None, starlette: Optional[Starlette] = None
+    ):
+        return self.route(path, name, starlette)
+
+    def route(
+        self,
+        path: str,
+        name: Optional[str] = None,
+        starlette: Optional[Starlette] = None,
+        methods=["GET"],
+    ):
+        s = starlette or self.starlette
+
         def wrapper(handler: Callable) -> Callable:
             ra = return_adapter(signature(handler).return_annotation)
             path_params = parse_curly_path_params(path)
@@ -161,10 +175,17 @@ class App(BaseApp):
 
             adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
-            app.add_route(path, adapted, methods=methods)
+            s.add_route(path, adapted, name=name, methods=methods)
             return adapted
 
         return wrapper
+
+    async def run(self, port: int = 8000):
+        from uvicorn import Config, Server
+
+        config = Config(self.starlette, port=port, access_log=False)
+        server = Server(config=config)
+        await server.serve()
 
 
 def build_operation(
