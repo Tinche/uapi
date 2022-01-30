@@ -1,9 +1,9 @@
 from collections import defaultdict
 from inspect import Parameter, Signature, signature
-from typing import Any, Callable, Optional, Tuple, Union
+from json import dumps
+from typing import Any, Callable, Literal, Optional, Tuple, Union
 
 from attrs import Factory, define, has
-from cattr._compat import get_args, get_origin, is_union_type
 from cattrs import Converter
 from incant import Hook, Incanter
 from starlette.applications import Starlette
@@ -15,9 +15,10 @@ from . import BaseApp, Header
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
+from .openapi import converter as openapi_converter
 from .path import parse_curly_path_params
 from .requests import get_cookie_name
-from .responses import empty_dict, get_status_code_results
+from .responses import get_status_code_results, identity, make_return_adapter
 from .types import is_subclass
 
 
@@ -75,26 +76,6 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
     return res
 
 
-def return_adapter(return_type: Any) -> Optional[Callable[..., Tuple]]:
-    """The aiohttp return adapter."""
-    if return_type in (Signature.empty, FrameworkResponse):
-        # You're on your own, buddy.
-        return None
-    if return_type in (str, bytes):
-        return lambda r: (r, 200, empty_dict)
-    if return_type is None:
-        return lambda r: (None, 200, empty_dict)
-    if get_origin(return_type) is tuple and len(get_args(return_type)) == 2:
-        return lambda r: (r[0], r[1], empty_dict)
-    if is_union_type(return_type):
-        return (
-            lambda r: r
-            if len(r) == 3
-            else ((r[0], r[1], empty_dict) if len(r) == 2 else (r[0], 200, empty_dict))
-        )
-    return None
-
-
 def framework_return_adapter(val: Tuple[Any, int, dict]):
     return FrameworkResponse(val[0] or b"", val[1], val[2])
 
@@ -111,6 +92,11 @@ class App(BaseApp):
     ):
         return self.route(path, name, starlette)
 
+    def delete(
+        self, path, name: Optional[str] = None, starlette: Optional[Starlette] = None
+    ):
+        return self.route(path, name, starlette, methods=["DELETE"])
+
     def route(
         self,
         path: str,
@@ -121,7 +107,9 @@ class App(BaseApp):
         s = starlette or self.starlette
 
         def wrapper(handler: Callable) -> Callable:
-            ra = return_adapter(signature(handler).return_annotation)
+            ra = make_return_adapter(
+                signature(handler).return_annotation, FrameworkResponse
+            )
             path_params = parse_curly_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
             if ra is None:
@@ -154,24 +142,50 @@ class App(BaseApp):
                 sig = signature(prepared)
                 path_types = {p: sig.parameters[p].annotation for p in path_params}
 
-                async def adapted(
-                    request: FrameworkRequest,
-                    _incant=self.framework_incant.aincant,
-                    _ra=ra,
-                    _fra=framework_return_adapter,
-                ) -> FrameworkResponse:
-                    path_args = {
-                        p: (
-                            self.converter.structure(request.path_params[p], path_type)
-                            if (path_type := path_types[p])
-                            not in (str, Signature.empty)
-                            else request.path_params[p]
+                if ra == identity:
+
+                    async def adapted(
+                        request: FrameworkRequest,
+                        _incant=self.framework_incant.aincant,
+                        _fra=framework_return_adapter,
+                    ) -> FrameworkResponse:
+                        path_args = {
+                            p: (
+                                self.converter.structure(
+                                    request.path_params[p], path_type
+                                )
+                                if (path_type := path_types[p])
+                                not in (str, Signature.empty)
+                                else request.path_params[p]
+                            )
+                            for p in path_params
+                        }
+                        return _fra(
+                            await _incant(prepared, request=request, **path_args)
                         )
-                        for p in path_params
-                    }
-                    return _fra(
-                        _ra(await _incant(prepared, request=request, **path_args))
-                    )
+
+                else:
+
+                    async def adapted(
+                        request: FrameworkRequest,
+                        _incant=self.framework_incant.aincant,
+                        _ra=ra,
+                        _fra=framework_return_adapter,
+                    ) -> FrameworkResponse:
+                        path_args = {
+                            p: (
+                                self.converter.structure(
+                                    request.path_params[p], path_type
+                                )
+                                if (path_type := path_types[p])
+                                not in (str, Signature.empty)
+                                else request.path_params[p]
+                            )
+                            for p in path_params
+                        }
+                        return _fra(
+                            _ra(await _incant(prepared, request=request, **path_args))
+                        )
 
             adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
@@ -179,6 +193,17 @@ class App(BaseApp):
             return adapted
 
         return wrapper
+
+    def serve_openapi(
+        self, path: str = "/openapi.json", starlette: Optional[Starlette] = None
+    ):
+        openapi = make_openapi_spec(starlette or self.starlette)
+        payload = openapi_converter.unstructure(openapi)
+
+        async def openapi_handler() -> tuple[str, Literal[200], dict]:
+            return dumps(payload), 200, {"content-type": "application/json"}
+
+        self.route(path)(openapi_handler)
 
     async def run(self, port: int = 8000):
         from uvicorn import Config, Server

@@ -18,14 +18,21 @@ __all__ = ["dumps", "returns_status_code", "get_status_code_results"]
 empty_dict: Dict[str, str] = {}
 
 
-def make_return_adapter(return_type: Any) -> Optional[Callable[..., Tuple]]:
-    if return_type is Signature.empty:
+def make_return_adapter(
+    return_type: Any, framework_response_cls: type
+) -> Optional[Callable[..., Tuple]]:
+    if return_type in (Signature.empty, framework_response_cls):
         # You're on your own, buddy.
         return None
     if return_type is None:
         return lambda r: (None, 200, empty_dict)
-    if get_origin(return_type) is tuple and len(get_args(tuple)) == 2:
-        return lambda r: (r[0], r[1], empty_dict)
+    if return_type in (str, bytes):
+        return lambda r: (r, 200, empty_dict)
+    if get_origin(return_type) is tuple:
+        if len(get_args(return_type)) == 2:
+            return lambda r: (r[0], r[1], empty_dict)
+        if len(get_args(return_type)) == 3:
+            return identity
     if is_union_type(return_type):
         return (
             lambda r: r
@@ -52,3 +59,8 @@ def get_status_code_results(t: type) -> list[tuple[int, Any]]:
         return [(200, t)]
     resp_types = get_args(t) if is_union_type(t) else (t,)
     return [(get_args((get_args(t)[1]))[0], get_args(t)[0]) for t in resp_types]  # type: ignore
+
+
+def identity(*args):
+    """The identity function, used and recognized for certain optimizations."""
+    return args

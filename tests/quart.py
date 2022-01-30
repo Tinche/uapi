@@ -69,11 +69,19 @@ def make_app() -> Quart:
     ) -> str:
         return a_cookie if a_cookie is not None else "missing"
 
+    @attrsapi.delete("/delete/header", quart=app)
+    async def delete_with_response_headers() -> tuple[None, Literal[204], dict]:
+        return None, 204, {"response": "test"}
+
     return app
 
 
 async def run_server(port: int, shutdown_event: Event):
     config = Config()
     config.bind = [f"localhost:{port}"]
-
-    await serve(make_app(), config, shutdown_trigger=shutdown_event.wait)
+    try:
+        app = make_app()
+    except Exception as exc:
+        print(exc)
+        raise
+    await serve(app, config, shutdown_trigger=shutdown_event.wait)

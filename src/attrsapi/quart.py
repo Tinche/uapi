@@ -1,5 +1,6 @@
 from inspect import Signature, signature
-from typing import Any, Callable, Optional, Tuple, cast
+from json import dumps
+from typing import Any, Callable, Literal, Optional, Tuple, cast
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -11,9 +12,10 @@ from quart import request
 
 from . import BaseApp
 from .flask import make_openapi_spec as flask_openapi_spec
+from .openapi import converter as openapi_converter
 from .path import parse_angle_path_params
 from .requests import get_cookie_name
-from .responses import make_return_adapter
+from .responses import identity, make_return_adapter
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -69,6 +71,9 @@ class App(BaseApp):
     def get(self, path, name: Optional[str] = None, quart: Optional[Quart] = None):
         return self.route(path, name, quart)
 
+    def delete(self, path, name: Optional[str] = None, quart: Optional[Quart] = None):
+        return self.route(path, name, quart, methods=["DELETE"])
+
     def route(
         self,
         path: str,
@@ -79,7 +84,9 @@ class App(BaseApp):
         q = quart or self.quart
 
         def wrapper(handler: Callable) -> Callable:
-            ra = make_return_adapter(signature(handler).return_annotation)
+            ra = make_return_adapter(
+                signature(handler).return_annotation, FrameworkResponse
+            )
             path_params = parse_angle_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
 
@@ -98,8 +105,15 @@ class App(BaseApp):
                     base_handler, hooks, is_async=True
                 )
 
-                async def adapted(**kwargs):
-                    return framework_return_adapter(ra(await prepared(**kwargs)))
+                if ra == identity:
+
+                    async def adapted(_fra=framework_return_adapter, **kwargs):
+                        return _fra(await prepared(**kwargs))
+
+                else:
+
+                    async def adapted(_fra=framework_return_adapter, _ra=ra, **kwargs):
+                        return _fra(_ra(await prepared(**kwargs)))
 
             adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
@@ -111,6 +125,15 @@ class App(BaseApp):
             return adapted
 
         return wrapper
+
+    def serve_openapi(self, path: str = "/openapi.json", quart: Optional[Quart] = None):
+        openapi = make_openapi_spec(quart or self.quart)
+        payload = openapi_converter.unstructure(openapi)
+
+        async def openapi_handler() -> tuple[str, Literal[200], dict]:
+            return dumps(payload), 200, {"content-type": "application/json"}
+
+        self.route(path)(openapi_handler)
 
     async def run(self, port: int = 8000):
         from uvicorn import Config, Server

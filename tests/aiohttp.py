@@ -67,6 +67,10 @@ def make_app() -> web.Application:
     ) -> str:
         return a_cookie if a_cookie is not None else "missing"
 
+    @attrsapi.delete("/delete/header", routes=routes)
+    async def delete_with_response_headers() -> tuple[None, Literal[204], dict]:
+        return None, 204, {"response": "test"}
+
     app = web.Application()
     app.add_routes(routes)
     return app
@@ -75,8 +79,7 @@ def make_app() -> web.Application:
 async def run_server(port: int):
     try:
         app = make_app()
+        await web._run_app(app, port=port, handle_signals=False)
     except Exception as exc:
         print(exc)
         raise
-    else:
-        await web._run_app(app, port=port, handle_signals=False)

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from inspect import Parameter, Signature, signature
-from typing import Any, Callable, Optional, Tuple, Union
+from json import dumps
+from typing import Any, Callable, Literal, Optional, Tuple, Union
 
 from attrs import Factory, define, has
 from cattrs import Converter
@@ -14,9 +15,10 @@ from . import BaseApp, Header
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
+from .openapi import converter as openapi_converter
 from .path import angle_to_curly, parse_angle_path_params, strip_path_param_prefix
 from .requests import get_cookie_name
-from .responses import get_status_code_results, make_return_adapter
+from .responses import get_status_code_results, identity, make_return_adapter
 from .types import is_subclass
 
 
@@ -73,6 +75,9 @@ class App(BaseApp):
     def get(self, path, name: Optional[str] = None, flask: Optional[Flask] = None):
         return self.route(path, name=name, flask=flask)
 
+    def delete(self, path, name: Optional[str] = None, flask: Optional[Flask] = None):
+        return self.route(path, name=name, flask=flask, methods=["DELETE"])
+
     def route(
         self,
         path: str,
@@ -83,7 +88,9 @@ class App(BaseApp):
         f = flask or self.flask
 
         def wrapper(handler: Callable) -> Callable:
-            ra = make_return_adapter(signature(handler).return_annotation)
+            ra = make_return_adapter(
+                signature(handler).return_annotation, FrameworkResponse
+            )
             path_params = parse_angle_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
 
@@ -101,9 +108,15 @@ class App(BaseApp):
                 prepared = self.framework_incant.prepare(
                     base_handler, hooks, is_async=False
                 )
+                if ra == identity:
 
-                def adapted(**kwargs):
-                    return framework_return_adapter(ra(prepared(**kwargs)))
+                    def adapted(**kwargs):
+                        return framework_return_adapter(prepared(**kwargs))
+
+                else:
+
+                    def adapted(**kwargs):
+                        return framework_return_adapter(ra(prepared(**kwargs)))
 
             adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
@@ -118,6 +131,31 @@ class App(BaseApp):
 
     def run(self, port: int = 8000):
         self.flask.run(port=port)
+
+    def serve_openapi(self, path: str = "/openapi.json", flask: Optional[Flask] = None):
+        openapi = make_openapi_spec(flask or self.flask)
+        payload = openapi_converter.unstructure(openapi)
+
+        async def openapi_handler() -> tuple[str, Literal[200], dict]:
+            return dumps(payload), 200, {"content-type": "application/json"}
+
+        self.route(path)(openapi_handler)
+
+    def serve_swaggerui(self):
+        from .swaggerui import swaggerui
+
+        def swaggerui_handler() -> tuple[str, Literal[200], dict]:
+            return swaggerui, 200, {"content-type": "text/html"}
+
+        self.route("/swaggerui")(swaggerui_handler)
+
+    def serve_redoc(self):
+        from .swaggerui import redoc
+
+        def redoc_handler() -> tuple[str, Literal[200], dict]:
+            return redoc, 200, {"content-type": "text/html"}
+
+        self.route("/redoc")(redoc_handler)
 
 
 def build_operation(

@@ -1,11 +1,12 @@
 from enum import Enum, unique
 from typing import Optional, Union
 
-from attr import Factory, fields, frozen
-from cattr import GenConverter, override
-from cattr.gen import make_dict_unstructure_fn
+from attrs import Factory, fields, frozen
+from cattrs import override
+from cattrs.gen import make_dict_unstructure_fn
+from cattrs.preconf.json import make_converter
 
-converter = GenConverter(omit_if_default=True)
+converter = make_converter(omit_if_default=True)
 
 
 @frozen

@@ -70,6 +70,10 @@ def make_app() -> Starlette:
     ) -> str:
         return a_cookie if a_cookie is not None else "missing"
 
+    @attrsapi.delete("/delete/header", starlette=app)
+    async def delete_with_response_headers() -> tuple[None, Literal[204], dict]:
+        return None, 204, {"response": "test"}
+
     return app
 
 
