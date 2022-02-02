@@ -5,6 +5,7 @@ from aiohttp.web import Response, RouteTableDef
 
 from attrsapi import Cookie
 from attrsapi.aiohttp import App
+from attrsapi.cookies import set_cookie
 
 
 def make_app() -> web.Application:
@@ -39,7 +40,7 @@ def make_app() -> web.Application:
     async def query_bytes() -> bytes:
         return b"2"
 
-    @attrsapi.route("/post/no-body-native-response", routes=routes, methods=["POST"])
+    @attrsapi.post("/post/no-body-native-response", routes=routes)
     async def post_no_body() -> Response:
         return Response(text="post", status=201)
 
@@ -58,7 +59,7 @@ def make_app() -> web.Application:
         return None, 201
 
     @attrsapi.route("/put/cookie", routes=routes, methods=["PUT"])
-    async def put_cookie(a_cookie: Annotated[str, Cookie()]) -> str:
+    async def put_cookie(a_cookie: Cookie) -> str:
         return a_cookie
 
     @attrsapi.route("/put/cookie-optional", routes=routes, methods=["PUT"])
@@ -71,6 +72,10 @@ def make_app() -> web.Application:
     async def delete_with_response_headers() -> tuple[None, Literal[204], dict]:
         return None, 204, {"response": "test"}
 
+    @attrsapi.patch("/patch/cookie", routes=routes)
+    async def patch_with_response_cookies() -> tuple[None, Literal[200], dict]:
+        return set_cookie((None, 200, {}), "cookie", "my_cookie", 1)
+
     app = web.Application()
     app.add_routes(routes)
     return app
@@ -80,6 +85,16 @@ async def run_server(port: int):
     try:
         app = make_app()
         await web._run_app(app, port=port, handle_signals=False)
+    except Exception as exc:
+        print(exc)
+        raise
+
+
+async def run_on_aiohttp(app: App, port: int):
+    try:
+        aiohttp_app = web.Application()
+        aiohttp_app.add_routes(app.routes)
+        await web._run_app(aiohttp_app, port=port, handle_signals=False)
     except Exception as exc:
         print(exc)
         raise

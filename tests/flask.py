@@ -7,6 +7,7 @@ from hypercorn.config import Config
 from hypercorn.middleware import AsyncioWSGIMiddleware
 
 from attrsapi import Cookie
+from attrsapi.cookies import set_cookie
 from attrsapi.flask import App
 
 
@@ -42,7 +43,7 @@ def make_app():
     def query_bytes() -> bytes:
         return b"2"
 
-    @attrsapi.route("/post/no-body-native-response", flask=app, methods=["post"])
+    @attrsapi.post("/post/no-body-native-response", flask=app)
     def post_no_body() -> Response:
         return Response("post", status=201)
 
@@ -74,6 +75,10 @@ def make_app():
     def delete_with_response_headers() -> tuple[None, Literal[204], dict]:
         return None, 204, {"response": "test"}
 
+    @attrsapi.patch("/patch/cookie", flask=app)
+    def patch_with_response_cookies() -> tuple[None, Literal[200], dict]:
+        return set_cookie((None, 200, {}), "cookie", "my_cookie", 1)
+
     return app
 
 
@@ -82,4 +87,12 @@ async def run_server(port: int, shutdown_event: Event):
     config.bind = [f"localhost:{port}"]
 
     asyncio_app = AsyncioWSGIMiddleware(make_app())
-    await serve(asyncio_app, config, shutdown_trigger=shutdown_event.wait)
+    await serve(asyncio_app, config, shutdown_trigger=shutdown_event.wait)  # type: ignore
+
+
+async def run_on_flask(app: App, port: int, shutdown_event: Event):
+    config = Config()
+    config.bind = [f"localhost:{port}"]
+
+    asyncio_app = AsyncioWSGIMiddleware(app.flask)
+    await serve(asyncio_app, config, shutdown_trigger=shutdown_event.wait)  # type: ignore

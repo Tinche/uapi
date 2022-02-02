@@ -64,3 +64,9 @@ def get_status_code_results(t: type) -> list[tuple[int, Any]]:
 def identity(*args):
     """The identity function, used and recognized for certain optimizations."""
     return args
+
+
+def dict_to_headers(d: dict[str, str]) -> list[tuple[str, str]]:
+    return [
+        (k, v) if not k[:9] == "__cookie_" else ("set-cookie", v) for k, v in d.items()
+    ]

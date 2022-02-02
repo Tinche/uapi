@@ -36,6 +36,17 @@ def make_cookie_dependency(cookie_name: str, default=Signature.empty):
     return read_cookie
 
 
+def extract_cookies(headers: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+    h = {}
+    cookies = []
+    for k, v in headers.items():
+        if k[:9] == "__cookie_":
+            cookies.append(v)
+        else:
+            h[k] = v
+    return h, cookies
+
+
 def make_starlette_incanter(converter: Converter) -> Incanter:
     """Create the framework incanter for Starlette."""
     res = Incanter()
@@ -77,7 +88,14 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
 
 
 def framework_return_adapter(val: Tuple[Any, int, dict]):
-    return FrameworkResponse(val[0] or b"", val[1], val[2])
+    if val[2]:
+        headers, cookies = extract_cookies(val[2])
+        res = FrameworkResponse(val[0] or b"", val[1], headers)
+        for cookie in cookies:
+            res.raw_headers.append((b"set-cookie", cookie.encode("latin1")))
+        return res
+    else:
+        return FrameworkResponse(val[0] or b"", val[1], val[2])
 
 
 @define
@@ -91,6 +109,16 @@ class App(BaseApp):
         self, path, name: Optional[str] = None, starlette: Optional[Starlette] = None
     ):
         return self.route(path, name, starlette)
+
+    def post(
+        self, path, name: Optional[str] = None, starlette: Optional[Starlette] = None
+    ):
+        return self.route(path, name, starlette, methods=["POST"])
+
+    def patch(
+        self, path, name: Optional[str] = None, starlette: Optional[Starlette] = None
+    ):
+        return self.route(path, name, starlette, methods=["PATCH"])
 
     def delete(
         self, path, name: Optional[str] = None, starlette: Optional[Starlette] = None

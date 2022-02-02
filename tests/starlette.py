@@ -7,6 +7,7 @@ from starlette.applications import Starlette
 from starlette.responses import Response
 
 from attrsapi import Cookie
+from attrsapi.cookies import set_cookie
 from attrsapi.starlette import App
 
 
@@ -42,7 +43,7 @@ def make_app() -> Starlette:
     async def query_bytes() -> bytes:
         return b"2"
 
-    @attrsapi.route("/post/no-body-native-response", starlette=app, methods=["POST"])
+    @attrsapi.post("/post/no-body-native-response", starlette=app)
     async def post_no_body() -> Response:
         return Response("post", 201)
 
@@ -61,7 +62,7 @@ def make_app() -> Starlette:
         return None, 201
 
     @attrsapi.route("/put/cookie", starlette=app, methods=["PUT"])
-    async def put_cookie(a_cookie: Annotated[str, Cookie()]) -> str:
+    async def put_cookie(a_cookie: Cookie) -> str:
         return a_cookie
 
     @attrsapi.route("/put/cookie-optional", starlette=app, methods=["PUT"])
@@ -74,6 +75,10 @@ def make_app() -> Starlette:
     async def delete_with_response_headers() -> tuple[None, Literal[204], dict]:
         return None, 204, {"response": "test"}
 
+    @attrsapi.patch("/patch/cookie", starlette=app)
+    async def patch_with_response_cookies() -> tuple[None, Literal[200], dict]:
+        return set_cookie((None, 200, {}), "cookie", "my_cookie", 1)
+
     return app
 
 
@@ -83,3 +88,11 @@ async def run_server(port: int, shutdown_event: Event):
     config.bind = [f"localhost:{port}"]
 
     await serve(make_app(), config, shutdown_trigger=shutdown_event.wait)  # type: ignore
+
+
+async def run_on_starlette(app: App, port: int, shutdown_event: Event):
+
+    config = Config()
+    config.bind = [f"localhost:{port}"]
+
+    await serve(app.starlette, config, shutdown_trigger=shutdown_event.wait)  # type: ignore

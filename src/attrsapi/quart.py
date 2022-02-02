@@ -9,13 +9,14 @@ from incant import Hook, Incanter
 from quart import Quart
 from quart import Response as FrameworkResponse
 from quart import request
+from werkzeug.datastructures import Headers
 
 from . import BaseApp
 from .flask import make_openapi_spec as flask_openapi_spec
 from .openapi import converter as openapi_converter
 from .path import parse_angle_path_params
 from .requests import get_cookie_name
-from .responses import identity, make_return_adapter
+from .responses import dict_to_headers, identity, make_return_adapter
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -57,8 +58,10 @@ def make_quart_incanter(converter: Converter) -> Incanter:
     return res
 
 
-def framework_return_adapter(val: Tuple[Any, int, dict]):
-    return FrameworkResponse(val[0] or b"", val[1], val[2])
+def framework_return_adapter(val: Tuple[Any, int, dict[str, str]]):
+    return FrameworkResponse(
+        val[0] or b"", val[1], Headers(dict_to_headers(val[2])) if val[2] else None
+    )
 
 
 @define
@@ -70,6 +73,12 @@ class App(BaseApp):
 
     def get(self, path, name: Optional[str] = None, quart: Optional[Quart] = None):
         return self.route(path, name, quart)
+
+    def post(self, path, name: Optional[str] = None, quart: Optional[Quart] = None):
+        return self.route(path, name=name, quart=quart, methods=["POST"])
+
+    def patch(self, path, name: Optional[str] = None, quart: Optional[Quart] = None):
+        return self.route(path, name=name, quart=quart, methods=["PATCH"])
 
     def delete(self, path, name: Optional[str] = None, quart: Optional[Quart] = None):
         return self.route(path, name, quart, methods=["DELETE"])

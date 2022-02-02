@@ -6,6 +6,7 @@ from hypercorn.config import Config
 from quart import Quart, Response
 
 from attrsapi import Cookie
+from attrsapi.cookies import set_cookie
 from attrsapi.quart import App
 
 
@@ -41,7 +42,7 @@ def make_app() -> Quart:
     async def query_bytes() -> bytes:
         return b"2"
 
-    @attrsapi.route("/post/no-body-native-response", quart=app, methods=["post"])
+    @attrsapi.post("/post/no-body-native-response", quart=app)
     async def post_no_body() -> Response:
         return Response("post", status=201)
 
@@ -60,7 +61,7 @@ def make_app() -> Quart:
         return None, 201
 
     @attrsapi.route("/put/cookie", quart=app, methods=["put"])
-    async def put_cookie(a_cookie: Annotated[str, Cookie()]) -> str:
+    async def put_cookie(a_cookie: Cookie) -> str:
         return a_cookie
 
     @attrsapi.route("/put/cookie-optional", quart=app, methods=["put"])
@@ -73,6 +74,10 @@ def make_app() -> Quart:
     async def delete_with_response_headers() -> tuple[None, Literal[204], dict]:
         return None, 204, {"response": "test"}
 
+    @attrsapi.patch("/patch/cookie", quart=app)
+    async def patch_with_response_cookies() -> tuple[None, Literal[200], dict]:
+        return set_cookie((None, 200, {}), "cookie", "my_cookie", 1)
+
     return app
 
 
@@ -84,4 +89,10 @@ async def run_server(port: int, shutdown_event: Event):
     except Exception as exc:
         print(exc)
         raise
-    await serve(app, config, shutdown_trigger=shutdown_event.wait)
+    await serve(app, config, shutdown_trigger=shutdown_event.wait)  # type: ignore
+
+
+async def run_on_quart(app: App, port: int, shutdown_event: Event):
+    config = Config()
+    config.bind = [f"localhost:{port}"]
+    await serve(app.quart, config, shutdown_trigger=shutdown_event.wait)  # type: ignore

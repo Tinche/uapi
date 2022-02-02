@@ -18,7 +18,12 @@ from .openapi import Reference, Response, Schema, build_attrs_schema
 from .openapi import converter as openapi_converter
 from .path import angle_to_curly, parse_angle_path_params, strip_path_param_prefix
 from .requests import get_cookie_name
-from .responses import get_status_code_results, identity, make_return_adapter
+from .responses import (
+    dict_to_headers,
+    get_status_code_results,
+    identity,
+    make_return_adapter,
+)
 from .types import is_subclass
 
 
@@ -61,8 +66,8 @@ def make_flask_incanter(converter: Converter) -> Incanter:
     return res
 
 
-def framework_return_adapter(val: Tuple[Any, int, dict]):
-    return FrameworkResponse(val[0] or b"", val[1], val[2])
+def framework_return_adapter(val: Tuple[Any, int, dict[str, str]]):
+    return FrameworkResponse(val[0] or b"", val[1], dict_to_headers(val[2]))
 
 
 @define
@@ -74,6 +79,12 @@ class App(BaseApp):
 
     def get(self, path, name: Optional[str] = None, flask: Optional[Flask] = None):
         return self.route(path, name=name, flask=flask)
+
+    def post(self, path, name: Optional[str] = None, flask: Optional[Flask] = None):
+        return self.route(path, name=name, flask=flask, methods=["POST"])
+
+    def patch(self, path, name: Optional[str] = None, flask: Optional[Flask] = None):
+        return self.route(path, name=name, flask=flask, methods=["PATCH"])
 
     def delete(self, path, name: Optional[str] = None, flask: Optional[Flask] = None):
         return self.route(path, name=name, flask=flask, methods=["DELETE"])

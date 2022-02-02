@@ -17,8 +17,9 @@ from aiohttp.web_urldispatcher import (
 )
 from attrs import Factory, define
 from cattr._compat import has
-from cattrs import Converter, unstructure
+from cattrs import Converter
 from incant import Hook, Incanter
+from multidict import CIMultiDict
 
 from attrsapi.requests import get_cookie_name
 
@@ -28,7 +29,12 @@ from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
 from .openapi import converter as openapi_converter
 from .path import parse_curly_path_params
-from .responses import get_status_code_results, identity, make_return_adapter
+from .responses import (
+    dict_to_headers,
+    get_status_code_results,
+    identity,
+    make_return_adapter,
+)
 from .types import is_subclass
 
 
@@ -87,7 +93,11 @@ def make_aiohttp_incanter(converter: Converter) -> Incanter:
 
 
 def framework_return_adapter(val: Tuple[Any, int, dict]):
-    return FrameworkResponse(body=val[0] or b"", status=val[1], headers=val[2])
+    return FrameworkResponse(
+        body=val[0] or b"",
+        status=val[1],
+        headers=CIMultiDict(dict_to_headers(val[2])) if val[2] else None,
+    )
 
 
 @define
@@ -101,6 +111,16 @@ class App(BaseApp):
         self, path, name: Optional[str] = None, routes: Optional[RouteTableDef] = None
     ):
         return self.route(path, name=name, routes=routes)
+
+    def post(
+        self, path, name: Optional[str] = None, routes: Optional[RouteTableDef] = None
+    ):
+        return self.route(path, name=name, routes=routes, methods=["POST"])
+
+    def patch(
+        self, path, name: Optional[str] = None, routes: Optional[RouteTableDef] = None
+    ):
+        return self.route(path, name=name, routes=routes, methods=["PATCH"])
 
     def delete(
         self, path, name: Optional[str] = None, routes: Optional[RouteTableDef] = None

@@ -4,26 +4,15 @@ from attrs import Factory, define, frozen
 from cattrs import Converter, GenConverter
 from incant import Incanter
 
+from .cookies import Cookie
+
 
 @frozen
 class Header:
     name: str
 
 
-@frozen
-class Cookie:
-    name: Optional[str] = None
-
-
 Parameter = Union[Header]
-
-
-def parameters(**kwargs: Parameter) -> Callable[[Callable], Callable]:
-    def inner(fn: Callable) -> Callable:
-        fn.__attrs_api_meta__ = kwargs  # type: ignore
-        return fn
-
-    return inner
 
 
 def make_base_incanter() -> Incanter:
