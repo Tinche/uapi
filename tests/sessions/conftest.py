@@ -3,11 +3,11 @@ from typing import Callable, Literal, Union
 
 import pytest
 
-from attrsapi.aiohttp import App as AiohttpApp
-from attrsapi.flask import App as FlaskApp
-from attrsapi.quart import App as QuartApp
-from attrsapi.sessions import Session, configure_sessions
-from attrsapi.starlette import App as StarletteApp
+from uapi.aiohttp import App as AiohttpApp
+from uapi.flask import App as FlaskApp
+from uapi.quart import App as QuartApp
+from uapi.sessions import Session, configure_sessions
+from uapi.starlette import App as StarletteApp
 
 from ..aiohttp import run_on_aiohttp
 from ..flask import run_on_flask

@@ -1,11 +1,11 @@
 """Test the OpenAPI schema generation."""
 import pytest
 
-from attrsapi.aiohttp import make_openapi_spec as aiohttp_make_openapi_spec
-from attrsapi.flask import make_openapi_spec as flask_make_openapi_spec
-from attrsapi.openapi import OpenAPI, Parameter, Schema
-from attrsapi.quart import make_openapi_spec as quart_make_openapi_spec
-from attrsapi.starlette import make_openapi_spec as starlette_make_openapi_spec
+from uapi.aiohttp import make_openapi_spec as aiohttp_make_openapi_spec
+from uapi.flask import make_openapi_spec as flask_make_openapi_spec
+from uapi.openapi import OpenAPI, Parameter, Schema
+from uapi.quart import make_openapi_spec as quart_make_openapi_spec
+from uapi.starlette import make_openapi_spec as starlette_make_openapi_spec
 
 from .aiohttp import make_app as aiohttp_make_app
 from .flask import make_app as flask_make_app

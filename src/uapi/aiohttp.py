@@ -21,14 +21,13 @@ from cattrs import Converter
 from incant import Hook, Incanter
 from multidict import CIMultiDict
 
-from attrsapi.requests import get_cookie_name
-
 from . import BaseApp, Header
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
 from .openapi import converter as openapi_converter
 from .path import parse_curly_path_params
+from .requests import get_cookie_name
 from .responses import (
     dict_to_headers,
     get_status_code_results,
