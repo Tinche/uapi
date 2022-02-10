@@ -4,9 +4,10 @@ from typing import Callable, Literal, Union
 import pytest
 
 from uapi.aiohttp import App as AiohttpApp
+from uapi.cookies import CookieSettings
 from uapi.flask import App as FlaskApp
 from uapi.quart import App as QuartApp
-from uapi.sessions import Session, configure_sessions
+from uapi.sessions import Session, configure_secure_sessions
 from uapi.starlette import App as StarletteApp
 
 from ..aiohttp import run_on_aiohttp
@@ -15,8 +16,12 @@ from ..quart import run_on_quart
 from ..starlette import run_on_starlette
 
 
-def configure_session_app(app: Union[AiohttpApp, QuartApp, StarletteApp, FlaskApp]):
-    configure_sessions(app, "test", max_age=1, secure=False)
+def configure_secure_session_app(
+    app: Union[AiohttpApp, QuartApp, StarletteApp, FlaskApp]
+):
+    configure_secure_sessions(
+        app, "test", settings=CookieSettings(max_age=1, secure=False)
+    )
 
     if isinstance(app, FlaskApp):
 
@@ -60,11 +65,13 @@ def configure_session_app(app: Union[AiohttpApp, QuartApp, StarletteApp, FlaskAp
 
 
 @pytest.fixture(params=["aiohttp", "flask", "quart", "starlette"], scope="session")
-async def session_app(request, unused_tcp_port_factory: Callable[..., int]):
+async def secure_cookie_session_app(
+    request, unused_tcp_port_factory: Callable[..., int]
+):
     unused_tcp_port = unused_tcp_port_factory()
     if request.param == "aiohttp":
         app = AiohttpApp()
-        configure_session_app(app)
+        configure_secure_session_app(app)
         t = create_task(run_on_aiohttp(app, unused_tcp_port))
         yield unused_tcp_port
         t.cancel()
@@ -74,7 +81,7 @@ async def session_app(request, unused_tcp_port_factory: Callable[..., int]):
             pass
     elif request.param == "flask":
         flask_app = FlaskApp()
-        configure_session_app(flask_app)
+        configure_secure_session_app(flask_app)
         shutdown_event = Event()
         t = create_task(run_on_flask(flask_app, unused_tcp_port, shutdown_event))
         yield unused_tcp_port
@@ -82,7 +89,7 @@ async def session_app(request, unused_tcp_port_factory: Callable[..., int]):
         await t
     elif request.param == "quart":
         quart_app = QuartApp()
-        configure_session_app(quart_app)
+        configure_secure_session_app(quart_app)
         shutdown_event = Event()
         t = create_task(run_on_quart(quart_app, unused_tcp_port, shutdown_event))
         yield unused_tcp_port
@@ -90,7 +97,7 @@ async def session_app(request, unused_tcp_port_factory: Callable[..., int]):
         await t
     elif request.param == "starlette":
         starlette_app = StarletteApp()
-        configure_session_app(starlette_app)
+        configure_secure_session_app(starlette_app)
         shutdown_event = Event()
         t = create_task(
             run_on_starlette(starlette_app, unused_tcp_port, shutdown_event)

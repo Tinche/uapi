@@ -1,9 +1,9 @@
-from typing import Annotated, Callable, Literal, Optional, TypeVar
+from typing import Annotated, Callable, Optional, TypeVar
 
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
-from . import BaseApp, Cookie
-from .cookies import set_cookie
+from .. import BaseApp, Cookie
+from ..cookies import CookieSettings, set_cookie
 
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")
@@ -15,20 +15,21 @@ class Session(dict[str, str]):
     def update_session(
         self, ret_val: T1, status: T2, headers: dict[str, str] = {}
     ) -> tuple[T1, T2, dict[str, str]]:
-        return set_cookie((ret_val, status, headers), *self._serialize(self))
+        name, val, *settings = self._serialize(self)
+        return set_cookie(
+            (ret_val, status, headers),
+            name,
+            val,
+            settings=CookieSettings(*settings),
+        )
 
 
-def configure_sessions(
+def configure_secure_sessions(
     app: BaseApp,
     secret_key: str,
     cookie_name: str = "session",
     salt: str = "cookie-session",
-    max_age: Optional[int] = 2678400,
-    http_only: bool = True,
-    secure: bool = True,
-    path: Optional[str] = None,
-    domain: Optional[str] = None,
-    same_site: Literal["strict", "lax", "none"] = "lax",
+    settings: CookieSettings = CookieSettings(max_age=2678400),
 ):
     s = URLSafeTimedSerializer(secret_key=secret_key, salt=salt)
 
@@ -37,12 +38,12 @@ def configure_sessions(
             (
                 cookie_name,
                 s.dumps(self),
-                max_age,
-                http_only,
-                secure,
-                path,
-                domain,
-                same_site,
+                settings.max_age,
+                settings.http_only,
+                settings.secure,
+                settings.path,
+                settings.domain,
+                settings.same_site,
             )
             if self
             else (cookie_name, None)

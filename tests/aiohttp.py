@@ -5,7 +5,7 @@ from aiohttp.web import Response, RouteTableDef
 
 from uapi import Cookie
 from uapi.aiohttp import App
-from uapi.cookies import set_cookie
+from uapi.cookies import CookieSettings, set_cookie
 
 
 def make_app() -> web.Application:
@@ -74,7 +74,9 @@ def make_app() -> web.Application:
 
     @app.patch("/patch/cookie", routes=routes)
     async def patch_with_response_cookies() -> tuple[None, Literal[200], dict]:
-        return set_cookie((None, 200, {}), "cookie", "my_cookie", 1)
+        return set_cookie(
+            (None, 200, {}), "cookie", "my_cookie", CookieSettings(max_age=1)
+        )
 
     aapp = web.Application()
     aapp.add_routes(routes)

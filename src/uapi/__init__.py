@@ -1,10 +1,12 @@
-from typing import Callable, Literal, Optional, Union
+from typing import Any, Literal, Union
 
 from attrs import Factory, define, frozen
 from cattrs import Converter, GenConverter
 from incant import Incanter
 
 from .cookies import Cookie
+
+__all__ = ["Cookie", "make_base_incanter", "BaseApp"]
 
 
 @frozen
@@ -42,3 +44,9 @@ class BaseApp:
             return redoc, 200, {"content-type": "text/html"}
 
         self.route("/redoc")(redoc_handler)
+
+
+def redirect(
+    res: tuple[Any, Any, dict[str, str]], location: str
+) -> tuple[None, Literal[303], dict[str, str]]:
+    return None, 303, res[2] | {"Location": location}

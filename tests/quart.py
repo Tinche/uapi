@@ -6,7 +6,7 @@ from hypercorn.config import Config
 from quart import Quart, Response
 
 from uapi import Cookie
-from uapi.cookies import set_cookie
+from uapi.cookies import CookieSettings, set_cookie
 from uapi.quart import App
 
 
@@ -76,7 +76,9 @@ def make_app() -> Quart:
 
     @app.patch("/patch/cookie", quart=quart)
     async def patch_with_response_cookies() -> tuple[None, Literal[200], dict]:
-        return set_cookie((None, 200, {}), "cookie", "my_cookie", 1)
+        return set_cookie(
+            (None, 200, {}), "cookie", "my_cookie", CookieSettings(max_age=1)
+        )
 
     return quart
 

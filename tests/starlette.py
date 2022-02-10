@@ -7,7 +7,7 @@ from starlette.applications import Starlette
 from starlette.responses import Response
 
 from uapi import Cookie
-from uapi.cookies import set_cookie
+from uapi.cookies import CookieSettings, set_cookie
 from uapi.starlette import App
 
 
@@ -77,7 +77,9 @@ def make_app() -> Starlette:
 
     @app.patch("/patch/cookie", starlette=starlette)
     async def patch_with_response_cookies() -> tuple[None, Literal[200], dict]:
-        return set_cookie((None, 200, {}), "cookie", "my_cookie", 1)
+        return set_cookie(
+            (None, 200, {}), "cookie", "my_cookie", CookieSettings(max_age=1)
+        )
 
     return starlette
 
