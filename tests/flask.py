@@ -6,9 +6,10 @@ from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from hypercorn.middleware import AsyncioWSGIMiddleware
 
-from uapi import Cookie
+from uapi import Cookie, ResponseException
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.flask import App
+from uapi.status import Created, Forbidden, NoContent, Ok
 
 
 def make_app():
@@ -52,14 +53,12 @@ def make_app():
         return
 
     @app.route("/post/201", flask=flask, methods=["post"])
-    def post_201() -> tuple[str, Literal[201]]:
-        return "test", 201
+    def post_201() -> Created[str]:
+        return Created("test")
 
     @app.route("/post/multiple", flask=flask, methods=["post"])
-    def post_multiple_codes() -> Union[
-        tuple[str, Literal[200]], tuple[None, Literal[201]]
-    ]:
-        return None, 201
+    def post_multiple_codes() -> Union[Ok[str], Created[None]]:
+        return Created(None)
 
     @app.route("/put/cookie", flask=flask, methods=["put"])
     def put_cookie(a_cookie: Annotated[str, Cookie()]) -> str:
@@ -72,14 +71,16 @@ def make_app():
         return a_cookie if a_cookie is not None else "missing"
 
     @app.delete("/delete/header", flask=flask)
-    def delete_with_response_headers() -> tuple[None, Literal[204], dict]:
-        return None, 204, {"response": "test"}
+    def delete_with_response_headers() -> NoContent[None]:
+        return NoContent(None, {"response": "test"})
 
     @app.patch("/patch/cookie", flask=flask)
-    def patch_with_response_cookies() -> tuple[None, Literal[200], dict]:
-        return set_cookie(
-            (None, 200, {}), "cookie", "my_cookie", CookieSettings(max_age=1)
-        )
+    def patch_with_response_cookies() -> Ok[None]:
+        return Ok(None, set_cookie("cookie", "my_cookie", CookieSettings(max_age=1)))
+
+    @app.head("/head/exc", flask=flask)
+    def head_with_exc() -> str:
+        raise ResponseException(Forbidden(None))
 
     return flask
 

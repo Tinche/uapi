@@ -1,6 +1,6 @@
 from asyncio import CancelledError, create_task, sleep
 from datetime import timedelta
-from typing import Callable, Literal
+from typing import Callable
 
 import pytest
 from aioredis import Redis
@@ -10,6 +10,7 @@ from tests.aiohttp import run_on_aiohttp
 from uapi.aiohttp import App as AiohttpApp
 from uapi.cookies import CookieSettings
 from uapi.sessions.redis import AsyncSession, configure_async_sessions
+from uapi.status import Created, NoContent
 
 
 def configure_redis_session_app(app: AiohttpApp):
@@ -28,15 +29,13 @@ def configure_redis_session_app(app: AiohttpApp):
             return session["user_id"]
 
     @app.post("/login")
-    async def login(
-        username: str, session: AsyncSession
-    ) -> tuple[None, Literal[201], dict]:
+    async def login(username: str, session: AsyncSession) -> Created[None]:
         session["user_id"] = username
-        return await session.update_session(None, 201, namespace=username)
+        return Created(None, await session.update_session(namespace=username))
 
     @app.post("/logout")
-    async def logout(session: AsyncSession) -> tuple[None, Literal[204], dict]:
-        return await session.clear_session(None, 204)
+    async def logout(session: AsyncSession) -> NoContent[None]:
+        return NoContent(None, await session.clear_session())
 
 
 @pytest.fixture(scope="session")
@@ -61,8 +60,7 @@ async def test_login_logout(redis_session_app: int):
         assert resp.text == "naughty!"
 
         resp = await client.post(
-            f"http://localhost:{redis_session_app}/login",
-            params={"username": username},
+            f"http://localhost:{redis_session_app}/login", params={"username": username}
         )
 
         assert resp.status_code == 201
@@ -94,8 +92,7 @@ async def test_session_expiry(redis_session_app: int):
         assert resp.text == "naughty!"
 
         resp = await client.post(
-            f"http://localhost:{redis_session_app}/login",
-            params={"username": username},
+            f"http://localhost:{redis_session_app}/login", params={"username": username}
         )
 
         assert resp.status_code == 201

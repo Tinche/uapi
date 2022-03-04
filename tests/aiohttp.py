@@ -3,9 +3,10 @@ from typing import Annotated, Literal, Optional, Union
 from aiohttp import web
 from aiohttp.web import Response, RouteTableDef
 
-from uapi import Cookie
+from uapi import Cookie, ResponseException
 from uapi.aiohttp import App
 from uapi.cookies import CookieSettings, set_cookie
+from uapi.status import Created, Forbidden, NoContent, Ok
 
 
 def make_app() -> web.Application:
@@ -49,14 +50,12 @@ def make_app() -> web.Application:
         return
 
     @app.route("/post/201", routes=routes, methods=["POST"])
-    async def post_201() -> tuple[str, Literal[201]]:
-        return "test", 201
+    async def post_201() -> Created[str]:
+        return Created("test")
 
     @app.route("/post/multiple", routes=routes, methods=["POST"])
-    async def post_multiple_codes() -> Union[
-        tuple[str, Literal[200]], tuple[None, Literal[201]]
-    ]:
-        return None, 201
+    async def post_multiple_codes() -> Union[Ok[str], Created[None]]:
+        return Created(None)
 
     @app.route("/put/cookie", routes=routes, methods=["PUT"])
     async def put_cookie(a_cookie: Cookie) -> str:
@@ -69,14 +68,16 @@ def make_app() -> web.Application:
         return a_cookie if a_cookie is not None else "missing"
 
     @app.delete("/delete/header", routes=routes)
-    async def delete_with_response_headers() -> tuple[None, Literal[204], dict]:
-        return None, 204, {"response": "test"}
+    async def delete_with_response_headers() -> NoContent[None]:
+        return NoContent(None, {"response": "test"})
 
     @app.patch("/patch/cookie", routes=routes)
-    async def patch_with_response_cookies() -> tuple[None, Literal[200], dict]:
-        return set_cookie(
-            (None, 200, {}), "cookie", "my_cookie", CookieSettings(max_age=1)
-        )
+    async def patch_with_response_cookies() -> Ok[None]:
+        return Ok(None, set_cookie("cookie", "my_cookie", CookieSettings(max_age=1)))
+
+    @app.head("/head/exc", routes=routes)
+    async def head_with_exc() -> str:
+        raise ResponseException(Forbidden(None))
 
     aapp = web.Application()
     aapp.add_routes(routes)

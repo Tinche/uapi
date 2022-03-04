@@ -9,6 +9,7 @@ from uapi.flask import App as FlaskApp
 from uapi.quart import App as QuartApp
 from uapi.sessions import Session, configure_secure_sessions
 from uapi.starlette import App as StarletteApp
+from uapi.status import Created, NoContent
 
 from ..aiohttp import run_on_aiohttp
 from ..flask import run_on_flask
@@ -33,14 +34,14 @@ def configure_secure_session_app(
                 return session["user_id"]
 
         @app.post("/login")
-        def login(username: str, session: Session) -> tuple[None, Literal[201], dict]:
+        def login(username: str, session: Session) -> Created[None]:
             session["user_id"] = username
-            return session.update_session(None, 201)
+            return Created(None, session.update_session())
 
         @app.post("/logout")
-        def logout(session: Session) -> tuple[None, Literal[204], dict]:
+        def logout(session: Session) -> NoContent[None]:
             session.pop("user_id", None)
-            return session.update_session(None, 204)
+            return NoContent(None, session.update_session())
 
     else:
 
@@ -52,16 +53,14 @@ def configure_secure_session_app(
                 return session["user_id"]
 
         @app.post("/login")
-        async def login(
-            username: str, session: Session
-        ) -> tuple[None, Literal[201], dict]:
+        async def login(username: str, session: Session) -> Created[None]:
             session["user_id"] = username
-            return session.update_session(None, 201)
+            return Created(None, session.update_session())
 
         @app.post("/logout")
-        async def logout(session: Session) -> tuple[None, Literal[204], dict]:
+        async def logout(session: Session) -> NoContent[None]:
             session.pop("user_id", None)
-            return session.update_session(None, 204)
+            return NoContent(None, session.update_session())
 
 
 @pytest.fixture(params=["aiohttp", "flask", "quart", "starlette"], scope="session")

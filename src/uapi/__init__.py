@@ -1,10 +1,11 @@
-from typing import Any, Literal, Union
+from typing import Union
 
 from attrs import Factory, define, frozen
 from cattrs import Converter, GenConverter
 from incant import Incanter
 
 from .cookies import Cookie
+from .status import BaseResponse, Found, Headers, Ok, SeeOther
 
 __all__ = ["Cookie", "make_base_incanter", "BaseApp"]
 
@@ -32,21 +33,30 @@ class BaseApp:
     def serve_swaggerui(self):
         from .swaggerui import swaggerui
 
-        async def swaggerui_handler() -> tuple[str, Literal[200], dict]:
-            return swaggerui, 200, {"content-type": "text/html"}
+        async def swaggerui_handler() -> Ok[str]:
+            return Ok(swaggerui, {"content-type": "text/html"})
 
         self.route("/swaggerui")(swaggerui_handler)
 
     def serve_redoc(self):
         from .swaggerui import redoc
 
-        async def redoc_handler() -> tuple[str, Literal[200], dict]:
-            return redoc, 200, {"content-type": "text/html"}
+        async def redoc_handler() -> Ok[str]:
+            return Ok(redoc, {"content-type": "text/html"})
 
         self.route("/redoc")(redoc_handler)
 
 
-def redirect(
-    res: tuple[Any, Any, dict[str, str]], location: str
-) -> tuple[None, Literal[303], dict[str, str]]:
-    return None, 303, res[2] | {"Location": location}
+def redirect(location: str, headers: Headers = {}) -> Found[None]:
+    return Found(None, headers | {"Location": location})
+
+
+def redirect_to_get(location: str, headers: Headers = {}) -> SeeOther[None]:
+    return SeeOther(None, headers | {"Location": location})
+
+
+@define
+class ResponseException(Exception):
+    """An exception that is converted into an HTTP response."""
+
+    response: BaseResponse

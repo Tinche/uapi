@@ -1,6 +1,7 @@
 from collections import defaultdict
 from inspect import Parameter, Signature, signature
 from json import dumps
+from types import NoneType
 from typing import Any, Callable, Literal, Optional, Tuple, Union
 
 from attrs import Factory, define, has
@@ -11,7 +12,7 @@ from starlette.requests import Request as FrameworkRequest
 from starlette.responses import Response as FrameworkResponse
 from starlette.routing import BaseRoute, Route
 
-from . import BaseApp, Header
+from . import BaseApp, Header, ResponseException
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
@@ -19,6 +20,7 @@ from .openapi import converter as openapi_converter
 from .path import parse_curly_path_params
 from .requests import get_cookie_name
 from .responses import get_status_code_results, identity, make_return_adapter
+from .status import BaseResponse, Headers, get_status_code
 from .types import is_subclass
 
 
@@ -36,7 +38,7 @@ def make_cookie_dependency(cookie_name: str, default=Signature.empty):
     return read_cookie
 
 
-def extract_cookies(headers: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+def extract_cookies(headers: Headers) -> tuple[dict[str, str], list[str]]:
     h = {}
     cookies = []
     for k, v in headers.items():
@@ -63,8 +65,7 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
         return read_query
 
     res.register_hook_factory(
-        lambda p: p.annotation is not FrameworkRequest,
-        query_factory,
+        lambda p: p.annotation is not FrameworkRequest, query_factory
     )
 
     def string_query_factory(p: Parameter):
@@ -87,15 +88,17 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
     return res
 
 
-def framework_return_adapter(val: Tuple[Any, int, dict]):
-    if val[2]:
-        headers, cookies = extract_cookies(val[2])
-        res = FrameworkResponse(val[0] or b"", val[1], headers)
+def framework_return_adapter(resp: BaseResponse):
+    if resp.headers:
+        headers, cookies = extract_cookies(resp.headers)
+        res = FrameworkResponse(
+            resp.ret or b"", get_status_code(resp.__class__), headers  # type: ignore
+        )
         for cookie in cookies:
             res.raw_headers.append((b"set-cookie", cookie.encode("latin1")))
         return res
     else:
-        return FrameworkResponse(val[0] or b"", val[1], val[2])
+        return FrameworkResponse(resp.ret or b"", get_status_code(resp.__class__))  # type: ignore
 
 
 @define
@@ -106,24 +109,44 @@ class App(BaseApp):
     )
 
     def get(
-        self, path, name: Optional[str] = None, starlette: Optional[Starlette] = None
+        self,
+        path: str,
+        name: Optional[str] = None,
+        starlette: Optional[Starlette] = None,
     ):
         return self.route(path, name, starlette)
 
     def post(
-        self, path, name: Optional[str] = None, starlette: Optional[Starlette] = None
+        self,
+        path: str,
+        name: Optional[str] = None,
+        starlette: Optional[Starlette] = None,
     ):
         return self.route(path, name, starlette, methods=["POST"])
 
     def patch(
-        self, path, name: Optional[str] = None, starlette: Optional[Starlette] = None
+        self,
+        path: str,
+        name: Optional[str] = None,
+        starlette: Optional[Starlette] = None,
     ):
         return self.route(path, name, starlette, methods=["PATCH"])
 
     def delete(
-        self, path, name: Optional[str] = None, starlette: Optional[Starlette] = None
+        self,
+        path: str,
+        name: Optional[str] = None,
+        starlette: Optional[Starlette] = None,
     ):
         return self.route(path, name, starlette, methods=["DELETE"])
+
+    def head(
+        self,
+        path: str,
+        name: Optional[str] = None,
+        starlette: Optional[Starlette] = None,
+    ):
+        return self.route(path, name, starlette, methods=["HEAD"])
 
     def route(
         self,
@@ -188,9 +211,12 @@ class App(BaseApp):
                             )
                             for p in path_params
                         }
-                        return _fra(
-                            await _incant(prepared, request=request, **path_args)
-                        )
+                        try:
+                            return _fra(
+                                await _incant(prepared, request=request, **path_args)
+                            )
+                        except ResponseException as exc:
+                            return _fra(exc.response)
 
                 else:
 
@@ -211,9 +237,16 @@ class App(BaseApp):
                             )
                             for p in path_params
                         }
-                        return _fra(
-                            _ra(await _incant(prepared, request=request, **path_args))
-                        )
+                        try:
+                            return _fra(
+                                _ra(
+                                    await _incant(
+                                        prepared, request=request, **path_args
+                                    )
+                                )
+                            )
+                        except ResponseException as exc:
+                            return _fra(exc.response)
 
             adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
@@ -289,8 +322,7 @@ def build_operation(
                             OpenApiParameter.Kind.COOKIE,
                             arg_param.default is Parameter.empty,
                             PYTHON_PRIMITIVES_TO_OPENAPI.get(
-                                arg_param.annotation,
-                                PYTHON_PRIMITIVES_TO_OPENAPI[str],
+                                arg_param.annotation, PYTHON_PRIMITIVES_TO_OPENAPI[str]
                             ),
                         )
                     )
@@ -322,10 +354,9 @@ def build_operation(
                 if result_type is str:
                     ct = "text/plain"
                     responses[str(status_code)] = Response(
-                        "OK",
-                        {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])},
+                        "OK", {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])}
                     )
-                elif result_type is None:
+                elif result_type in (None, NoneType):
                     responses[str(status_code)] = Response("OK")
                 elif has(result_type):
                     responses[str(status_code)] = Response(
@@ -340,8 +371,7 @@ def build_operation(
                     )
                 else:
                     responses[str(status_code)] = Response(
-                        "OK",
-                        {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])},
+                        "OK", {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])}
                     )
     return OpenAPI.PathItem.Operation(responses, params)
 

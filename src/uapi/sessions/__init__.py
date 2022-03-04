@@ -4,6 +4,7 @@ from itsdangerous import BadSignature, URLSafeTimedSerializer
 
 from .. import BaseApp, Cookie
 from ..cookies import CookieSettings, set_cookie
+from ..status import Headers
 
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")
@@ -12,16 +13,9 @@ T2 = TypeVar("T2")
 class Session(dict[str, str]):
     _serialize: Callable
 
-    def update_session(
-        self, ret_val: T1, status: T2, headers: dict[str, str] = {}
-    ) -> tuple[T1, T2, dict[str, str]]:
+    def update_session(self) -> Headers:
         name, val, *settings = self._serialize(self)
-        return set_cookie(
-            (ret_val, status, headers),
-            name,
-            val,
-            settings=CookieSettings(*settings),
-        )
+        return set_cookie(name, val, settings=CookieSettings(*settings))
 
 
 def configure_secure_sessions(

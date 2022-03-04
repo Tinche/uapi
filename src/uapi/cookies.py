@@ -1,6 +1,8 @@
-from typing import Literal, Optional, Tuple, TypeVar
+from typing import Literal, Optional, TypeVar
 
 from attrs import frozen
+
+from .status import Headers
 
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")
@@ -19,11 +21,7 @@ class CookieSettings:
     same_site: SameSite = "lax"
 
 
-def _make_cookie_header(
-    name: str,
-    value: str,
-    settings: CookieSettings,
-) -> dict:
+def _make_cookie_header(name: str, value: str, settings: CookieSettings) -> Headers:
     val = f"{name}={value}"
     if settings.max_age is not None:
         val = f"{val}; Max-Age={settings.max_age}"
@@ -50,18 +48,10 @@ class Cookie(str):
 
 
 def set_cookie(
-    resp: Tuple[T1, T2, dict[str, str]],
-    name: str,
-    value: Optional[str],
-    settings: CookieSettings = CookieSettings(),
-) -> Tuple[T1, T2, dict[str, str]]:
+    name: str, value: Optional[str], settings: CookieSettings = CookieSettings()
+) -> Headers:
     return (
-        resp[0],
-        resp[1],
-        resp[2]
-        | (
-            _make_cookie_header(name, value, settings)
-            if value is not None
-            else _make_delete_cookie_header(name)
-        ),
+        _make_cookie_header(name, value, settings)
+        if value is not None
+        else _make_delete_cookie_header(name)
     )

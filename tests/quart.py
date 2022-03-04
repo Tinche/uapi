@@ -1,13 +1,14 @@
 from asyncio import Event
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Optional, Union
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from quart import Quart, Response
 
-from uapi import Cookie
+from uapi import Cookie, ResponseException
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.quart import App
+from uapi.status import Created, Forbidden, NoContent, Ok
 
 
 def make_app() -> Quart:
@@ -51,14 +52,12 @@ def make_app() -> Quart:
         return
 
     @app.route("/post/201", quart=quart, methods=["post"])
-    async def post_201() -> tuple[str, Literal[201]]:
-        return "test", 201
+    async def post_201() -> Created[str]:
+        return Created("test")
 
     @app.route("/post/multiple", quart=quart, methods=["post"])
-    async def post_multiple_codes() -> Union[
-        tuple[str, Literal[200]], tuple[None, Literal[201]]
-    ]:
-        return None, 201
+    async def post_multiple_codes() -> Union[Ok[str], Created[None]]:
+        return Created(None)
 
     @app.route("/put/cookie", quart=quart, methods=["put"])
     async def put_cookie(a_cookie: Cookie) -> str:
@@ -71,14 +70,16 @@ def make_app() -> Quart:
         return a_cookie if a_cookie is not None else "missing"
 
     @app.delete("/delete/header", quart=quart)
-    async def delete_with_response_headers() -> tuple[None, Literal[204], dict]:
-        return None, 204, {"response": "test"}
+    async def delete_with_response_headers() -> NoContent[None]:
+        return NoContent(None, {"response": "test"})
 
     @app.patch("/patch/cookie", quart=quart)
-    async def patch_with_response_cookies() -> tuple[None, Literal[200], dict]:
-        return set_cookie(
-            (None, 200, {}), "cookie", "my_cookie", CookieSettings(max_age=1)
-        )
+    async def patch_with_response_cookies() -> Ok[None]:
+        return Ok(None, set_cookie("cookie", "my_cookie", CookieSettings(max_age=1)))
+
+    @app.head("/head/exc", quart=quart)
+    async def head_with_exc() -> str:
+        raise ResponseException(Forbidden(None))
 
     return quart
 

@@ -1,6 +1,6 @@
 from inspect import Signature, signature
 from json import dumps
-from typing import Any, Callable, Literal, Optional, Tuple, cast
+from typing import Any, Callable, Literal, Optional, cast
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -11,12 +11,13 @@ from quart import Response as FrameworkResponse
 from quart import request
 from werkzeug.datastructures import Headers
 
-from . import BaseApp
+from . import BaseApp, ResponseException
 from .flask import make_openapi_spec as flask_openapi_spec
 from .openapi import converter as openapi_converter
 from .path import parse_angle_path_params
 from .requests import get_cookie_name
 from .responses import dict_to_headers, identity, make_return_adapter
+from .status import BaseResponse, get_status_code
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -58,9 +59,11 @@ def make_quart_incanter(converter: Converter) -> Incanter:
     return res
 
 
-def framework_return_adapter(val: Tuple[Any, int, dict[str, str]]):
+def framework_return_adapter(resp: BaseResponse):
     return FrameworkResponse(
-        val[0] or b"", val[1], Headers(dict_to_headers(val[2])) if val[2] else None
+        resp.ret or b"",
+        get_status_code(resp.__class__),  # type: ignore
+        Headers(dict_to_headers(resp.headers)) if resp.headers else None,
     )
 
 
@@ -71,17 +74,28 @@ class App(BaseApp):
         lambda self: make_quart_incanter(self.converter), takes_self=True
     )
 
-    def get(self, path, name: Optional[str] = None, quart: Optional[Quart] = None):
+    def get(self, path: str, name: Optional[str] = None, quart: Optional[Quart] = None):
         return self.route(path, name, quart)
 
-    def post(self, path, name: Optional[str] = None, quart: Optional[Quart] = None):
+    def post(
+        self, path: str, name: Optional[str] = None, quart: Optional[Quart] = None
+    ):
         return self.route(path, name=name, quart=quart, methods=["POST"])
 
-    def patch(self, path, name: Optional[str] = None, quart: Optional[Quart] = None):
+    def patch(
+        self, path: str, name: Optional[str] = None, quart: Optional[Quart] = None
+    ):
         return self.route(path, name=name, quart=quart, methods=["PATCH"])
 
-    def delete(self, path, name: Optional[str] = None, quart: Optional[Quart] = None):
+    def delete(
+        self, path: str, name: Optional[str] = None, quart: Optional[Quart] = None
+    ):
         return self.route(path, name, quart, methods=["DELETE"])
+
+    def head(
+        self, path: str, name: Optional[str] = None, quart: Optional[Quart] = None
+    ):
+        return self.route(path, name, quart, methods=["HEAD"])
 
     def route(
         self,
@@ -117,12 +131,18 @@ class App(BaseApp):
                 if ra == identity:
 
                     async def adapted(_fra=framework_return_adapter, **kwargs):
-                        return _fra(await prepared(**kwargs))
+                        try:
+                            return _fra(await prepared(**kwargs))
+                        except ResponseException as exc:
+                            return _fra(exc.response)
 
                 else:
 
                     async def adapted(_fra=framework_return_adapter, _ra=ra, **kwargs):
-                        return _fra(_ra(await prepared(**kwargs)))
+                        try:
+                            return _fra(_ra(await prepared(**kwargs)))
+                        except ResponseException as exc:
+                            return _fra(exc.response)
 
             adapted.__attrsapi_handler__ = base_handler  # type: ignore
 

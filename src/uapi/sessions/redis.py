@@ -6,9 +6,9 @@ from secrets import token_hex
 from time import time
 from typing import TYPE_CHECKING, Annotated, Optional, TypeVar
 
-from attrs import define
+from attrs import frozen
 
-from .. import BaseApp, Cookie
+from .. import BaseApp, Cookie, Headers
 from ..cookies import CookieSettings, set_cookie
 
 if TYPE_CHECKING:
@@ -27,14 +27,7 @@ class AsyncSession(dict[str, str]):
     _ttl: int
     _key_prefix: str
 
-    async def update_session(
-        self,
-        ret_val: T1,
-        status: T2,
-        headers: dict[str, str] = {},
-        *,
-        namespace: Optional[str] = None,
-    ) -> tuple[T1, T2, dict[str, str]]:
+    async def update_session(self, *, namespace: Optional[str] = None) -> Headers:
         namespace = namespace or self._namespace
         if namespace is None:
             raise Exception("The namespace must be set for new sessions.")
@@ -57,28 +50,25 @@ class AsyncSession(dict[str, str]):
         await pipeline.execute()
 
         return set_cookie(
-            (ret_val, status, headers),
-            self._cookie_name,
-            f"{namespace}:{self._id}",
-            settings=self._cookie_settings,
+            self._cookie_name, f"{namespace}:{self._id}", settings=self._cookie_settings
         )
 
-    async def clear_session(
-        self, ret_val, status, headers: dict[str, str] = {}
-    ) -> tuple[T1, T2, dict[str, str]]:
+    async def clear_session(self) -> Headers:
         self.clear()
         if self._namespace is not None:
             pipeline = self._aioredis.pipeline()
             pipeline.delete(f"{self._namespace}:s:{self._id}")
             pipeline.zrem(f"{self._namespace}:s", self._id)
             await pipeline.execute()
-        return set_cookie((ret_val, status, headers), self._cookie_name, None)
+        return set_cookie(self._cookie_name, None)
 
 
-@define
+@frozen
 class AsyncRedisSessionStore:
     _redis: "Redis"
     _key_prefix: str
+    _cookie_name: str
+    _cookie_settings: CookieSettings
 
     async def remove_namespace(self, namespace: str):
         """Remove all sessions in a particular namespace."""
@@ -86,7 +76,7 @@ class AsyncRedisSessionStore:
         session_ids = await self._redis.zrangebyscore(ns_key, time(), float("inf"))
         pipeline = self._redis.pipeline()
         for session_id in session_ids:
-            pipeline.delete(f"{ns_key}:{session_id}")
+            pipeline.delete(f"{ns_key}:{session_id.decode()}")
         pipeline.delete(ns_key)
         await pipeline.execute()
 
@@ -137,4 +127,6 @@ def configure_async_sessions(
         session_factory,
     )
 
-    return AsyncRedisSessionStore(aioredis, redis_key_prefix)
+    return AsyncRedisSessionStore(
+        aioredis, redis_key_prefix, cookie_name, cookie_settings
+    )

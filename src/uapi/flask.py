@@ -1,6 +1,7 @@
 from collections import defaultdict
 from inspect import Parameter, Signature, signature
 from json import dumps
+from types import NoneType
 from typing import Any, Callable, Literal, Optional, Tuple, Union
 
 from attrs import Factory, define, has
@@ -11,7 +12,7 @@ from flask import request
 from incant import Hook, Incanter
 from werkzeug.routing import Rule
 
-from . import BaseApp, Header
+from . import BaseApp, Header, ResponseException
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
@@ -24,6 +25,7 @@ from .responses import (
     identity,
     make_return_adapter,
 )
+from .status import BaseResponse, get_status_code
 from .types import is_subclass
 
 
@@ -66,8 +68,10 @@ def make_flask_incanter(converter: Converter) -> Incanter:
     return res
 
 
-def framework_return_adapter(val: Tuple[Any, int, dict[str, str]]):
-    return FrameworkResponse(val[0] or b"", val[1], dict_to_headers(val[2]))
+def framework_return_adapter(resp: BaseResponse):
+    return FrameworkResponse(
+        resp.ret or b"", get_status_code(resp.__class__), dict_to_headers(resp.headers)  # type: ignore
+    )
 
 
 @define
@@ -77,17 +81,28 @@ class App(BaseApp):
         lambda self: make_flask_incanter(self.converter), takes_self=True
     )
 
-    def get(self, path, name: Optional[str] = None, flask: Optional[Flask] = None):
+    def get(self, path: str, name: Optional[str] = None, flask: Optional[Flask] = None):
         return self.route(path, name=name, flask=flask)
 
-    def post(self, path, name: Optional[str] = None, flask: Optional[Flask] = None):
+    def post(
+        self, path: str, name: Optional[str] = None, flask: Optional[Flask] = None
+    ):
         return self.route(path, name=name, flask=flask, methods=["POST"])
 
-    def patch(self, path, name: Optional[str] = None, flask: Optional[Flask] = None):
+    def patch(
+        self, path: str, name: Optional[str] = None, flask: Optional[Flask] = None
+    ):
         return self.route(path, name=name, flask=flask, methods=["PATCH"])
 
-    def delete(self, path, name: Optional[str] = None, flask: Optional[Flask] = None):
+    def delete(
+        self, path: str, name: Optional[str] = None, flask: Optional[Flask] = None
+    ):
         return self.route(path, name=name, flask=flask, methods=["DELETE"])
+
+    def head(
+        self, path: str, name: Optional[str] = None, flask: Optional[Flask] = None
+    ):
+        return self.route(path, name=name, flask=flask, methods=["HEAD"])
 
     def route(
         self,
@@ -122,12 +137,18 @@ class App(BaseApp):
                 if ra == identity:
 
                     def adapted(**kwargs):
-                        return framework_return_adapter(prepared(**kwargs))
+                        try:
+                            return framework_return_adapter(prepared(**kwargs))
+                        except ResponseException as exc:
+                            return framework_return_adapter(exc.response)
 
                 else:
 
                     def adapted(**kwargs):
-                        return framework_return_adapter(ra(prepared(**kwargs)))
+                        try:
+                            return framework_return_adapter(ra(prepared(**kwargs)))
+                        except ResponseException as exc:
+                            return framework_return_adapter(exc.response)
 
             adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
@@ -170,10 +191,7 @@ class App(BaseApp):
 
 
 def build_operation(
-    handler: Callable,
-    path: str,
-    components: dict[type, str],
-    native_response: type,
+    handler: Callable, path: str, components: dict[type, str], native_response: type
 ) -> OpenAPI.PathItem.Operation:
     request_body = {}
     responses = {"200": Response(description="OK")}
@@ -220,8 +238,7 @@ def build_operation(
                             OpenApiParameter.Kind.COOKIE,
                             arg_param.default is Parameter.empty,
                             PYTHON_PRIMITIVES_TO_OPENAPI.get(
-                                arg_param.annotation,
-                                PYTHON_PRIMITIVES_TO_OPENAPI[str],
+                                arg_param.annotation, PYTHON_PRIMITIVES_TO_OPENAPI[str]
                             ),
                         )
                     )
@@ -253,10 +270,9 @@ def build_operation(
                 if result_type is str:
                     ct = "text/plain"
                     responses[str(status_code)] = Response(
-                        "OK",
-                        {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])},
+                        "OK", {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])}
                     )
-                elif result_type is None:
+                elif result_type in (None, NoneType):
                     responses[str(status_code)] = Response("OK")
                 elif has(result_type):
                     responses[str(status_code)] = Response(
@@ -271,8 +287,7 @@ def build_operation(
                     )
                 else:
                     responses[str(status_code)] = Response(
-                        "OK",
-                        {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])},
+                        "OK", {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])}
                     )
 
     return OpenAPI.PathItem.Operation(responses, params)

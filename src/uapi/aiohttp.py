@@ -2,6 +2,7 @@ from collections import defaultdict
 from inspect import Parameter as Parameter
 from inspect import Signature, getfullargspec, signature
 from json import dumps
+from types import NoneType
 from typing import Any, Callable, Literal, Optional, Tuple, Union
 
 from aiohttp.web import Request as FrameworkRequest
@@ -21,7 +22,7 @@ from cattrs import Converter
 from incant import Hook, Incanter
 from multidict import CIMultiDict
 
-from . import BaseApp, Header
+from . import BaseApp, Header, ResponseException
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
@@ -34,6 +35,7 @@ from .responses import (
     identity,
     make_return_adapter,
 )
+from .status import BaseResponse, Ok, get_status_code
 from .types import is_subclass
 
 
@@ -67,8 +69,7 @@ def make_aiohttp_incanter(converter: Converter) -> Incanter:
         return read_query
 
     res.register_hook_factory(
-        lambda p: p.annotation is not FrameworkRequest,
-        query_factory,
+        lambda p: p.annotation is not FrameworkRequest, query_factory
     )
 
     def string_query_factory(p: Parameter):
@@ -91,11 +92,11 @@ def make_aiohttp_incanter(converter: Converter) -> Incanter:
     return res
 
 
-def framework_return_adapter(val: Tuple[Any, int, dict]):
+def framework_return_adapter(resp: BaseResponse):
     return FrameworkResponse(
-        body=val[0] or b"",
-        status=val[1],
-        headers=CIMultiDict(dict_to_headers(val[2])) if val[2] else None,
+        body=resp.ret or b"",
+        status=get_status_code(resp.__class__),  # type: ignore
+        headers=CIMultiDict(dict_to_headers(resp.headers)) if resp.headers else None,
     )
 
 
@@ -107,24 +108,44 @@ class App(BaseApp):
     )
 
     def get(
-        self, path, name: Optional[str] = None, routes: Optional[RouteTableDef] = None
+        self,
+        path: str,
+        name: Optional[str] = None,
+        routes: Optional[RouteTableDef] = None,
     ):
         return self.route(path, name=name, routes=routes)
 
     def post(
-        self, path, name: Optional[str] = None, routes: Optional[RouteTableDef] = None
+        self,
+        path: str,
+        name: Optional[str] = None,
+        routes: Optional[RouteTableDef] = None,
     ):
         return self.route(path, name=name, routes=routes, methods=["POST"])
 
     def patch(
-        self, path, name: Optional[str] = None, routes: Optional[RouteTableDef] = None
+        self,
+        path: str,
+        name: Optional[str] = None,
+        routes: Optional[RouteTableDef] = None,
     ):
         return self.route(path, name=name, routes=routes, methods=["PATCH"])
 
     def delete(
-        self, path, name: Optional[str] = None, routes: Optional[RouteTableDef] = None
+        self,
+        path: str,
+        name: Optional[str] = None,
+        routes: Optional[RouteTableDef] = None,
     ):
         return self.route(path, name=name, routes=routes, methods=["DELETE"])
+
+    def head(
+        self,
+        path: str,
+        name: Optional[str] = None,
+        routes: Optional[RouteTableDef] = None,
+    ):
+        return self.route(path, name=name, routes=routes, methods=["HEAD"])
 
     def route(
         self,
@@ -189,9 +210,12 @@ class App(BaseApp):
                             )
                             for p in path_params
                         }
-                        return _fra(
-                            await _incant(prepared, request=request, **path_args)
-                        )
+                        try:
+                            return _fra(
+                                await _incant(prepared, request=request, **path_args)
+                            )
+                        except ResponseException as exc:
+                            return _fra(exc.response)
 
                 else:
 
@@ -212,9 +236,16 @@ class App(BaseApp):
                             )
                             for p in path_params
                         }
-                        return _fra(
-                            _ra(await _incant(prepared, request=request, **path_args))
-                        )
+                        try:
+                            return _fra(
+                                _ra(
+                                    await _incant(
+                                        prepared, request=request, **path_args
+                                    )
+                                )
+                            )
+                        except ResponseException as exc:
+                            return _fra(exc.response)
 
             adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
@@ -237,8 +268,8 @@ class App(BaseApp):
         openapi = make_openapi_spec(app)
         payload = openapi_converter.unstructure(openapi)
 
-        async def openapi_handler() -> tuple[str, Literal[200], dict]:
-            return dumps(payload), 200, {"content-type": "application/json"}
+        async def openapi_handler() -> Ok[str]:
+            return Ok(dumps(payload), {"content-type": "application/json"})
 
         self.route(path)(openapi_handler)
 
@@ -287,9 +318,6 @@ def build_operation(
     if original_handler := getattr(handler, "__attrsapi_handler__", None):
         sig = signature(original_handler)
         path_params = parse_curly_path_params(path)
-        meta_params: dict[str, Header] = getattr(
-            original_handler, "__attrs_api_meta__", {}
-        )
         for path_param in path_params:
             if path_param not in sig.parameters:
                 raise Exception(f"Path parameter {path_param} not found")
@@ -306,16 +334,6 @@ def build_operation(
         for arg, arg_param in sig.parameters.items():
             if arg in path_params:
                 continue
-            elif arg_meta := meta_params.get(arg):
-                if isinstance(arg_meta, Header):
-                    params.append(
-                        OpenApiParameter(
-                            arg_meta.name,
-                            OpenApiParameter.Kind.HEADER,
-                            arg_param.default is Parameter.empty,
-                            PYTHON_PRIMITIVES_TO_OPENAPI[str],
-                        )
-                    )
             else:
                 arg_type = arg_param.annotation
                 if cookie_name := get_cookie_name(arg_type, arg):
@@ -325,8 +343,7 @@ def build_operation(
                             OpenApiParameter.Kind.COOKIE,
                             arg_param.default is Parameter.empty,
                             PYTHON_PRIMITIVES_TO_OPENAPI.get(
-                                arg_param.annotation,
-                                PYTHON_PRIMITIVES_TO_OPENAPI[str],
+                                arg_param.annotation, PYTHON_PRIMITIVES_TO_OPENAPI[str]
                             ),
                         )
                     )
@@ -343,8 +360,7 @@ def build_operation(
                             OpenApiParameter.Kind.QUERY,
                             arg_param.default is Parameter.empty,
                             PYTHON_PRIMITIVES_TO_OPENAPI.get(
-                                arg_param.annotation,
-                                PYTHON_PRIMITIVES_TO_OPENAPI[str],
+                                arg_param.annotation, PYTHON_PRIMITIVES_TO_OPENAPI[str]
                             ),
                         )
                     )
@@ -359,10 +375,9 @@ def build_operation(
                 if result_type is str:
                     ct = "text/plain"
                     responses[str(status_code)] = Response(
-                        "OK",
-                        {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])},
+                        "OK", {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])}
                     )
-                elif result_type is None:
+                elif result_type in (None, NoneType):
                     responses[str(status_code)] = Response("OK")
                 elif has(result_type):
                     responses[str(status_code)] = Response(
@@ -377,8 +392,7 @@ def build_operation(
                     )
                 else:
                     responses[str(status_code)] = Response(
-                        "OK",
-                        {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])},
+                        "OK", {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])}
                     )
     return OpenAPI.PathItem.Operation(responses, params)
 
