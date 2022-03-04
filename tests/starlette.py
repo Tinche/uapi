@@ -60,7 +60,7 @@ def make_app() -> Starlette:
     async def post_multiple_codes() -> Union[Ok[str], Created[None]]:
         return Created(None)
 
-    @app.route("/put/cookie", starlette=starlette, methods=["PUT"])
+    @app.put("/put/cookie", starlette=starlette)
     async def put_cookie(a_cookie: Cookie) -> str:
         return a_cookie
 

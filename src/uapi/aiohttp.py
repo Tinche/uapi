@@ -3,7 +3,7 @@ from inspect import Parameter as Parameter
 from inspect import Signature, getfullargspec, signature
 from json import dumps
 from types import NoneType
-from typing import Any, Callable, Literal, Optional, Tuple, Union
+from typing import Callable, Optional, Union
 
 from aiohttp.web import Request as FrameworkRequest
 from aiohttp.web import Response as FrameworkResponse
@@ -22,7 +22,7 @@ from cattrs import Converter
 from incant import Hook, Incanter
 from multidict import CIMultiDict
 
-from . import BaseApp, Header, ResponseException
+from . import BaseApp, ResponseException
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
 from .openapi import Reference, Response, Schema, build_attrs_schema
@@ -122,6 +122,14 @@ class App(BaseApp):
         routes: Optional[RouteTableDef] = None,
     ):
         return self.route(path, name=name, routes=routes, methods=["POST"])
+
+    def put(
+        self,
+        path: str,
+        name: Optional[str] = None,
+        routes: Optional[RouteTableDef] = None,
+    ):
+        return self.route(path, name=name, routes=routes, methods=["PUT"])
 
     def patch(
         self,

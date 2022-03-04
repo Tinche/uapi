@@ -1,6 +1,6 @@
 from inspect import Signature, signature
 from json import dumps
-from typing import Any, Callable, Literal, Optional, cast
+from typing import Callable, Literal, Optional, cast
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -81,6 +81,9 @@ class App(BaseApp):
         self, path: str, name: Optional[str] = None, quart: Optional[Quart] = None
     ):
         return self.route(path, name=name, quart=quart, methods=["POST"])
+
+    def put(self, path: str, name: Optional[str] = None, quart: Optional[Quart] = None):
+        return self.route(path, name=name, quart=quart, methods=["PUT"])
 
     def patch(
         self, path: str, name: Optional[str] = None, quart: Optional[Quart] = None

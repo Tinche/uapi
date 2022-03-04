@@ -2,7 +2,7 @@ from collections import defaultdict
 from inspect import Parameter, Signature, signature
 from json import dumps
 from types import NoneType
-from typing import Any, Callable, Literal, Optional, Tuple, Union
+from typing import Callable, Literal, Optional, Union
 
 from attrs import Factory, define, has
 from cattrs import Converter
@@ -88,6 +88,9 @@ class App(BaseApp):
         self, path: str, name: Optional[str] = None, flask: Optional[Flask] = None
     ):
         return self.route(path, name=name, flask=flask, methods=["POST"])
+
+    def put(self, path: str, name: Optional[str] = None, flask: Optional[Flask] = None):
+        return self.route(path, name=name, flask=flask, methods=["PUT"])
 
     def patch(
         self, path: str, name: Optional[str] = None, flask: Optional[Flask] = None

@@ -59,7 +59,7 @@ def make_app() -> Quart:
     async def post_multiple_codes() -> Union[Ok[str], Created[None]]:
         return Created(None)
 
-    @app.route("/put/cookie", quart=quart, methods=["put"])
+    @app.put("/put/cookie", quart=quart)
     async def put_cookie(a_cookie: Cookie) -> str:
         return a_cookie
 

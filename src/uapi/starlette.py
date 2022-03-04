@@ -2,7 +2,7 @@ from collections import defaultdict
 from inspect import Parameter, Signature, signature
 from json import dumps
 from types import NoneType
-from typing import Any, Callable, Literal, Optional, Tuple, Union
+from typing import Callable, Literal, Optional, Union
 
 from attrs import Factory, define, has
 from cattrs import Converter
@@ -123,6 +123,14 @@ class App(BaseApp):
         starlette: Optional[Starlette] = None,
     ):
         return self.route(path, name, starlette, methods=["POST"])
+
+    def put(
+        self,
+        path: str,
+        name: Optional[str] = None,
+        starlette: Optional[Starlette] = None,
+    ):
+        return self.route(path, name, starlette, methods=["PUT"])
 
     def patch(
         self,

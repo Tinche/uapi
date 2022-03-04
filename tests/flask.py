@@ -1,5 +1,5 @@
 from asyncio import Event
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Optional, Union
 
 from flask import Flask, Response
 from hypercorn.asyncio import serve
@@ -60,8 +60,8 @@ def make_app():
     def post_multiple_codes() -> Union[Ok[str], Created[None]]:
         return Created(None)
 
-    @app.route("/put/cookie", flask=flask, methods=["put"])
-    def put_cookie(a_cookie: Annotated[str, Cookie()]) -> str:
+    @app.put("/put/cookie", flask=flask)
+    def put_cookie(a_cookie: Cookie) -> str:
         return a_cookie
 
     @app.route("/put/cookie-optional", flask=flask, methods=["put"])
