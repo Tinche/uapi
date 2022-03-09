@@ -1,7 +1,9 @@
-from enum import Enum, unique
-from typing import Optional, Union
+from __future__ import annotations
 
-from attrs import Factory, fields, frozen
+from enum import Enum, unique
+from typing import Literal, Optional, Union
+
+from attrs import Factory, fields, frozen, has
 from cattrs import override
 from cattrs.gen import make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
@@ -15,11 +17,32 @@ class Reference:
 
 
 @frozen
+class InlineType:
+    type: Schema.Type
+
+
+@frozen
 class Schema:
-    type: str
-    items: Union["Schema", Reference, None] = None
-    properties: Optional[dict[str, "Schema"]] = None
+    @unique
+    class Type(Enum):
+        OBJECT = "object"
+        STRING = "string"
+        INTEGER = "integer"
+        NUMBER = "number"
+        BOOLEAN = "boolean"
+        NULL = "null"
+        ARRAY = "array"
+
+    type: Type
+    properties: Optional[dict[str, AnySchema | Reference]] = None
     format: Optional[str] = None
+    additionalProperties: bool | InlineType = False
+
+
+@frozen
+class ArraySchema:
+    items: InlineType | Reference
+    type: Literal[Schema.Type.ARRAY] = Schema.Type.ARRAY
 
 
 @frozen
@@ -48,6 +71,9 @@ class Parameter:
     schema: Union[Schema, Reference, None] = None
 
 
+AnySchema = Schema | ArraySchema
+
+
 @frozen
 class OpenAPI:
     @frozen
@@ -57,7 +83,7 @@ class OpenAPI:
 
     @frozen
     class Components:
-        schemas: dict[str, Union[Schema, Reference]]
+        schemas: dict[str, AnySchema | Reference]
 
     @frozen
     class PathItem:
@@ -81,24 +107,46 @@ class OpenAPI:
 
 
 PYTHON_PRIMITIVES_TO_OPENAPI = {
-    str: Schema("string"),
-    int: Schema("integer"),
-    bool: Schema("boolean"),
-    float: Schema("number", format="double"),
-    bytes: Schema("string", format="binary"),
+    str: Schema(Schema.Type.STRING),
+    int: Schema(Schema.Type.INTEGER),
+    bool: Schema(Schema.Type.BOOLEAN),
+    float: Schema(Schema.Type.NUMBER, format="double"),
+    bytes: Schema(Schema.Type.STRING, format="binary"),
 }
 
 
-def build_attrs_schema(type: type) -> Schema:
+def build_attrs_schema(type: type, res: dict[str, AnySchema | Reference]):
     properties = {}
     for a in fields(type):
+        if a.type is None:
+            continue
         if a.type in PYTHON_PRIMITIVES_TO_OPENAPI:
-            schema = PYTHON_PRIMITIVES_TO_OPENAPI[a.type]
+            schema: AnySchema | Reference = PYTHON_PRIMITIVES_TO_OPENAPI[a.type]
+        elif has(a.type):
+            ref = f"#/components/schemas/{a.type.__name__}"
+            if ref not in res:
+                build_attrs_schema(a.type, res)
+            schema = Reference(ref)
+        elif getattr(a.type, "__origin__", None) is list:
+            arg = a.type.__args__[0]
+            if has(arg):
+                ref = f"#/components/schemas/{arg.__name__}"
+                if ref not in res:
+                    build_attrs_schema(arg, res)
+                schema = ArraySchema(Reference(ref))
+        elif getattr(a.type, "__origin__", None) is dict:
+            val_arg = a.type.__args__[1]
+            schema = Schema(
+                Schema.Type.OBJECT,
+                additionalProperties=InlineType(
+                    PYTHON_PRIMITIVES_TO_OPENAPI[val_arg].type
+                ),
+            )
         else:
-            schema = Schema("")
+            continue
         properties[a.name] = schema
 
-    return Schema(type="object", properties=properties)
+    res[type.__name__] = Schema(type=Schema.Type.OBJECT, properties=properties)
 
 
 converter.register_unstructure_hook(

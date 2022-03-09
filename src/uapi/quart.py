@@ -1,8 +1,8 @@
 from inspect import Signature, signature
 from json import dumps
-from typing import Callable, Literal, Optional, cast
+from typing import Awaitable, Callable, Literal, Optional, TypeVar, cast
 
-from attrs import Factory, define
+from attrs import Factory, define, has
 from cattrs import Converter
 from flask.app import Flask
 from incant import Hook, Incanter
@@ -11,13 +11,20 @@ from quart import Response as FrameworkResponse
 from quart import request
 from werkzeug.datastructures import Headers
 
+try:
+    from ujson import loads
+except ImportError:
+    from json import loads
+
 from . import BaseApp, ResponseException
 from .flask import make_openapi_spec as flask_openapi_spec
 from .openapi import converter as openapi_converter
 from .path import parse_angle_path_params
 from .requests import get_cookie_name
 from .responses import dict_to_headers, identity, make_return_adapter
-from .status import BaseResponse, get_status_code
+from .status import BadRequest, BaseResponse, get_status_code
+
+C = TypeVar("C")
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -37,6 +44,15 @@ def make_cookie_dependency(cookie_name: str, default=Signature.empty):
 def make_quart_incanter(converter: Converter) -> Incanter:
     """Create the framework incanter for Quart."""
     res = Incanter()
+
+    def attrs_body_factory(attrs_cls: type[C]) -> Callable[[], Awaitable[C]]:
+        async def structure_body() -> C:
+            if not request.is_json:
+                raise ResponseException(BadRequest("invalid content-type"))
+            return converter.structure(loads(await request.data), attrs_cls)
+
+        return structure_body
+
     res.register_hook_factory(
         lambda _: True,
         lambda p: lambda: converter.structure(
@@ -55,6 +71,9 @@ def make_quart_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
+    )
+    res.register_hook_factory(
+        lambda p: has(p.annotation), lambda p: attrs_body_factory(p.annotation)
     )
     return res
 
@@ -111,7 +130,7 @@ class App(BaseApp):
 
         def wrapper(handler: Callable) -> Callable:
             ra = make_return_adapter(
-                signature(handler).return_annotation, FrameworkResponse
+                signature(handler).return_annotation, FrameworkResponse, self.converter
             )
             path_params = parse_angle_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
@@ -133,7 +152,7 @@ class App(BaseApp):
 
                 if ra == identity:
 
-                    async def adapted(_fra=framework_return_adapter, **kwargs):
+                    async def adapted(_fra=framework_return_adapter, **kwargs):  # type: ignore
                         try:
                             return _fra(await prepared(**kwargs))
                         except ResponseException as exc:
@@ -141,7 +160,7 @@ class App(BaseApp):
 
                 else:
 
-                    async def adapted(_fra=framework_return_adapter, _ra=ra, **kwargs):
+                    async def adapted(_fra=framework_return_adapter, _ra=ra, **kwargs):  # type: ignore
                         try:
                             return _fra(_ra(await prepared(**kwargs)))
                         except ResponseException as exc:

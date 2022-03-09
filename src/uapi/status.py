@@ -48,6 +48,11 @@ class SeeOther(BaseResponse[Literal[303], R]):
 
 
 @define
+class BadRequest(BaseResponse[Literal[400], R]):
+    pass
+
+
+@define
 class Forbidden(BaseResponse[Literal[403], R]):
     pass
 

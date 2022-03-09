@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, Optional, Union
+from typing import Annotated, Optional, Union
 
 from aiohttp import web
 from aiohttp.web import Response, RouteTableDef
@@ -7,6 +7,8 @@ from uapi import Cookie, ResponseException
 from uapi.aiohttp import App
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.status import Created, Forbidden, NoContent, Ok
+
+from .models import NestedModel
 
 
 def make_app() -> web.Application:
@@ -41,6 +43,14 @@ def make_app() -> web.Application:
     async def query_bytes() -> bytes:
         return b"2"
 
+    @app.get("/get/model", routes=routes)
+    async def get_model() -> NestedModel:
+        return NestedModel()
+
+    @app.get("/get/model-status", routes=routes)
+    async def get_model_status() -> Created[NestedModel]:
+        return Created(NestedModel(), {"test": "test"})
+
     @app.post("/post/no-body-native-response", routes=routes)
     async def post_no_body() -> Response:
         return Response(text="post", status=201)
@@ -56,6 +66,10 @@ def make_app() -> web.Application:
     @app.route("/post/multiple", routes=routes, methods=["POST"])
     async def post_multiple_codes() -> Union[Ok[str], Created[None]]:
         return Created(None)
+
+    @app.post("/post/model", routes=routes)
+    async def post_model(body: NestedModel) -> Created[NestedModel]:
+        return Created(body)
 
     @app.put("/put/cookie", routes=routes)
     async def put_cookie(a_cookie: Cookie) -> str:

@@ -2,7 +2,7 @@ from collections import defaultdict
 from inspect import Parameter, Signature, signature
 from json import dumps
 from types import NoneType
-from typing import Callable, Literal, Optional, Union
+from typing import Awaitable, Callable, Literal, Optional, TypeVar
 
 from attrs import Factory, define, has
 from cattrs import Converter
@@ -12,16 +12,23 @@ from starlette.requests import Request as FrameworkRequest
 from starlette.responses import Response as FrameworkResponse
 from starlette.routing import BaseRoute, Route
 
+try:
+    from ujson import loads
+except ImportError:
+    from json import loads
+
 from . import BaseApp, Header, ResponseException
-from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
+from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, AnySchema, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
-from .openapi import Reference, Response, Schema, build_attrs_schema
+from .openapi import Reference, Response, build_attrs_schema
 from .openapi import converter as openapi_converter
 from .path import parse_curly_path_params
 from .requests import get_cookie_name
 from .responses import get_status_code_results, identity, make_return_adapter
-from .status import BaseResponse, Headers, get_status_code
+from .status import BadRequest, BaseResponse, Headers, get_status_code
 from .types import is_subclass
+
+C = TypeVar("C")
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -52,6 +59,16 @@ def extract_cookies(headers: Headers) -> tuple[dict[str, str], list[str]]:
 def make_starlette_incanter(converter: Converter) -> Incanter:
     """Create the framework incanter for Starlette."""
     res = Incanter()
+
+    def attrs_body_factory(
+        attrs_cls: type[C],
+    ) -> Callable[[FrameworkRequest], Awaitable[C]]:
+        async def structure_body(request: FrameworkRequest) -> C:
+            if request.headers["content-type"] != "application/json":
+                raise ResponseException(BadRequest("invalid content-type"))
+            return converter.structure(loads(await request.body()), attrs_cls)
+
+        return structure_body
 
     def query_factory(p: Parameter):
         def read_query(request: FrameworkRequest):
@@ -84,6 +101,9 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
+    )
+    res.register_hook_factory(
+        lambda p: has(p.annotation), lambda p: attrs_body_factory(p.annotation)
     )
     return res
 
@@ -167,7 +187,7 @@ class App(BaseApp):
 
         def wrapper(handler: Callable) -> Callable:
             ra = make_return_adapter(
-                signature(handler).return_annotation, FrameworkResponse
+                signature(handler).return_annotation, FrameworkResponse, self.converter
             )
             path_params = parse_curly_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
@@ -203,7 +223,7 @@ class App(BaseApp):
 
                 if ra == identity:
 
-                    async def adapted(
+                    async def adapted(  # type: ignore
                         request: FrameworkRequest,
                         _incant=self.framework_incant.aincant,
                         _fra=framework_return_adapter,
@@ -228,7 +248,7 @@ class App(BaseApp):
 
                 else:
 
-                    async def adapted(
+                    async def adapted(  # type: ignore
                         request: FrameworkRequest,
                         _incant=self.framework_incant.aincant,
                         _ra=ra,
@@ -441,16 +461,15 @@ def gather_endpoint_components(
 
 
 def components_to_openapi(routes: list[BaseRoute]) -> tuple[OpenAPI.Components, dict]:
-    res: dict[str, Union[Schema, Reference]] = {}
-
     # First pass, we build the component registry.
     components: dict[type, str] = {}
     for route_def in routes:
         if isinstance(route_def, Route):
             gather_endpoint_components(route_def, components)
 
+    res: dict[str, AnySchema | Reference] = {}
     for component in components:
-        res[component.__name__] = build_attrs_schema(component)
+        build_attrs_schema(component, res)
 
     return OpenAPI.Components(res), components
 

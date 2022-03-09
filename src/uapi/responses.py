@@ -2,7 +2,9 @@ from inspect import Signature
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Optional, Union, get_args
 
+from attrs import has
 from cattr._compat import is_union_type
+from cattrs import Converter
 from incant import is_subclass
 
 from .status import BaseResponse, Headers, Ok, get_status_code
@@ -23,7 +25,7 @@ empty_dict: Mapping[str, str] = MappingProxyType({})
 
 
 def make_return_adapter(
-    return_type: Any, framework_response_cls: type
+    return_type: Any, framework_response_cls: type, converter: Converter
 ) -> Optional[Callable[..., BaseResponse]]:
     if return_type in (Signature.empty, framework_response_cls):
         # You're on your own, buddy.
@@ -32,6 +34,18 @@ def make_return_adapter(
         return lambda r: Ok(None)
     if return_type in (str, bytes):
         return lambda r: Ok(r)
+    if has(return_type):
+        return lambda r: Ok(
+            dumps(converter.unstructure(r, unstructure_as=return_type)),
+            {"content-type": "application/json"},
+        )
+    if is_subclass(getattr(return_type, "__origin__", None), BaseResponse) and has(
+        inner := return_type.__args__[0]
+    ):
+        return lambda r: return_type(
+            dumps(converter.unstructure(r.ret, unstructure_as=inner)),
+            r.headers | {"content-type": "application/json"},
+        )
     return identity
 
 
@@ -45,7 +59,6 @@ def returns_status_code(t: type) -> bool:
 
 def get_status_code_results(t: type) -> list[tuple[int, Any]]:
     """Normalize a supported return type into (status code, type)."""
-    print(t)
     if not returns_status_code(t):
         return [(200, t)]
     resp_types = get_args(t) if is_union_type(t) else (t,)

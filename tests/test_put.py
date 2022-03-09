@@ -1,8 +1,6 @@
-import pytest
 from httpx import AsyncClient
 
 
-@pytest.mark.asyncio
 async def test_put_cookie(server):
     async with AsyncClient() as client:
         resp = await client.put(
@@ -12,7 +10,6 @@ async def test_put_cookie(server):
         assert resp.text == "test"
 
 
-@pytest.mark.asyncio
 async def test_put_cookie_optional(server):
     async with AsyncClient() as client:
         resp = await client.put(f"http://localhost:{server}/put/cookie-optional")

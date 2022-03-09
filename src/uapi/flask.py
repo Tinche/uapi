@@ -2,7 +2,7 @@ from collections import defaultdict
 from inspect import Parameter, Signature, signature
 from json import dumps
 from types import NoneType
-from typing import Callable, Literal, Optional, Union
+from typing import Callable, Literal, Optional
 
 from attrs import Factory, define, has
 from cattrs import Converter
@@ -12,10 +12,15 @@ from flask import request
 from incant import Hook, Incanter
 from werkzeug.routing import Rule
 
+try:
+    from ujson import loads
+except:
+    from json import loads
+
 from . import BaseApp, Header, ResponseException
-from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
+from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, AnySchema, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
-from .openapi import Reference, Response, Schema, build_attrs_schema
+from .openapi import Reference, Response, build_attrs_schema
 from .openapi import converter as openapi_converter
 from .path import angle_to_curly, parse_angle_path_params, strip_path_param_prefix
 from .requests import get_cookie_name
@@ -25,7 +30,7 @@ from .responses import (
     identity,
     make_return_adapter,
 )
-from .status import BaseResponse, get_status_code
+from .status import BadRequest, BaseResponse, get_status_code
 from .types import is_subclass
 
 
@@ -46,6 +51,15 @@ def make_cookie_dependency(cookie_name: str, default=Signature.empty):
 def make_flask_incanter(converter: Converter) -> Incanter:
     """Create the framework incanter for Quart."""
     res = Incanter()
+
+    def attrs_body_factory(attrs_cls: type):
+        def structure_body() -> attrs_cls:  # type: ignore
+            if not request.is_json:
+                raise ResponseException(BadRequest("invalid content-type"))
+            return converter.structure(loads(request.data), attrs_cls)
+
+        return structure_body
+
     res.register_hook_factory(
         lambda _: True,
         lambda p: lambda: converter.structure(
@@ -64,6 +78,9 @@ def make_flask_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
+    )
+    res.register_hook_factory(
+        lambda p: has(p.annotation), lambda p: attrs_body_factory(p.annotation)
     )
     return res
 
@@ -118,7 +135,7 @@ class App(BaseApp):
 
         def wrapper(handler: Callable) -> Callable:
             ra = make_return_adapter(
-                signature(handler).return_annotation, FrameworkResponse
+                signature(handler).return_annotation, FrameworkResponse, self.converter
             )
             path_params = parse_angle_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
@@ -360,15 +377,14 @@ def gather_endpoint_components(
 def components_to_openapi(
     routes: list[tuple[Callable, Rule]]
 ) -> tuple[OpenAPI.Components, dict]:
-    res: dict[str, Union[Schema, Reference]] = {}
-
     # First pass, we build the component registry.
     components: dict[type, str] = {}
     for handler, _ in routes:
         gather_endpoint_components(handler, components)
 
+    res: dict[str, AnySchema | Reference] = {}
     for component in components:
-        res[component.__name__] = build_attrs_schema(component)
+        build_attrs_schema(component, res)
 
     return OpenAPI.Components(res), components
 

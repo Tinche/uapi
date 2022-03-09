@@ -1,7 +1,8 @@
-from typing import Union
+from abc import abstractmethod
 
 from attrs import Factory, define, frozen
-from cattrs import Converter, GenConverter
+from cattrs import Converter
+from cattrs.preconf.ujson import make_converter
 from incant import Incanter
 
 from .cookies import Cookie
@@ -15,9 +16,6 @@ class Header:
     name: str
 
 
-Parameter = Union[Header]
-
-
 def make_base_incanter() -> Incanter:
     """Create the base (non-framework) incanter."""
     res = Incanter()
@@ -27,24 +25,28 @@ def make_base_incanter() -> Incanter:
 @define
 class BaseApp:
     framework_incant: Incanter
-    converter: Converter = Factory(GenConverter)
+    converter: Converter = Factory(make_converter)
     base_incant: Incanter = Factory(make_base_incanter)
 
-    def serve_swaggerui(self):
+    def serve_swaggerui(self, path: str = "/swaggerui"):
         from .swaggerui import swaggerui
 
         async def swaggerui_handler() -> Ok[str]:
             return Ok(swaggerui, {"content-type": "text/html"})
 
-        self.route("/swaggerui")(swaggerui_handler)
+        self.route(path)(swaggerui_handler)
 
-    def serve_redoc(self):
+    def serve_redoc(self, path: str = "/redoc"):
         from .swaggerui import redoc
 
         async def redoc_handler() -> Ok[str]:
             return Ok(redoc, {"content-type": "text/html"})
 
-        self.route("/redoc")(redoc_handler)
+        self.route(path)(redoc_handler)
+
+    @abstractmethod
+    def route(self, path: str):
+        raise NotImplementedError
 
 
 def redirect(location: str, headers: Headers = {}) -> Found[None]:

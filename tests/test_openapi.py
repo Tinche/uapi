@@ -32,7 +32,9 @@ def test_get_index(app_factory):
     assert op.get.parameters == []
     assert len(op.get.responses) == 1
     assert op.get.responses["200"]
-    assert op.get.responses["200"].content["text/plain"].schema.type == "string"
+    assert (
+        op.get.responses["200"].content["text/plain"].schema.type == Schema.Type.STRING
+    )
 
 
 @pytest.mark.parametrize(
@@ -56,7 +58,7 @@ def test_get_path_param(app_factory):
             name="path_id",
             kind=Parameter.Kind.PATH,
             required=True,
-            schema=Schema(type="integer"),
+            schema=Schema(Schema.Type.INTEGER),
         )
     ]
     assert len(op.get.responses) == 1
@@ -84,7 +86,7 @@ def test_get_query_int(app_factory):
             name="page",
             kind=Parameter.Kind.QUERY,
             required=True,
-            schema=Schema(type="integer"),
+            schema=Schema(Schema.Type.INTEGER),
         )
     ]
     assert len(op.get.responses) == 1
@@ -112,7 +114,7 @@ def test_get_query_default(app_factory):
             name="page",
             kind=Parameter.Kind.QUERY,
             required=False,
-            schema=Schema(type="integer"),
+            schema=Schema(Schema.Type.INTEGER),
         )
     ]
     assert len(op.get.responses) == 1
@@ -140,7 +142,7 @@ def test_get_query_unannotated(app_factory):
             name="query",
             kind=Parameter.Kind.QUERY,
             required=True,
-            schema=Schema(type="string"),
+            schema=Schema(Schema.Type.STRING),
         )
     ]
     assert len(op.get.responses) == 1
@@ -168,7 +170,7 @@ def test_get_query_string(app_factory):
             name="query",
             kind=Parameter.Kind.QUERY,
             required=True,
-            schema=Schema(type="string"),
+            schema=Schema(Schema.Type.STRING),
         )
     ]
     assert len(op.get.responses) == 1
@@ -195,7 +197,7 @@ def test_get_bytes(app_factory):
     assert len(op.get.responses) == 1
     assert op.get.responses["200"]
     assert op.get.responses["200"].content["application/json"].schema == Schema(
-        "string", format="binary"
+        Schema.Type.STRING, format="binary"
     )
 
 
@@ -289,7 +291,9 @@ def test_post_multiple_statuses(app_factory):
     assert op.post.parameters == []
     assert len(op.post.responses) == 2
     assert op.post.responses["200"]
-    assert op.post.responses["200"].content["text/plain"].schema.type == "string"
+    assert (
+        op.post.responses["200"].content["text/plain"].schema.type == Schema.Type.STRING
+    )
     assert op.post.responses["201"]
     assert not op.post.responses["201"].content
 
@@ -315,8 +319,13 @@ def test_put_cookie(app_factory):
     assert op.put is not None
     assert op.put.parameters == [
         Parameter(
-            "a_cookie", Parameter.Kind.COOKIE, required=True, schema=Schema("string")
+            "a_cookie",
+            Parameter.Kind.COOKIE,
+            required=True,
+            schema=Schema(Schema.Type.STRING),
         )
     ]
     assert op.put.responses["200"]
-    assert op.put.responses["200"].content["text/plain"].schema.type == "string"
+    assert (
+        op.put.responses["200"].content["text/plain"].schema.type == Schema.Type.STRING
+    )

@@ -1,13 +1,12 @@
 from collections import defaultdict
-from inspect import Parameter as Parameter
-from inspect import Signature, getfullargspec, signature
+from inspect import Parameter, Signature, signature
 from json import dumps
 from types import NoneType
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, TypeVar
 
 from aiohttp.web import Request as FrameworkRequest
 from aiohttp.web import Response as FrameworkResponse
-from aiohttp.web import RouteDef, RouteTableDef, _run_app
+from aiohttp.web import RouteTableDef, _run_app
 from aiohttp.web_app import Application
 from aiohttp.web_urldispatcher import (
     DynamicResource,
@@ -22,10 +21,15 @@ from cattrs import Converter
 from incant import Hook, Incanter
 from multidict import CIMultiDict
 
+try:
+    from ujson import loads
+except ImportError:
+    from json import loads
+
 from . import BaseApp, ResponseException
-from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, MediaType, OpenAPI
+from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, AnySchema, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
-from .openapi import Reference, Response, Schema, build_attrs_schema
+from .openapi import Reference, Response, build_attrs_schema
 from .openapi import converter as openapi_converter
 from .path import parse_curly_path_params
 from .requests import get_cookie_name
@@ -35,8 +39,10 @@ from .responses import (
     identity,
     make_return_adapter,
 )
-from .status import BaseResponse, Ok, get_status_code
+from .status import BadRequest, BaseResponse, Ok, get_status_code
 from .types import is_subclass
+
+C = TypeVar("C")
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -68,6 +74,14 @@ def make_aiohttp_incanter(converter: Converter) -> Incanter:
 
         return read_query
 
+    def attrs_body_factory(attrs_cls: type[C]):
+        async def structure_body(request: FrameworkRequest) -> C:
+            if request.headers.get("content-type") != "application/json":
+                raise ResponseException(BadRequest("invalid content-type"))
+            return converter.structure(await request.json(loads=loads), attrs_cls)
+
+        return structure_body
+
     res.register_hook_factory(
         lambda p: p.annotation is not FrameworkRequest, query_factory
     )
@@ -88,6 +102,9 @@ def make_aiohttp_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
+    )
+    res.register_hook_factory(
+        lambda p: has(p.annotation), lambda p: attrs_body_factory(p.annotation)
     )
     return res
 
@@ -166,7 +183,7 @@ class App(BaseApp):
 
         def wrapper(handler: Callable) -> Callable:
             ra = make_return_adapter(
-                signature(handler).return_annotation, FrameworkResponse
+                signature(handler).return_annotation, FrameworkResponse, self.converter
             )
             path_params = parse_curly_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
@@ -202,7 +219,7 @@ class App(BaseApp):
 
                 if ra == identity:
 
-                    async def adapted(
+                    async def adapted(  # type: ignore
                         request: FrameworkRequest,
                         _incant=self.framework_incant.aincant,
                         _fra=framework_return_adapter,
@@ -227,7 +244,7 @@ class App(BaseApp):
 
                 else:
 
-                    async def adapted(
+                    async def adapted(  # type: ignore
                         request: FrameworkRequest,
                         _incant=self.framework_incant.aincant,
                         _ra=ra,
@@ -289,15 +306,15 @@ class App(BaseApp):
 
 
 def gather_endpoint_components(
-    endpoint: RouteDef, components: dict[type, str]
+    endpoint: ResourceRoute, components: dict[type, str]
 ) -> dict[type, str]:
     original_handler = getattr(endpoint.handler, "__attrsapi_handler__", None)
     if original_handler is None:
         return {}
-    fullargspec = getfullargspec(original_handler)
-    for arg_name in fullargspec.args:
-        if arg_name in fullargspec.annotations:
-            arg_type = fullargspec.annotations[arg_name]
+    sig = signature(original_handler)
+    for arg in sig.parameters.values():
+        if arg.annotation is not Parameter.empty:
+            arg_type = arg.annotation
             if has(arg_type) and arg_type not in components:
                 name = arg_type.__name__
                 counter = 0
@@ -305,7 +322,7 @@ def gather_endpoint_components(
                     name = f"{arg_type.__name__}{counter}"
                     counter += 1
                 components[arg_type] = name
-    if ret_type := fullargspec.annotations.get("return"):
+    if (ret_type := sig.return_annotation) is not Parameter.empty:
         if has(ret_type) and ret_type not in components:
             name = ret_type.__name__
             counter = 0
@@ -437,16 +454,19 @@ def routes_to_paths(
 
 
 def components_to_openapi(routes: RoutesView) -> tuple[OpenAPI.Components, dict]:
-    res: dict[str, Union[Schema, Reference]] = {}
+    """Build the components part.
 
+    Components are complex structures, like classes, as opposed to primitives like ints.
+    """
     # First pass, we build the component registry.
     components: dict[type, str] = {}
     for route_def in routes:
-        if isinstance(route_def, RouteDef):
+        if isinstance(route_def, ResourceRoute):
             gather_endpoint_components(route_def, components)
 
+    res: dict[str, AnySchema | Reference] = {}
     for component in components:
-        res[component.__name__] = build_attrs_schema(component)
+        build_attrs_schema(component, res)
 
     return OpenAPI.Components(res), components
 

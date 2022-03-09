@@ -11,6 +11,8 @@ from uapi.cookies import CookieSettings, set_cookie
 from uapi.starlette import App
 from uapi.status import Created, Forbidden, NoContent, Ok
 
+from .models import NestedModel
+
 
 def make_app() -> Starlette:
     starlette = Starlette()
@@ -44,6 +46,14 @@ def make_app() -> Starlette:
     async def query_bytes() -> bytes:
         return b"2"
 
+    @app.get("/get/model", starlette=starlette)
+    async def get_model() -> NestedModel:
+        return NestedModel()
+
+    @app.get("/get/model-status", starlette=starlette)
+    async def get_model_status() -> Created[NestedModel]:
+        return Created(NestedModel(), {"test": "test"})
+
     @app.post("/post/no-body-native-response", starlette=starlette)
     async def post_no_body() -> Response:
         return Response("post", 201)
@@ -59,6 +69,10 @@ def make_app() -> Starlette:
     @app.route("/post/multiple", starlette=starlette, methods=["POST"])
     async def post_multiple_codes() -> Union[Ok[str], Created[None]]:
         return Created(None)
+
+    @app.post("/post/model", starlette=starlette)
+    async def post_model(body: NestedModel) -> Created[NestedModel]:
+        return Created(body)
 
     @app.put("/put/cookie", starlette=starlette)
     async def put_cookie(a_cookie: Cookie) -> str:
