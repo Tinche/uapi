@@ -3,7 +3,7 @@ import pytest
 
 from uapi.aiohttp import make_openapi_spec as aiohttp_make_openapi_spec
 from uapi.flask import make_openapi_spec as flask_make_openapi_spec
-from uapi.openapi import OpenAPI, Parameter, Schema
+from uapi.openapi import OpenAPI, Parameter, Response, Schema
 from uapi.quart import make_openapi_spec as quart_make_openapi_spec
 from uapi.starlette import make_openapi_spec as starlette_make_openapi_spec
 
@@ -329,3 +329,26 @@ def test_put_cookie(app_factory):
     assert (
         op.put.responses["200"].content["text/plain"].schema.type == Schema.Type.STRING
     )
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        (aiohttp_make_app, aiohttp_make_openapi_spec),
+        (flask_make_app, flask_make_openapi_spec),
+        (quart_make_app, quart_make_openapi_spec),
+        (starlette_make_app, starlette_make_openapi_spec),
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
+)
+def test_delete(app_factory):
+    app = app_factory[0]()
+    spec: OpenAPI = app_factory[1](app)
+
+    op = spec.paths["/delete/header"]
+    assert op is not None
+    assert op.get is None
+    assert op.post is None
+    assert op.put is None
+    assert op.delete is not None
+    assert op.delete.responses == {"204": Response("OK", {})}

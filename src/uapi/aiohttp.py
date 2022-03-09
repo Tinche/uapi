@@ -29,7 +29,7 @@ except ImportError:
 from . import BaseApp, ResponseException
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, AnySchema, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
-from .openapi import Reference, Response, build_attrs_schema
+from .openapi import Reference, RequestBody, Response, build_attrs_schema
 from .openapi import converter as openapi_converter
 from .path import parse_curly_path_params
 from .requests import get_cookie_name
@@ -336,7 +336,8 @@ def gather_endpoint_components(
 def build_operation(
     handler: Handler, path: str, components: dict[type, str]
 ) -> OpenAPI.PathItem.Operation:
-    request_body = {}
+    request_bodies = {}
+    request_body_required = False
     responses = {"200": Response(description="OK")}
     ct = "application/json"
     params = []
@@ -373,11 +374,10 @@ def build_operation(
                         )
                     )
                 elif arg_type is not Parameter.empty and has(arg_type):
-                    request_body["content"] = {
-                        ct: MediaType(
-                            Reference(f"#/components/schemas/{components[arg_type]}")
-                        )
-                    }
+                    request_bodies[ct] = MediaType(
+                        Reference(f"#/components/schemas/{components[arg_type]}")
+                    )
+                    request_body_required = arg_param.default is Parameter.empty
                 else:
                     params.append(
                         OpenApiParameter(
@@ -419,20 +419,25 @@ def build_operation(
                     responses[str(status_code)] = Response(
                         "OK", {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])}
                     )
-    return OpenAPI.PathItem.Operation(responses, params)
+    req_body = None
+    if request_bodies:
+        req_body = RequestBody(request_bodies, required=request_body_required)
+    return OpenAPI.PathItem.Operation(responses, params, req_body)
 
 
 def build_pathitem(
     path: str, path_routes: dict[str, Handler], components
 ) -> OpenAPI.PathItem:
-    get = post = put = None
+    get = post = put = delete = None
     if get_route := path_routes.get("get"):
         get = build_operation(get_route, path, components)
     if post_route := path_routes.get("post"):
         post = build_operation(post_route, path, components)
     if put_route := path_routes.get("put"):
         put = build_operation(put_route, path, components)
-    return OpenAPI.PathItem(get=get, post=post, put=put)
+    if delete_route := path_routes.get("delete"):
+        delete = build_operation(delete_route, path, components)
+    return OpenAPI.PathItem(get, post, put, delete)
 
 
 def routes_to_paths(

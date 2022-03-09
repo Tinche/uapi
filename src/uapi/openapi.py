@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum, unique
-from typing import Literal, Optional, Union
+from typing import Literal, Mapping, Optional, Union
 
 from attrs import Factory, fields, frozen, has
 from cattrs import override
@@ -75,6 +75,13 @@ AnySchema = Schema | ArraySchema
 
 
 @frozen
+class RequestBody:
+    content: Mapping[str, MediaType]
+    description: str | None = None
+    required: bool = False
+
+
+@frozen
 class OpenAPI:
     @frozen
     class Info:
@@ -91,10 +98,12 @@ class OpenAPI:
         class Operation:
             responses: dict[str, Response]
             parameters: list[Parameter] = Factory(list)
+            requestBody: RequestBody | None = None
 
         get: Optional[Operation] = None
         post: Optional[Operation] = None
         put: Optional[Operation] = None
+        delete: Optional[Operation] = None
 
     @frozen
     class Path:

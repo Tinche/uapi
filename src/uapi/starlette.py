@@ -17,10 +17,10 @@ try:
 except ImportError:
     from json import loads
 
-from . import BaseApp, Header, ResponseException
+from . import BaseApp, ResponseException
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, AnySchema, MediaType, OpenAPI
 from .openapi import Parameter as OpenApiParameter
-from .openapi import Reference, Response, build_attrs_schema
+from .openapi import Reference, RequestBody, Response, build_attrs_schema
 from .openapi import converter as openapi_converter
 from .path import parse_curly_path_params
 from .requests import get_cookie_name
@@ -305,16 +305,13 @@ class App(BaseApp):
 def build_operation(
     handler: Callable, path: str, components: dict[type, str]
 ) -> OpenAPI.PathItem.Operation:
-    request_body = {}
+    request_bodies = {}
     responses = {"200": Response(description="OK")}
     ct = "application/json"
     params = []
     if original_handler := getattr(handler, "__attrsapi_handler__", None):
         sig = signature(original_handler)
         path_params = parse_curly_path_params(path)
-        meta_params: dict[str, Header] = getattr(
-            original_handler, "__attrs_api_meta__", {}
-        )
         for path_param in path_params:
             if path_param not in sig.parameters:
                 raise Exception(f"Path parameter {path_param} not found")
@@ -331,16 +328,6 @@ def build_operation(
         for arg, arg_param in sig.parameters.items():
             if arg in path_params:
                 continue
-            elif arg_meta := meta_params.get(arg):
-                if isinstance(arg_meta, Header):
-                    params.append(
-                        OpenApiParameter(
-                            arg_meta.name,
-                            OpenApiParameter.Kind.HEADER,
-                            arg_param.default is Parameter.empty,
-                            PYTHON_PRIMITIVES_TO_OPENAPI[str],
-                        )
-                    )
             else:
                 arg_type = arg_param.annotation
                 if cookie_name := get_cookie_name(arg_type, arg):
@@ -355,11 +342,10 @@ def build_operation(
                         )
                     )
                 elif arg_type is not Parameter.empty and has(arg_type):
-                    request_body["content"] = {
-                        ct: MediaType(
-                            Reference(f"#/components/schemas/{components[arg_type]}")
-                        )
-                    }
+                    request_bodies[ct] = MediaType(
+                        Reference(f"#/components/schemas/{components[arg_type]}")
+                    )
+                    request_body_required = arg_param.default is Parameter.empty
                 else:
                     params.append(
                         OpenApiParameter(
@@ -401,20 +387,25 @@ def build_operation(
                     responses[str(status_code)] = Response(
                         "OK", {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])}
                     )
-    return OpenAPI.PathItem.Operation(responses, params)
+    req_body = None
+    if request_bodies:
+        req_body = RequestBody(request_bodies, required=request_body_required)
+    return OpenAPI.PathItem.Operation(responses, params, req_body)
 
 
 def build_pathitem(
     path: str, path_routes: dict[str, Callable], components
 ) -> OpenAPI.PathItem:
-    get = post = put = None
+    get = post = put = delete = None
     if get_route := path_routes.get("get"):
         get = build_operation(get_route, path, components)
     if post_route := path_routes.get("post"):
         post = build_operation(post_route, path, components)
     if put_route := path_routes.get("put"):
         put = build_operation(put_route, path, components)
-    return OpenAPI.PathItem(get=get, post=post, put=put)
+    if delete_route := path_routes.get("delete"):
+        delete = build_operation(delete_route, path, components)
+    return OpenAPI.PathItem(get, post, put, delete)
 
 
 def routes_to_paths(

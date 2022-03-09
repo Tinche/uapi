@@ -24,6 +24,7 @@ dev = [
     "starlette",
     "hypercorn",
     "mypy",
+    "aioredis",
 ]
 
 [tool.isort]
