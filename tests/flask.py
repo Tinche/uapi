@@ -19,6 +19,7 @@ def make_app():
     app = App()
 
     @app.get("/", flask=flask)
+    @app.post("/", name="hello-post", flask=flask)
     def hello() -> str:
         return "Hello, world"
 

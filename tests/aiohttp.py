@@ -16,6 +16,7 @@ def make_app() -> web.Application:
     app = App()
 
     @app.get("/", routes=routes)
+    @app.post("/", routes=routes)
     async def hello() -> str:
         return "Hello, world"
 

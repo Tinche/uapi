@@ -40,7 +40,7 @@ from .responses import (
     make_return_adapter,
 )
 from .status import BadRequest, BaseResponse, Ok, get_status_code
-from .types import is_subclass
+from .types import CB, is_subclass
 
 C = TypeVar("C")
 
@@ -178,10 +178,10 @@ class App(BaseApp):
         name: Optional[str] = None,
         routes: Optional[RouteTableDef] = None,
         methods=["GET"],
-    ):
+    ) -> Callable:
         r = routes if routes is not None else self.routes
 
-        def wrapper(handler: Callable) -> Callable:
+        def wrapper(handler: CB) -> CB:
             ra = make_return_adapter(
                 signature(handler).return_annotation, FrameworkResponse, self.converter
             )
@@ -280,7 +280,7 @@ class App(BaseApp):
 
             for method in methods:
                 r.route(method, path, **kwargs)(adapted)  # type: ignore
-            return adapted
+            return handler
 
         return wrapper
 

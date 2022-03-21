@@ -31,7 +31,7 @@ from .responses import (
     make_return_adapter,
 )
 from .status import BadRequest, BaseResponse, get_status_code
-from .types import is_subclass
+from .types import CB, is_subclass
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -130,10 +130,10 @@ class App(BaseApp):
         name: Optional[str] = None,
         flask: Optional[Flask] = None,
         methods=["GET"],
-    ):
+    ) -> Callable:
         f = flask or self.flask
 
-        def wrapper(handler: Callable) -> Callable:
+        def wrapper(handler: CB) -> CB:
             ra = make_return_adapter(
                 signature(handler).return_annotation, FrameworkResponse, self.converter
             )
@@ -177,7 +177,7 @@ class App(BaseApp):
                 methods=methods,
                 endpoint=name if name is not None else handler.__name__,
             )(adapted)
-            return adapted
+            return handler
 
         return wrapper
 

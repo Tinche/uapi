@@ -18,6 +18,7 @@ def make_app() -> Quart:
     app = App()
 
     @app.get("/", quart=quart)
+    @app.post("/", name="hello-post", quart=quart)
     async def hello() -> str:
         return "Hello, world"
 

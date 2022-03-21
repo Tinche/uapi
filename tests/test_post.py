@@ -6,6 +6,13 @@ from httpx import AsyncClient
 from tests.models import NestedModel
 
 
+async def test_hello(server):
+    """The hello handler should work, to show chaining of @route decorators."""
+    async with AsyncClient() as client:
+        resp = await client.post(f"http://localhost:{server}/")
+        assert resp.status_code == 200
+
+
 async def test_no_body_native_response_post(server):
     async with AsyncClient() as client:
         resp = await client.post(

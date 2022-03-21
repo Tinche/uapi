@@ -26,7 +26,7 @@ from .path import parse_curly_path_params
 from .requests import get_cookie_name
 from .responses import get_status_code_results, identity, make_return_adapter
 from .status import BadRequest, BaseResponse, Headers, get_status_code
-from .types import is_subclass
+from .types import CB, is_subclass
 
 C = TypeVar("C")
 
@@ -182,10 +182,10 @@ class App(BaseApp):
         name: Optional[str] = None,
         starlette: Optional[Starlette] = None,
         methods=["GET"],
-    ):
+    ) -> Callable:
         s = starlette or self.starlette
 
-        def wrapper(handler: Callable) -> Callable:
+        def wrapper(handler: CB) -> CB:
             ra = make_return_adapter(
                 signature(handler).return_annotation, FrameworkResponse, self.converter
             )
@@ -279,7 +279,7 @@ class App(BaseApp):
             adapted.__attrsapi_handler__ = base_handler  # type: ignore
 
             s.add_route(path, adapted, name=name, methods=methods)
-            return adapted
+            return handler
 
         return wrapper
 

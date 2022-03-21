@@ -11,6 +11,8 @@ from quart import Response as FrameworkResponse
 from quart import request
 from werkzeug.datastructures import Headers
 
+from .types import CB
+
 try:
     from ujson import loads
 except ImportError:
@@ -125,10 +127,10 @@ class App(BaseApp):
         name: Optional[str] = None,
         quart: Optional[Quart] = None,
         methods=["GET"],
-    ):
+    ) -> Callable:
         q = quart or self.quart
 
-        def wrapper(handler: Callable) -> Callable:
+        def wrapper(handler: CB) -> CB:
             ra = make_return_adapter(
                 signature(handler).return_annotation, FrameworkResponse, self.converter
             )
@@ -173,7 +175,7 @@ class App(BaseApp):
                 methods=methods,
                 endpoint=name if name is not None else handler.__name__,
             )(adapted)
-            return adapted
+            return handler
 
         return wrapper
 

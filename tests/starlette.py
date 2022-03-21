@@ -19,6 +19,7 @@ def make_app() -> Starlette:
     app = App()
 
     @app.get("/", starlette=starlette)
+    @app.post("/", starlette=starlette)
     async def hello() -> str:
         return "Hello, world"
 
