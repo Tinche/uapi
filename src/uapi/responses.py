@@ -20,7 +20,7 @@ try:
 except ImportError:
     from json import dumps as dumps
 
-__all__ = ["dumps", "returns_status_code", "get_status_code_results"]
+__all__ = ["dumps", "return_type_to_statuses", "get_status_code_results"]
 empty_dict: Mapping[str, str] = MappingProxyType({})
 
 
@@ -49,20 +49,26 @@ def make_return_adapter(
     return identity
 
 
-def returns_status_code(t: type) -> bool:
-    return all(
-        is_subclass(t, BaseResponse)
-        or is_subclass(getattr(t, "__origin__", None), BaseResponse)
-        for t in (get_args(t) if is_union_type(t) else [t])
-    )
+def return_type_to_statuses(t: type) -> dict[int, Any]:
+    per_status = {}
+    for t in get_args(t) if is_union_type(t) else [t]:
+        if is_subclass(t, BaseResponse) or is_subclass(
+            getattr(t, "__origin__", None), BaseResponse
+        ):
+            status = get_status_code(t.__origin__)
+            t = t.__args__[0]
+        else:
+            status = 200
+        if status in per_status:
+            per_status[status] = per_status[status] | t
+        else:
+            per_status[status] = t
+    return per_status
 
 
 def get_status_code_results(t: type) -> list[tuple[int, Any]]:
     """Normalize a supported return type into (status code, type)."""
-    if not returns_status_code(t):
-        return [(200, t)]
-    resp_types = get_args(t) if is_union_type(t) else (t,)
-    return [(get_status_code(t.__origin__), t.__args__[0]) for t in resp_types]  # type: ignore
+    return list(return_type_to_statuses(t).items())
 
 
 def identity(*args):

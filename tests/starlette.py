@@ -11,7 +11,7 @@ from uapi.cookies import CookieSettings, set_cookie
 from uapi.starlette import App
 from uapi.status import Created, Forbidden, NoContent, Ok
 
-from .models import NestedModel
+from .models import NestedModel, SimpleModel
 
 
 def make_app() -> Starlette:
@@ -92,6 +92,10 @@ def make_app() -> Starlette:
     @app.patch("/patch/cookie", starlette=starlette)
     async def patch_with_response_cookies() -> Ok[None]:
         return Ok(None, set_cookie("cookie", "my_cookie", CookieSettings(max_age=1)))
+
+    @app.route("/patch/attrs", starlette=starlette, methods=["patch"])
+    async def patch_attrs_union() -> NestedModel | Created[SimpleModel]:
+        return NestedModel()
 
     @app.head("/head/exc", starlette=starlette)
     async def head_with_exc() -> str:

@@ -103,6 +103,7 @@ class OpenAPI:
         get: Optional[Operation] = None
         post: Optional[Operation] = None
         put: Optional[Operation] = None
+        patch: Optional[Operation] = None
         delete: Optional[Operation] = None
 
     @frozen

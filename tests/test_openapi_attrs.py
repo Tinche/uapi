@@ -157,3 +157,51 @@ def test_post_model(app_factory):
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },
     )
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        (aiohttp_make_app, aiohttp_make_openapi_spec),
+        (flask_make_app, flask_make_openapi_spec),
+        (quart_make_app, quart_make_openapi_spec),
+        (starlette_make_app, starlette_make_openapi_spec),
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette"],
+)
+def test_patch_union(app_factory):
+    app = app_factory[0]()
+    spec: OpenAPI = app_factory[1](app)
+
+    op = spec.paths["/patch/attrs"]
+    assert op is not None
+    assert op.get is None
+    assert op.post is None
+    assert op.put is None
+    assert op.patch is not None
+    assert op.patch.responses["200"]
+    assert op.patch.responses["200"].content["application/json"].schema == Reference(
+        "#/components/schemas/NestedModel"
+    )
+    assert op.patch.responses["201"].content["application/json"].schema == Reference(
+        "#/components/schemas/SimpleModel"
+    )
+
+    assert spec.components.schemas["NestedModel"] == Schema(
+        Schema.Type.OBJECT,
+        properties={
+            "simple_model": Reference("#/components/schemas/SimpleModel"),
+            "a_list": ArraySchema(Reference("#/components/schemas/SimpleModel")),
+            "a_dict": Schema(
+                Schema.Type.OBJECT, additionalProperties=InlineType(Schema.Type.STRING)
+            ),
+        },
+    )
+    assert spec.components.schemas["SimpleModel"] == Schema(
+        Schema.Type.OBJECT,
+        properties={
+            "an_int": Schema(Schema.Type.INTEGER),
+            "a_string": Schema(Schema.Type.STRING),
+            "a_float": Schema(Schema.Type.NUMBER, format="double"),
+        },
+    )

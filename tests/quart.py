@@ -10,7 +10,7 @@ from uapi.cookies import CookieSettings, set_cookie
 from uapi.quart import App
 from uapi.status import Created, Forbidden, NoContent, Ok
 
-from .models import NestedModel
+from .models import NestedModel, SimpleModel
 
 
 def make_app() -> Quart:
@@ -91,6 +91,10 @@ def make_app() -> Quart:
     @app.patch("/patch/cookie", quart=quart)
     async def patch_with_response_cookies() -> Ok[None]:
         return Ok(None, set_cookie("cookie", "my_cookie", CookieSettings(max_age=1)))
+
+    @app.route("/patch/attrs", quart=quart, methods=["patch"])
+    async def patch_attrs_union() -> NestedModel | Created[SimpleModel]:
+        return NestedModel()
 
     @app.head("/head/exc", quart=quart)
     async def head_with_exc() -> str:

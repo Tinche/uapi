@@ -396,16 +396,18 @@ def build_operation(
 def build_pathitem(
     path: str, path_routes: dict[str, Callable], components
 ) -> OpenAPI.PathItem:
-    get = post = put = delete = None
+    get = post = put = patch = delete = None
     if get_route := path_routes.get("get"):
         get = build_operation(get_route, path, components)
     if post_route := path_routes.get("post"):
         post = build_operation(post_route, path, components)
     if put_route := path_routes.get("put"):
         put = build_operation(put_route, path, components)
+    if patch_route := path_routes.get("patch"):
+        patch = build_operation(patch_route, path, components)
     if delete_route := path_routes.get("delete"):
         delete = build_operation(delete_route, path, components)
-    return OpenAPI.PathItem(get, post, put, delete)
+    return OpenAPI.PathItem(get, post, put, patch, delete)
 
 
 def routes_to_paths(
@@ -441,13 +443,14 @@ def gather_endpoint_components(
                     counter += 1
                 components[arg_type] = name
     if (ret_type := sig.return_annotation) is not Parameter.empty:
-        if has(ret_type) and ret_type not in components:
-            name = ret_type.__name__
-            counter = 0
-            while name in components.values():
-                name = f"{ret_type.__name__}{counter}"
-                counter += 1
-            components[ret_type] = name
+        for _, r in get_status_code_results(ret_type):
+            if has(r) and r not in components:
+                name = r.__name__
+                counter = 0
+                while name in components.values():
+                    name = f"{r.__name__}{counter}"
+                    counter += 1
+                components[r] = name
     return components
 
 
