@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import Any
 
 from attrs import Factory, define, frozen
 from cattrs import Converter
@@ -44,8 +45,16 @@ class BaseApp:
 
         self.route(path)(redoc_handler)
 
+    def serve_elements(self, path: str = "/elements", **kwargs: Any):
+        from .swaggerui import elements
+
+        async def handler() -> Ok[str]:
+            return Ok(elements, {"content-type": "text/html"})
+
+        self.route(path, **kwargs)(handler)
+
     @abstractmethod
-    def route(self, path: str):
+    def route(self, path: str, **kwargs: Any):
         raise NotImplementedError
 
 
