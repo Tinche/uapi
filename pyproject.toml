@@ -16,6 +16,7 @@ dev = [
     "black",
     "flake8",
     "isort",
+    "coverage",
     "pytest-asyncio",
     "httpx",
     "aiohttp",

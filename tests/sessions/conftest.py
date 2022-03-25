@@ -1,5 +1,5 @@
 from asyncio import CancelledError, Event, create_task
-from typing import Callable, Literal, Union
+from typing import Callable, Union
 
 import pytest
 
