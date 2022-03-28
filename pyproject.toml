@@ -27,6 +27,7 @@ dev = [
     "mypy",
     "aioredis",
     "types-ujson",
+    "uvicorn",
 ]
 
 [tool.isort]

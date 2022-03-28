@@ -15,7 +15,7 @@ from werkzeug.routing import Rule
 try:
     from ujson import loads
 except ImportError:
-    from json import loads
+    from json import loads  # type: ignore
 
 from . import BaseApp, ResponseException
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, AnySchema, MediaType, OpenAPI

@@ -15,7 +15,7 @@ from starlette.routing import BaseRoute, Route
 try:
     from ujson import loads
 except ImportError:
-    from json import loads
+    from json import loads  # type: ignore
 
 from . import BaseApp, ResponseException
 from .openapi import PYTHON_PRIMITIVES_TO_OPENAPI, AnySchema, MediaType, OpenAPI
@@ -295,7 +295,7 @@ class App(BaseApp):
         self.route(path)(openapi_handler)
 
     async def run(self, port: int = 8000):
-        from uvicorn import Config, Server
+        from uvicorn import Config, Server  # type: ignore
 
         config = Config(self.starlette, port=port, access_log=False)
         server = Server(config=config)

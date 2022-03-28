@@ -16,7 +16,7 @@ from .types import CB
 try:
     from ujson import loads
 except ImportError:
-    from json import loads
+    from json import loads  # type: ignore
 
 from . import BaseApp, ResponseException
 from .flask import make_openapi_spec as flask_openapi_spec
@@ -189,7 +189,7 @@ class App(BaseApp):
         self.route(path)(openapi_handler)
 
     async def run(self, port: int = 8000):
-        from uvicorn import Config, Server
+        from uvicorn import Config, Server  # type: ignore
 
         config = Config(self.quart, port=port, access_log=False)
         server = Server(config=config)

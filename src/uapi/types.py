@@ -1,6 +1,7 @@
 from typing import Callable, TypeVar
 
-CB = TypeVar("CB", bound=Callable)
+R = TypeVar("R")
+CB = Callable[..., R]
 
 
 def is_subclass(cls, subclass) -> bool:
