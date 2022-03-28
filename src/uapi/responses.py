@@ -50,13 +50,13 @@ def make_return_adapter(
 
 
 def return_type_to_statuses(t: type) -> dict[int, Any]:
-    per_status = {}
+    per_status: dict[int, Any] = {}
     for t in get_args(t) if is_union_type(t) else [t]:
         if is_subclass(t, BaseResponse) or is_subclass(
             getattr(t, "__origin__", None), BaseResponse
         ):
-            status = get_status_code(t.__origin__)
-            t = t.__args__[0]
+            status = get_status_code(t.__origin__)  # type: ignore
+            t = t.__args__[0]  # type: ignore
         else:
             status = 200
         if status in per_status:
