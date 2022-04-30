@@ -1,5 +1,9 @@
 # uapi
 
+<a href="https://github.com/Tinche/uapi/actions?workflow=CI">
+   <img src="https://github.com/Tinche/uapi/workflows/CI/badge.svg" alt="Build status" />
+</a>
+
 ---
 
 `uapi` is a high-level, extremely fast Python microframework for writing HTTP APIs, either synchronously or asynchronously.
