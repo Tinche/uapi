@@ -1,5 +1,5 @@
 from inspect import Parameter, Signature, signature
-from typing import Callable, TypeVar
+from typing import Any, Callable, ClassVar, TypeVar
 
 from aiohttp.web import Request as FrameworkRequest
 from aiohttp.web import Response as FrameworkResponse
@@ -107,7 +107,7 @@ class AiohttpApp(BaseApp):
         p,
         parse_curly_path_params(p),
     )
-    _framework_resp_cls = FrameworkResponse
+    _framework_resp_cls: ClassVar[type] = FrameworkResponse
 
     def to_framework_routes(self) -> RouteTableDef:
         r = RouteTableDef()

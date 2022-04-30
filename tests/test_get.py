@@ -73,7 +73,7 @@ async def test_response_model(server):
         assert resp.headers["content-type"] == "application/json"
         assert (
             resp.read()
-            == b'{"simple_model": {"an_int": 1, "a_string": "1", "a_float": 1.0}, "a_dict": {}, "a_list": []}'
+            == b'{"simple_model":{"an_int":1,"a_string":"1","a_float":1.0},"a_dict":{},"a_list":[]}'
         )
 
 
@@ -86,5 +86,5 @@ async def test_response_model_custom_status(server):
         assert resp.headers["test"] == "test"
         assert (
             resp.read()
-            == b'{"simple_model": {"an_int": 1, "a_string": "1", "a_float": 1.0}, "a_dict": {}, "a_list": []}'
+            == b'{"simple_model":{"an_int":1,"a_string":"1","a_float":1.0},"a_dict":{},"a_list":[]}'
         )

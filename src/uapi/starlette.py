@@ -1,5 +1,5 @@
 from inspect import Parameter, Signature, signature
-from typing import Awaitable, Callable, TypeVar
+from typing import Awaitable, Callable, ClassVar, TypeVar
 
 from attrs import Factory, define, has
 from cattrs import Converter
@@ -122,7 +122,7 @@ class StarletteApp(BaseApp):
         p,
         parse_curly_path_params(p),
     )
-    _framework_resp_cls = FrameworkResponse
+    _framework_resp_cls: ClassVar[type] = FrameworkResponse
 
     def to_framework_app(self) -> Starlette:
         s = Starlette()

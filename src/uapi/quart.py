@@ -1,5 +1,5 @@
 from inspect import Signature, signature
-from typing import Awaitable, Callable, TypeVar
+from typing import Awaitable, Callable, ClassVar, TypeVar
 
 from attrs import Factory, define, has
 from cattrs import Converter
@@ -97,7 +97,7 @@ class QuartApp(BaseApp):
         strip_path_param_prefix(angle_to_curly(p)),
         parse_curly_path_params(p),
     )
-    _framework_resp_cls = FrameworkResponse
+    _framework_resp_cls: ClassVar[type] = FrameworkResponse
 
     def to_framework_app(self, import_name: str) -> Quart:
         q = Quart(import_name)

@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, ClassVar, Optional, Sequence
 
 from attrs import Factory, define, frozen
 from cattrs import Converter
@@ -35,7 +35,7 @@ class App:
     base_incant: Incanter = Factory(make_base_incanter)
     route_map: dict[tuple[str, str], tuple[Callable, Optional[str]]] = Factory(dict)
     _path_param_parser: PathParamParser = lambda p: (p, [])
-    _framework_resp_cls: Any = None
+    _framework_resp_cls: ClassVar[type] = None
 
     def route(
         self,

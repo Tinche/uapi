@@ -1,5 +1,5 @@
 from inspect import Signature, signature
-from typing import Callable
+from typing import Callable, ClassVar
 
 from attrs import Factory, define, has
 from cattrs import Converter
@@ -92,7 +92,7 @@ class FlaskApp(BaseApp):
         strip_path_param_prefix(angle_to_curly(p)),
         parse_curly_path_params(p),
     )
-    _framework_resp_cls = FrameworkResponse
+    _framework_resp_cls: ClassVar[type] = FrameworkResponse
 
     def to_framework_app(self, import_name: str) -> Flask:
         f = Flask(import_name)
