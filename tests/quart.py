@@ -3,7 +3,7 @@ from typing import Annotated, Optional, Union
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
-from quart import Quart, Response
+from quart import Response
 
 from uapi import Cookie, ResponseException
 from uapi.cookies import CookieSettings, set_cookie
@@ -13,94 +13,97 @@ from uapi.status import Created, Forbidden, NoContent, Ok
 from .models import NestedModel, SimpleModel
 
 
-def make_app() -> Quart:
-    quart = Quart("flask")
+def make_app() -> App:
     app = App()
 
-    @app.get("/", quart=quart)
-    @app.post("/", name="hello-post", quart=quart)
+    @app.get("/")
+    @app.post("/", name="hello-post")
     async def hello() -> str:
         return "Hello, world"
 
-    @app.route("/path/<int:path_id>", quart=quart)
     async def path(path_id: int) -> Response:
         return Response(str(path_id + 1))
 
-    @app.route("/query/unannotated", quart=quart)
+    app.route("/path/<int:path_id>", path)
+
+    @app.get("/query/unannotated")
     async def query_unannotated(query) -> Response:
         return Response(query + "suffix")
 
-    @app.route("/query/string", quart=quart)
+    @app.get("/query/string")
     async def query_string(query: str) -> Response:
         return Response(query + "suffix")
 
-    @app.route("/query", quart=quart)
+    @app.get("/query")
     async def query(page: int) -> Response:
         return Response(str(page + 1))
 
-    @app.route("/query-default", quart=quart)
+    @app.get("/query-default")
     async def query_default(page: int = 0) -> Response:
         return Response(str(page + 1))
 
-    @app.route("/query-bytes", quart=quart)
+    @app.get("/query-bytes")
     async def query_bytes() -> bytes:
         return b"2"
 
-    @app.get("/get/model", quart=quart)
+    @app.get("/get/model")
     async def get_model() -> NestedModel:
         return NestedModel()
 
-    @app.get("/get/model-status", quart=quart)
+    @app.get("/get/model-status")
     async def get_model_status() -> Created[NestedModel]:
         return Created(NestedModel(), {"test": "test"})
 
-    @app.post("/post/no-body-native-response", quart=quart)
+    @app.post("/post/no-body-native-response")
     async def post_no_body() -> Response:
         return Response("post", status=201)
 
-    @app.route("/post/no-body-no-response", quart=quart, methods=["post"])
     async def post_no_body_no_resp() -> None:
         return
 
-    @app.route("/post/201", quart=quart, methods=["post"])
+    app.route("/post/no-body-no-response", post_no_body_no_resp, methods=["post"])
+
+    @app.post("/post/201")
     async def post_201() -> Created[str]:
         return Created("test")
 
-    @app.route("/post/multiple", quart=quart, methods=["post"])
+    @app.post("/post/multiple")
     async def post_multiple_codes() -> Union[Ok[str], Created[None]]:
         return Created(None)
 
-    @app.post("/post/model", quart=quart)
+    @app.post("/post/model")
     async def post_model(body: NestedModel) -> Created[NestedModel]:
         return Created(body)
 
-    @app.put("/put/cookie", quart=quart)
+    @app.put("/put/cookie")
     async def put_cookie(a_cookie: Cookie) -> str:
         return a_cookie
 
-    @app.route("/put/cookie-optional", quart=quart, methods=["put"])
     async def put_cookie_optional(
         a_cookie: Annotated[Optional[str], Cookie("A-COOKIE")] = None
     ) -> str:
         return a_cookie if a_cookie is not None else "missing"
 
-    @app.delete("/delete/header", quart=quart)
+    app.route("/put/cookie-optional", put_cookie_optional, methods=["put"])
+
+    @app.delete("/delete/header")
     async def delete_with_response_headers() -> NoContent[None]:
         return NoContent(None, {"response": "test"})
 
-    @app.patch("/patch/cookie", quart=quart)
+    @app.patch("/patch/cookie")
     async def patch_with_response_cookies() -> Ok[None]:
         return Ok(None, set_cookie("cookie", "my_cookie", CookieSettings(max_age=1)))
 
-    @app.route("/patch/attrs", quart=quart, methods=["patch"])
     async def patch_attrs_union() -> NestedModel | Created[SimpleModel]:
         return NestedModel()
 
-    @app.head("/head/exc", quart=quart)
+    app.route("/patch/attrs", patch_attrs_union, methods=["patch"])
+
+    @app.head("/head/exc")
     async def head_with_exc() -> str:
         raise ResponseException(Forbidden(None))
 
-    return quart
+    return app
 
 
 async def run_server(port: int, shutdown_event: Event):
@@ -111,10 +114,10 @@ async def run_server(port: int, shutdown_event: Event):
     except Exception as exc:
         print(exc)
         raise
-    await serve(app, config, shutdown_trigger=shutdown_event.wait)  # type: ignore
+    await serve(app.to_framework_app(__name__), config, shutdown_trigger=shutdown_event.wait)  # type: ignore
 
 
 async def run_on_quart(app: App, port: int, shutdown_event: Event):
     config = Config()
     config.bind = [f"localhost:{port}"]
-    await serve(app.quart, config, shutdown_trigger=shutdown_event.wait)  # type: ignore
+    await serve(app.to_framework_app(__name__), config, shutdown_trigger=shutdown_event.wait)  # type: ignore

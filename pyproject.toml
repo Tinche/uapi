@@ -26,8 +26,8 @@ dev = [
     "hypercorn",
     "mypy",
     "aioredis",
-    "types-ujson",
     "uvicorn",
+    "orjson",
 ]
 
 [tool.isort]

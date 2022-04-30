@@ -2,7 +2,7 @@ from typing import Annotated, Callable, Optional, TypeVar
 
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
-from .. import BaseApp, Cookie
+from .. import App, Cookie
 from ..cookies import CookieSettings, set_cookie
 from ..status import Headers
 
@@ -19,7 +19,7 @@ class Session(dict[str, str]):
 
 
 def configure_secure_sessions(
-    app: BaseApp,
+    app: App,
     secret_key: str,
     cookie_name: str = "session",
     salt: str = "cookie-session",

@@ -1,11 +1,7 @@
 """Test the OpenAPI schema generation."""
 import pytest
 
-from uapi.aiohttp import make_openapi_spec as aiohttp_make_openapi_spec
-from uapi.flask import make_openapi_spec as flask_make_openapi_spec
 from uapi.openapi import OpenAPI, Parameter, Response, Schema
-from uapi.quart import make_openapi_spec as quart_make_openapi_spec
-from uapi.starlette import make_openapi_spec as starlette_make_openapi_spec
 
 from .aiohttp import make_app as aiohttp_make_app
 from .flask import make_app as flask_make_app
@@ -15,17 +11,12 @@ from .starlette import make_app as starlette_make_app
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_index(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/"]
     assert op is not None
@@ -39,17 +30,12 @@ def test_get_index(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_path_param(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/path/{path_id}"]
     assert op is not None
@@ -67,17 +53,12 @@ def test_get_path_param(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_query_int(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/query"]
     assert op is not None
@@ -95,17 +76,12 @@ def test_get_query_int(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_query_default(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/query-default"]
     assert op is not None
@@ -123,17 +99,12 @@ def test_get_query_default(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_query_unannotated(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/query/unannotated"]
     assert op is not None
@@ -151,17 +122,12 @@ def test_get_query_unannotated(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_query_string(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/query/string"]
     assert op is not None
@@ -179,17 +145,12 @@ def test_get_query_string(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_bytes(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/query-bytes"]
     assert op is not None
@@ -203,17 +164,12 @@ def test_get_bytes(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_post_no_body_native_response(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/post/no-body-native-response"]
     assert op is not None
@@ -226,17 +182,12 @@ def test_post_no_body_native_response(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_post_no_body_no_response(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/post/no-body-no-response"]
     assert op is not None
@@ -249,17 +200,12 @@ def test_post_no_body_no_response(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_post_custom_status(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/post/201"]
     assert op is not None
@@ -272,17 +218,12 @@ def test_post_custom_status(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_post_multiple_statuses(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/post/multiple"]
     assert op is not None
@@ -300,17 +241,12 @@ def test_post_multiple_statuses(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_put_cookie(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/put/cookie"]
     assert op is not None
@@ -333,17 +269,12 @@ def test_put_cookie(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_delete(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/delete/header"]
     assert op is not None

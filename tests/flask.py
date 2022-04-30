@@ -14,101 +14,104 @@ from uapi.status import Created, Forbidden, NoContent, Ok
 from .models import NestedModel, SimpleModel
 
 
-def make_app():
-    flask = Flask("flask")
+def make_app() -> App:
     app = App()
 
-    @app.get("/", flask=flask)
-    @app.post("/", name="hello-post", flask=flask)
+    @app.get("/")
+    @app.post("/", name="hello-post")
     def hello() -> str:
         return "Hello, world"
 
-    @app.route("/path/<int:path_id>", flask=flask)
     def path(path_id: int) -> Response:
         return Response(str(path_id + 1))
 
-    @app.route("/query/unannotated", flask=flask)
+    app.route("/path/<int:path_id>", path)
+
+    @app.get("/query/unannotated")
     def query_unannotated(query) -> Response:
         return Response(query + "suffix")
 
-    @app.route("/query/string", flask=flask)
+    @app.get("/query/string")
     def query_string(query: str) -> Response:
         return Response(query + "suffix")
 
-    @app.route("/query", flask=flask)
+    @app.get("/query")
     def query(page: int) -> Response:
         return Response(str(page + 1))
 
-    @app.route("/query-default", flask=flask)
+    @app.get("/query-default")
     def query_default(page: int = 0) -> Response:
         return Response(str(page + 1))
 
-    @app.route("/query-bytes", flask=flask)
+    @app.get("/query-bytes")
     def query_bytes() -> bytes:
         return b"2"
 
-    @app.get("/get/model", flask=flask)
+    @app.get("/get/model")
     def get_model() -> NestedModel:
         return NestedModel()
 
-    @app.get("/get/model-status", flask=flask)
+    @app.get("/get/model-status")
     def get_model_status() -> Created[NestedModel]:
         return Created(NestedModel(), {"test": "test"})
 
-    @app.post("/post/no-body-native-response", flask=flask)
+    @app.post("/post/no-body-native-response")
     def post_no_body() -> Response:
         return Response("post", status=201)
 
-    @app.route("/post/no-body-no-response", flask=flask, methods=["post"])
     def post_no_body_no_resp() -> None:
         return
 
-    @app.route("/post/201", flask=flask, methods=["post"])
+    app.route("/post/no-body-no-response", post_no_body_no_resp, methods=["post"])
+
+    @app.post("/post/201")
     def post_201() -> Created[str]:
         return Created("test")
 
-    @app.route("/post/multiple", flask=flask, methods=["post"])
+    @app.post("/post/multiple")
     def post_multiple_codes() -> Union[Ok[str], Created[None]]:
         return Created(None)
 
-    @app.post("/post/model", flask=flask)
+    @app.post("/post/model")
     def post_model(body: NestedModel) -> Created[NestedModel]:
         return Created(body)
 
-    @app.put("/put/cookie", flask=flask)
+    @app.put("/put/cookie")
     def put_cookie(a_cookie: Cookie) -> str:
         return a_cookie
 
-    @app.route("/put/cookie-optional", flask=flask, methods=["put"])
     def put_cookie_optional(
         a_cookie: Annotated[Optional[str], Cookie("A-COOKIE")] = None
     ) -> str:
         return a_cookie if a_cookie is not None else "missing"
 
-    @app.delete("/delete/header", flask=flask)
+    app.route("/put/cookie-optional", put_cookie_optional, methods=["put"])
+
+    @app.delete("/delete/header")
     def delete_with_response_headers() -> NoContent[None]:
         return NoContent(None, {"response": "test"})
 
-    @app.patch("/patch/cookie", flask=flask)
+    @app.patch("/patch/cookie")
     def patch_with_response_cookies() -> Ok[None]:
         return Ok(None, set_cookie("cookie", "my_cookie", CookieSettings(max_age=1)))
 
-    @app.route("/patch/attrs", flask=flask, methods=["patch"])
     def patch_attrs_union() -> NestedModel | Created[SimpleModel]:
         return NestedModel()
 
-    @app.head("/head/exc", flask=flask)
+    app.route("/patch/attrs", patch_attrs_union, methods=["patch"])
+
+    @app.head("/head/exc")
     def head_with_exc() -> str:
         raise ResponseException(Forbidden(None))
 
-    return flask
+    return app
 
 
 async def run_server(port: int, shutdown_event: Event):
     config = Config()
     config.bind = [f"localhost:{port}"]
 
-    asyncio_app = AsyncioWSGIMiddleware(make_app())
+    asyncio_app = AsyncioWSGIMiddleware(make_app().to_framework_app(__name__))
     await serve(asyncio_app, config, shutdown_trigger=shutdown_event.wait)  # type: ignore
 
 
@@ -116,5 +119,5 @@ async def run_on_flask(app: App, port: int, shutdown_event: Event):
     config = Config()
     config.bind = [f"localhost:{port}"]
 
-    asyncio_app = AsyncioWSGIMiddleware(app.flask)
+    asyncio_app = AsyncioWSGIMiddleware(app.to_framework_app(__name__))
     await serve(asyncio_app, config, shutdown_trigger=shutdown_event.wait)  # type: ignore

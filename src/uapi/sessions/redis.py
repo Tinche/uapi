@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Annotated, Optional, TypeVar
 
 from attrs import frozen
 
-from .. import BaseApp, Cookie, Headers
+from .. import App, Cookie, Headers
 from ..cookies import CookieSettings, set_cookie
 
 if TYPE_CHECKING:
@@ -82,7 +82,7 @@ class AsyncRedisSessionStore:
 
 
 def configure_async_sessions(
-    app: BaseApp,
+    app: App,
     aioredis: "Redis",
     max_age: timedelta = timedelta(days=14),
     cookie_name: str = "session_id",

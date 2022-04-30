@@ -14,94 +14,97 @@ from uapi.status import Created, Forbidden, NoContent, Ok
 from .models import NestedModel, SimpleModel
 
 
-def make_app() -> Starlette:
-    starlette = Starlette()
+def make_app() -> App:
     app = App()
 
-    @app.get("/", starlette=starlette)
-    @app.post("/", starlette=starlette)
+    @app.get("/")
+    @app.post("/")
     async def hello() -> str:
         return "Hello, world"
 
-    @app.route("/path/{path_id}", starlette=starlette)
     async def path(path_id: int) -> Response:
         return Response(str(path_id + 1))
 
-    @app.route("/query/unannotated", starlette=starlette)
+    app.route("/path/{path_id}", path)
+
+    @app.get("/query/unannotated")
     async def query_unannotated(query) -> Response:
         return Response(query + "suffix")
 
-    @app.route("/query/string", starlette=starlette)
+    @app.get("/query/string")
     async def query_string(query: str) -> Response:
         return Response(query + "suffix")
 
-    @app.route("/query", starlette=starlette)
+    @app.get("/query")
     async def query(page: int) -> Response:
         return Response(str(page + 1))
 
-    @app.route("/query-default", starlette=starlette)
+    @app.get("/query-default")
     async def query_default(page: int = 0) -> Response:
         return Response(str(page + 1))
 
-    @app.route("/query-bytes", starlette=starlette)
+    @app.get("/query-bytes")
     async def query_bytes() -> bytes:
         return b"2"
 
-    @app.get("/get/model", starlette=starlette)
+    @app.get("/get/model")
     async def get_model() -> NestedModel:
         return NestedModel()
 
-    @app.get("/get/model-status", starlette=starlette)
+    @app.get("/get/model-status")
     async def get_model_status() -> Created[NestedModel]:
         return Created(NestedModel(), {"test": "test"})
 
-    @app.post("/post/no-body-native-response", starlette=starlette)
+    @app.post("/post/no-body-native-response")
     async def post_no_body() -> Response:
         return Response("post", 201)
 
-    @app.route("/post/no-body-no-response", starlette=starlette, methods=["POST"])
     async def post_no_body_no_response() -> None:
         return
 
-    @app.route("/post/201", starlette=starlette, methods=["POST"])
+    app.route("/post/no-body-no-response", post_no_body_no_response, methods=["POST"])
+
+    @app.post("/post/201")
     async def post_201() -> Created[str]:
         return Created("test")
 
-    @app.route("/post/multiple", starlette=starlette, methods=["POST"])
+    @app.post("/post/multiple")
     async def post_multiple_codes() -> Union[Ok[str], Created[None]]:
         return Created(None)
 
-    @app.post("/post/model", starlette=starlette)
+    @app.post("/post/model")
     async def post_model(body: NestedModel) -> Created[NestedModel]:
         return Created(body)
 
-    @app.put("/put/cookie", starlette=starlette)
+    @app.put("/put/cookie")
     async def put_cookie(a_cookie: Cookie) -> str:
         return a_cookie
 
-    @app.route("/put/cookie-optional", starlette=starlette, methods=["PUT"])
     async def put_cookie_optional(
         a_cookie: Annotated[Optional[str], Cookie("A-COOKIE")] = None
     ) -> str:
         return a_cookie if a_cookie is not None else "missing"
 
-    @app.delete("/delete/header", starlette=starlette)
+    app.route("/put/cookie-optional", put_cookie_optional, methods=["PUT"])
+
+    @app.delete("/delete/header")
     async def delete_with_response_headers() -> NoContent[None]:
         return NoContent(None, {"response": "test"})
 
-    @app.patch("/patch/cookie", starlette=starlette)
+    @app.patch("/patch/cookie")
     async def patch_with_response_cookies() -> Ok[None]:
         return Ok(None, set_cookie("cookie", "my_cookie", CookieSettings(max_age=1)))
 
-    @app.route("/patch/attrs", starlette=starlette, methods=["patch"])
     async def patch_attrs_union() -> NestedModel | Created[SimpleModel]:
         return NestedModel()
 
-    @app.head("/head/exc", starlette=starlette)
+    app.route("/patch/attrs", patch_attrs_union, methods=["patch"])
+
+    @app.head("/head/exc")
     async def head_with_exc() -> str:
         raise ResponseException(Forbidden(None))
 
-    return starlette
+    return app
 
 
 async def run_server(port: int, shutdown_event: Event):
@@ -109,7 +112,7 @@ async def run_server(port: int, shutdown_event: Event):
     config = Config()
     config.bind = [f"localhost:{port}"]
 
-    await serve(make_app(), config, shutdown_trigger=shutdown_event.wait)  # type: ignore
+    await serve(make_app().to_framework_app(), config, shutdown_trigger=shutdown_event.wait)  # type: ignore
 
 
 async def run_on_starlette(app: App, port: int, shutdown_event: Event):
@@ -117,4 +120,4 @@ async def run_on_starlette(app: App, port: int, shutdown_event: Event):
     config = Config()
     config.bind = [f"localhost:{port}"]
 
-    await serve(app.starlette, config, shutdown_trigger=shutdown_event.wait)  # type: ignore
+    await serve(app.to_framework_app(), config, shutdown_trigger=shutdown_event.wait)  # type: ignore

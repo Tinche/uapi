@@ -1,8 +1,6 @@
 """Test the OpenAPI schema generation for attrs classes."""
 import pytest
 
-from uapi.aiohttp import make_openapi_spec as aiohttp_make_openapi_spec
-from uapi.flask import make_openapi_spec as flask_make_openapi_spec
 from uapi.openapi import (
     ArraySchema,
     InlineType,
@@ -12,8 +10,6 @@ from uapi.openapi import (
     RequestBody,
     Schema,
 )
-from uapi.quart import make_openapi_spec as quart_make_openapi_spec
-from uapi.starlette import make_openapi_spec as starlette_make_openapi_spec
 
 from .aiohttp import make_app as aiohttp_make_app
 from .flask import make_app as flask_make_app
@@ -23,17 +19,12 @@ from .starlette import make_app as starlette_make_app
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_model(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/get/model"]
     assert op is not None
@@ -68,17 +59,12 @@ def test_get_model(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_get_model_status(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/get/model-status"]
     assert op is not None
@@ -114,17 +100,12 @@ def test_get_model_status(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_post_model(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/post/model"]
     assert op is not None
@@ -161,17 +142,12 @@ def test_post_model(app_factory):
 
 @pytest.mark.parametrize(
     "app_factory",
-    [
-        (aiohttp_make_app, aiohttp_make_openapi_spec),
-        (flask_make_app, flask_make_openapi_spec),
-        (quart_make_app, quart_make_openapi_spec),
-        (starlette_make_app, starlette_make_openapi_spec),
-    ],
+    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
     ids=["aiohttp", "flask", "quart", "starlette"],
 )
 def test_patch_union(app_factory):
-    app = app_factory[0]()
-    spec: OpenAPI = app_factory[1](app)
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/patch/attrs"]
     assert op is not None
