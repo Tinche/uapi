@@ -1,7 +1,7 @@
 from asyncio import Event
 from typing import Annotated, Optional, Union
 
-from flask import Flask, Response
+from flask import Response
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from hypercorn.middleware import AsyncioWSGIMiddleware

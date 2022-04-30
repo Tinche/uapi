@@ -3,7 +3,6 @@ from typing import Annotated, Optional, Union
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
-from starlette.applications import Starlette
 from starlette.responses import Response
 
 from uapi import Cookie, ResponseException

@@ -11,7 +11,7 @@ from starlette.responses import Response as FrameworkResponse
 try:
     from orjson import loads
 except ImportError:
-    from json import loads  # type: ignore
+    from json import loads
 
 from . import App as BaseApp
 from . import ResponseException

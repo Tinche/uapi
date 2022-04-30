@@ -35,7 +35,7 @@ class App:
     base_incant: Incanter = Factory(make_base_incanter)
     route_map: dict[tuple[str, str], tuple[Callable, Optional[str]]] = Factory(dict)
     _path_param_parser: PathParamParser = lambda p: (p, [])
-    _framework_resp_cls = None
+    _framework_resp_cls: Any = None
 
     def route(
         self,

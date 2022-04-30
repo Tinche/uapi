@@ -260,7 +260,7 @@ def build_pathitem(
 def routes_to_paths(
     routes: Routes,
     components: dict[type, dict[str, OpenAPI.PathItem]],
-    path_param_parser: Callable[[str], list[str]],
+    path_param_parser: PathParamParser,
     framework_resp_cls: type | None = None,
 ) -> dict[str, OpenAPI.PathItem]:
     res: dict[str, dict[str, Callable]] = defaultdict(dict)
@@ -320,7 +320,7 @@ def components_to_openapi(routes: Routes) -> tuple[OpenAPI.Components, dict]:
 
 def make_openapi_spec(
     routes: Routes,
-    path_param_parser: Callable[[str], list[str]],
+    path_param_parser: PathParamParser,
     title: str = "Server",
     version: str = "1.0",
     framework_resp_cls: type | None = None,

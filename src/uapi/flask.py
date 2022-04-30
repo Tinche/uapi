@@ -1,5 +1,5 @@
 from inspect import Signature, signature
-from typing import Callable, Final
+from typing import Callable
 
 from attrs import Factory, define, has
 from cattrs import Converter
@@ -11,9 +11,10 @@ from incant import Hook, Incanter
 try:
     from orjson import loads
 except ImportError:
-    from json import loads  # type: ignore
+    from json import loads
 
-from . import App, ResponseException
+from . import App as BaseApp
+from . import ResponseException
 from .path import (
     angle_to_curly,
     parse_angle_path_params,
@@ -83,7 +84,7 @@ def framework_return_adapter(resp: BaseResponse):
 
 
 @define
-class FlaskApp(App):
+class FlaskApp(BaseApp):
     framework_incant: Incanter = Factory(
         lambda self: make_flask_incanter(self.converter), takes_self=True
     )
@@ -109,13 +110,13 @@ class FlaskApp(App):
                     base_handler, hooks, is_async=False
                 )
 
-                def outer(prepared=prepared):
+                def o0(prepared=prepared):
                     def adapted(**kwargs):
                         return prepared(**kwargs)
 
                     return adapted
 
-                adapted = outer()
+                adapted = o0()
 
             else:
                 base_handler = self.base_incant.prepare(handler, is_async=False)
@@ -124,7 +125,7 @@ class FlaskApp(App):
                 )
                 if ra == identity:
 
-                    def outer(prepared=prepared):
+                    def o1(prepared=prepared):
                         def adapted(**kwargs):
                             try:
                                 return framework_return_adapter(prepared(**kwargs))
@@ -133,11 +134,11 @@ class FlaskApp(App):
 
                         return adapted
 
-                    adapted = outer()
+                    adapted = o1()
 
                 else:
 
-                    def outer(prepared=prepared, ra=ra):
+                    def o2(prepared=prepared, ra=ra):
                         def adapted(**kwargs):
                             try:
                                 return framework_return_adapter(ra(prepared(**kwargs)))
@@ -146,7 +147,7 @@ class FlaskApp(App):
 
                         return adapted
 
-                    adapted = outer()
+                    adapted = o2()
 
             f.route(
                 path,
@@ -156,8 +157,8 @@ class FlaskApp(App):
 
         return f
 
-    def run(self, port: int = 8000):
-        self.flask.run(port=port)
+    def run(self, import_name: str, port: int = 8000):
+        self.to_framework_app(import_name).run(port=port)
 
 
-App: Final = FlaskApp
+App = FlaskApp

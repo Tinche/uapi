@@ -1,5 +1,5 @@
 from inspect import Parameter, Signature, signature
-from typing import Callable, Final, TypeVar
+from typing import Callable, TypeVar
 
 from aiohttp.web import Request as FrameworkRequest
 from aiohttp.web import Response as FrameworkResponse
@@ -14,9 +14,10 @@ from multidict import CIMultiDict
 try:
     from orjson import loads
 except ImportError:
-    from json import loads  # type: ignore
+    from json import loads
 
-from . import App, ResponseException
+from . import App as BaseApp
+from . import ResponseException
 from .path import parse_curly_path_params
 from .requests import get_cookie_name
 from .responses import dict_to_headers, identity, make_return_adapter
@@ -98,7 +99,7 @@ def _framework_return_adapter(resp: BaseResponse):
 
 
 @define
-class AiohttpApp(App):
+class AiohttpApp(BaseApp):
     framework_incant: Incanter = Factory(
         lambda self: make_aiohttp_incanter(self.converter), takes_self=True
     )
@@ -208,7 +209,7 @@ class AiohttpApp(App):
                         except ResponseException as exc:
                             return _fra(exc.response)
 
-            r.route(method, path, name=name)(adapted)  # type: ignore
+            r.route(method, path, name=name)(adapted)
 
         return r
 
@@ -219,4 +220,4 @@ class AiohttpApp(App):
         await _run_app(app, port=port)
 
 
-App: Final = AiohttpApp
+App = AiohttpApp

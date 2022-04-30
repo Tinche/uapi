@@ -1,5 +1,5 @@
 from inspect import Signature, signature
-from typing import Awaitable, Callable, Final, TypeVar
+from typing import Awaitable, Callable, TypeVar
 
 from attrs import Factory, define, has
 from cattrs import Converter
@@ -12,9 +12,10 @@ from werkzeug.datastructures import Headers
 try:
     from orjson import loads
 except ImportError:
-    from json import loads  # type: ignore
+    from json import loads
 
-from . import App, ResponseException
+from . import App as BaseApp
+from . import ResponseException
 from .path import (
     angle_to_curly,
     parse_angle_path_params,
@@ -88,7 +89,7 @@ def framework_return_adapter(resp: BaseResponse):
 
 
 @define
-class QuartApp(App):
+class QuartApp(BaseApp):
     framework_incant: Incanter = Factory(
         lambda self: make_quart_incanter(self.converter), takes_self=True
     )
@@ -114,13 +115,13 @@ class QuartApp(App):
                     base_handler, hooks, is_async=True
                 )
 
-                def outer(prepared=prepared):
+                def o0(prepared=prepared):
                     async def adapted(**kwargs):
                         return await prepared(**kwargs)
 
                     return adapted
 
-                adapted = outer()
+                adapted = o0()
 
             else:
                 base_handler = self.base_incant.prepare(handler, is_async=True)
@@ -130,7 +131,7 @@ class QuartApp(App):
 
                 if ra == identity:
 
-                    def outer(prepared=prepared, _fra=framework_return_adapter):
+                    def o1(prepared=prepared, _fra=framework_return_adapter):
                         async def adapted(**kwargs):
                             try:
                                 return _fra(await prepared(**kwargs))
@@ -139,12 +140,12 @@ class QuartApp(App):
 
                         return adapted
 
-                    adapted = outer()
+                    adapted = o1()
 
                 else:
 
-                    def outer(prepared=prepared, _fra=framework_return_adapter, _ra=ra):
-                        async def adapted(**kwargs):  # type: ignore
+                    def o2(prepared=prepared, _fra=framework_return_adapter, _ra=ra):
+                        async def adapted(**kwargs):
                             try:
                                 return _fra(_ra(await prepared(**kwargs)))
                             except ResponseException as exc:
@@ -152,7 +153,7 @@ class QuartApp(App):
 
                         return adapted
 
-                    adapted = outer()
+                    adapted = o2()
 
             q.route(
                 path,
@@ -162,12 +163,12 @@ class QuartApp(App):
 
         return q
 
-    async def run(self, port: int = 8000):
+    async def run(self, import_name: str, port: int = 8000):
         from uvicorn import Config, Server  # type: ignore
 
-        config = Config(self.to_framework_app(__name__), port=port, access_log=False)
+        config = Config(self.to_framework_app(import_name), port=port, access_log=False)
         server = Server(config=config)
         await server.serve()
 
 
-App: Final = QuartApp
+App = QuartApp
