@@ -1,5 +1,5 @@
 from inspect import Parameter, Signature, signature
-from typing import Any, Callable, ClassVar, TypeVar
+from typing import Callable, ClassVar, TypeVar
 
 from aiohttp.web import Request as FrameworkRequest
 from aiohttp.web import Response as FrameworkResponse
