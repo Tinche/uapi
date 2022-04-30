@@ -9,7 +9,9 @@ description = "A Python HTTP superframework"
 authors = [{name = "Tin Tvrtkovic", email = "tinchester@gmail.com"}]
 classifiers = ["License :: OSI Approved :: Apache Software License"]
 dependencies = ["cattrs >= 22.1.0", "incant >= 0.3", "itsdangerous"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
+readme = "README.md"
+license = "LICENSE"
 
 [project.optional-dependencies]
 dev = [
