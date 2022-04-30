@@ -1,24 +1,18 @@
 from inspect import Signature
 from types import MappingProxyType
-from typing import Any, Callable, Mapping, Optional, Union, get_args
+from typing import Any, Callable, Mapping, Optional, get_args
 
 from attrs import has
-from cattr._compat import is_union_type
 from cattrs import Converter
+from cattrs._compat import is_union_type
 from incant import is_subclass
 
 from .status import BaseResponse, Headers, Ok, get_status_code
 
 try:
-    from functools import partial
-
-    from ujson import dumps as usjon_dumps
-
-    dumps: Callable[[Any], Union[bytes, str]] = partial(
-        usjon_dumps, ensure_ascii=False, escape_forward_slashes=False
-    )
+    from orjson import dumps as dumps
 except ImportError:
-    from json import dumps as dumps
+    from json import dumps as dumps  # type: ignore
 
 __all__ = ["dumps", "return_type_to_statuses", "get_status_code_results"]
 empty_dict: Mapping[str, str] = MappingProxyType({})

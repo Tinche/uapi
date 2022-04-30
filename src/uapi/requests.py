@@ -1,6 +1,6 @@
 from typing import Optional
 
-from cattr._compat import get_args, is_annotated
+from cattrs._compat import get_args, is_annotated
 
 from . import Cookie
 

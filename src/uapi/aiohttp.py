@@ -6,8 +6,8 @@ from aiohttp.web import Response as FrameworkResponse
 from aiohttp.web import RouteTableDef, _run_app
 from aiohttp.web_app import Application
 from attrs import Factory, define
-from cattr._compat import has
 from cattrs import Converter
+from cattrs._compat import has
 from incant import Hook, Incanter
 from multidict import CIMultiDict
 
