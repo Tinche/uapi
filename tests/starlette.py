@@ -106,12 +106,16 @@ def make_app() -> App:
     return app
 
 
-async def run_server(port: int, shutdown_event: Event):
+async def run_server(port: int, shutdown_event: Event, openapi: bool = False):
 
     config = Config()
     config.bind = [f"localhost:{port}"]
 
-    await serve(make_app().to_framework_app(), config, shutdown_trigger=shutdown_event.wait)  # type: ignore
+    app = make_app()
+    if openapi:
+        app.serve_openapi()
+
+    await serve(app.to_framework_app(), config, shutdown_trigger=shutdown_event.wait)  # type: ignore
 
 
 async def run_on_starlette(app: App, port: int, shutdown_event: Event):

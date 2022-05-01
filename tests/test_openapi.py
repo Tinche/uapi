@@ -1,7 +1,8 @@
 """Test the OpenAPI schema generation."""
 import pytest
+from httpx import AsyncClient
 
-from uapi.openapi import OpenAPI, Parameter, Response, Schema
+from uapi.openapi import OpenAPI, Parameter, Response, Schema, converter
 
 from .aiohttp import make_app as aiohttp_make_app
 from .flask import make_app as flask_make_app
@@ -9,14 +10,12 @@ from .quart import make_app as quart_make_app
 from .starlette import make_app as starlette_make_app
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
-    ids=["aiohttp", "flask", "quart", "starlette"],
-)
-def test_get_index(app_factory):
-    app = app_factory()
-    spec: OpenAPI = app.make_openapi_spec()
+async def test_get_index(server_with_openapi: int):
+    async with AsyncClient() as client:
+        resp = await client.get(f"http://localhost:{server_with_openapi}/openapi.json")
+        raw = resp.json()
+
+    spec: OpenAPI = converter.structure(raw, OpenAPI)
 
     op = spec.paths["/"]
     assert op is not None

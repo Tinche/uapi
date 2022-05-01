@@ -104,9 +104,11 @@ def make_app() -> App:
     return app
 
 
-async def run_server(port: int):
+async def run_server(port: int, openapi: bool = False):
     try:
         app = make_app()
+        if openapi:
+            app.serve_openapi()
         aapp = web.Application()
         aapp.add_routes(app.to_framework_routes())
         await web._run_app(aapp, port=port, handle_signals=False)

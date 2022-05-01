@@ -46,3 +46,40 @@ async def server(request, unused_tcp_port_factory: Callable[..., int]):
         await t
     else:
         raise Exception("Unknown server framework")
+
+
+@pytest.fixture(params=["aiohttp", "flask", "quart", "starlette"], scope="session")
+async def server_with_openapi(
+    request, unused_tcp_port_factory: Callable[[], int]
+) -> int:
+    unused_tcp_port = unused_tcp_port_factory()
+    if request.param == "aiohttp":
+        t = create_task(aiohttp_run_server(unused_tcp_port, openapi=True))
+        yield unused_tcp_port
+        t.cancel()
+        try:
+            await t
+        except CancelledError:
+            pass
+    elif request.param == "flask":
+        shutdown_event = Event()
+        t = create_task(flask_run_server(unused_tcp_port, shutdown_event, openapi=True))
+        yield unused_tcp_port
+        shutdown_event.set()
+        await t
+    elif request.param == "quart":
+        shutdown_event = Event()
+        t = create_task(quart_run_server(unused_tcp_port, shutdown_event, openapi=True))
+        yield unused_tcp_port
+        shutdown_event.set()
+        await t
+    elif request.param == "starlette":
+        shutdown_event = Event()
+        t = create_task(
+            starlette_run_server(unused_tcp_port, shutdown_event, openapi=True)
+        )
+        yield unused_tcp_port
+        shutdown_event.set()
+        await t
+    else:
+        raise Exception("Unknown server framework")

@@ -107,11 +107,14 @@ def make_app() -> App:
     return app
 
 
-async def run_server(port: int, shutdown_event: Event):
+async def run_server(port: int, shutdown_event: Event, openapi: bool = False):
     config = Config()
     config.bind = [f"localhost:{port}"]
 
-    asyncio_app = AsyncioWSGIMiddleware(make_app().to_framework_app(__name__))
+    app = make_app()
+    if openapi:
+        app.serve_openapi()
+    asyncio_app = AsyncioWSGIMiddleware(app.to_framework_app(__name__))
     await serve(asyncio_app, config, shutdown_trigger=shutdown_event.wait)  # type: ignore
 
 

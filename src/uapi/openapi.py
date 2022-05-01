@@ -9,7 +9,7 @@ from typing import Callable, Literal, Mapping, Optional, Union
 
 from attrs import Factory, fields, frozen, has
 from cattrs import override
-from cattrs.gen import make_dict_unstructure_fn
+from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
 from .requests import get_cookie_name
@@ -42,8 +42,8 @@ class Schema:
         ARRAY = "array"
 
     type: Type
-    properties: Optional[dict[str, AnySchema | Reference]] = None
-    format: Optional[str] = None
+    properties: dict[str, AnySchema | Reference] | None = None
+    format: str | None = None
     additionalProperties: bool | InlineType = False
 
 
@@ -76,7 +76,7 @@ class Parameter:
     name: str
     kind: Kind
     required: bool = False
-    schema: Union[Schema, Reference, None] = None
+    schema: Schema | Reference | None = None
 
 
 AnySchema = Schema | ArraySchema
@@ -368,6 +368,33 @@ def build_attrs_schema(type: type, res: dict[str, AnySchema | Reference]):
     res[type.__name__] = Schema(type=Schema.Type.OBJECT, properties=properties)
 
 
+def structure_schemas(val, _):
+    if "$ref" in val:
+        return converter.structure(val, Reference)
+
+    type = Schema.Type(val["type"])
+    if type is Schema.Type.ARRAY:
+        return converter.structure(val, ArraySchema)
+    return converter.structure(val, Schema)
+
+
+def structure_inlinetype_ref(val, _):
+    return converter.structure(val, InlineType if "type" in val else Reference)
+
+
+converter.register_structure_hook(Schema | ArraySchema | Reference, structure_schemas)
+converter.register_structure_hook(InlineType | Reference, structure_inlinetype_ref)
+converter.register_structure_hook(
+    Parameter, make_dict_structure_fn(Parameter, converter, kind=override(rename="in"))
+)
+converter.register_structure_hook(
+    Reference, make_dict_structure_fn(Reference, converter, ref=override(rename="$ref"))
+)
+converter.register_structure_hook(
+    bool | InlineType,
+    lambda v, _: v if isinstance(v, bool) else converter.structure(v, InlineType),
+)
+
 converter.register_unstructure_hook(
     Reference,
     make_dict_unstructure_fn(Reference, converter, ref=override(rename="$ref")),
@@ -376,5 +403,11 @@ converter.register_unstructure_hook(
     Parameter,
     make_dict_unstructure_fn(
         Parameter, converter, omit_if_default=True, kind=override(rename="in")
+    ),
+)
+converter.register_unstructure_hook(
+    ArraySchema,
+    make_dict_unstructure_fn(
+        ArraySchema, converter, type=override(omit_if_default=False)
     ),
 )
