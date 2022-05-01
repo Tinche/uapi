@@ -8,6 +8,7 @@ from uapi.aiohttp import App
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.status import Created, Forbidden, NoContent, Ok
 
+from .apps import make_generic_subapp
 from .models import NestedModel, SimpleModel
 
 
@@ -100,6 +101,9 @@ def make_app() -> App:
     @app.head("/head/exc")
     async def head_with_exc() -> str:
         raise ResponseException(Forbidden(None))
+
+    app.route_app(make_generic_subapp())
+    app.route_app(make_generic_subapp(), "/subapp", "subapp")
 
     return app
 

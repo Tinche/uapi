@@ -31,7 +31,6 @@ def make_base_incanter() -> Incanter:
 
 @define
 class App:
-    framework_incant: Incanter
     converter: Converter = Factory(make_converter)
     base_incant: Incanter = Factory(make_base_incanter)
     route_map: dict[tuple[str, str], tuple[Callable, Optional[str]]] = Factory(dict)
@@ -70,6 +69,19 @@ class App:
 
     def options(self, path: str, name: Optional[str] = None):
         return partial(self.route, path, name=name, methods=["OPTIONS"])
+
+    def route_app(
+        self, app: "App", prefix: str | None = None, name_prefix: str | None = None
+    ) -> None:
+        """Register all routes from a different app under an optional path prefix."""
+        if not isinstance(self, type(app)):
+            raise Exception("Incompatible apps.")
+        for (method, path), (handler, name) in app.route_map.items():
+            if name_prefix is not None:
+                if name is None:
+                    name = handler.__name__
+                name = f"{name_prefix}.{name}"
+            self.route_map[(method, (prefix or "") + path)] = (handler, name)
 
     def make_openapi_spec(self) -> OpenAPI:
         return make_openapi_spec(

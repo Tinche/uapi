@@ -8,7 +8,7 @@ async def test_login_logout(secure_cookie_session_app: int):
     username = "MyCoolUsername"
     async with AsyncClient() as client:
         resp = await client.get(f"http://localhost:{secure_cookie_session_app}/")
-        assert resp.text == "naughty!"
+        assert resp.text == "not-logged-in"
 
         resp = await client.post(
             f"http://localhost:{secure_cookie_session_app}/login",
@@ -18,16 +18,16 @@ async def test_login_logout(secure_cookie_session_app: int):
         assert resp.status_code == 201
 
         resp = await client.get(f"http://localhost:{secure_cookie_session_app}/")
-        assert resp.text == "MyCoolUsername"
+        assert resp.text == username
 
         async with AsyncClient() as new_client:
             resp = await new_client.get(
                 f"http://localhost:{secure_cookie_session_app}/"
             )
-            assert resp.text == "naughty!"
+            assert resp.text == "not-logged-in"
 
         resp = await client.get(f"http://localhost:{secure_cookie_session_app}/")
-        assert resp.text == "MyCoolUsername"
+        assert resp.text == username
 
         resp = await client.post(f"http://localhost:{secure_cookie_session_app}/logout")
         assert resp.text == ""
@@ -35,7 +35,7 @@ async def test_login_logout(secure_cookie_session_app: int):
         assert not resp.cookies
 
         resp = await client.get(f"http://localhost:{secure_cookie_session_app}/")
-        assert resp.text == "naughty!"
+        assert resp.text == "not-logged-in"
 
 
 async def test_session_expiry(secure_cookie_session_app: int):
@@ -43,7 +43,7 @@ async def test_session_expiry(secure_cookie_session_app: int):
     username = "MyCoolUsername"
     async with AsyncClient() as client:
         resp = await client.get(f"http://localhost:{secure_cookie_session_app}/")
-        assert resp.text == "naughty!"
+        assert resp.text == "not-logged-in"
 
         resp = await client.post(
             f"http://localhost:{secure_cookie_session_app}/login",
@@ -53,9 +53,9 @@ async def test_session_expiry(secure_cookie_session_app: int):
         assert resp.status_code == 201
 
         resp = await client.get(f"http://localhost:{secure_cookie_session_app}/")
-        assert resp.text == "MyCoolUsername"
+        assert resp.text == username
 
         await sleep(2)
 
         resp = await client.get(f"http://localhost:{secure_cookie_session_app}/")
-        assert resp.text == "naughty!"
+        assert resp.text == "not-logged-in"

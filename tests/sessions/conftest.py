@@ -29,7 +29,7 @@ def configure_secure_session_app(
         @app.get("/")
         def index(session: Session) -> str:
             if "user_id" not in session:
-                return "naughty!"
+                return "not-logged-in"
             else:
                 return session["user_id"]
 
@@ -48,7 +48,7 @@ def configure_secure_session_app(
         @app.get("/")
         async def index(session: Session) -> str:
             if "user_id" not in session:
-                return "naughty!"
+                return "not-logged-in"
             else:
                 return session["user_id"]
 
