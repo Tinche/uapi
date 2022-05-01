@@ -1,6 +1,6 @@
 from asyncio import Event, create_task, new_event_loop
 from asyncio.exceptions import CancelledError
-from typing import Callable
+from typing import AsyncIterator, Callable
 
 import pytest
 
@@ -51,7 +51,7 @@ async def server(request, unused_tcp_port_factory: Callable[..., int]):
 @pytest.fixture(params=["aiohttp", "flask", "quart", "starlette"], scope="session")
 async def server_with_openapi(
     request, unused_tcp_port_factory: Callable[[], int]
-) -> int:
+) -> AsyncIterator[int]:
     unused_tcp_port = unused_tcp_port_factory()
     if request.param == "aiohttp":
         t = create_task(aiohttp_run_server(unused_tcp_port, openapi=True))

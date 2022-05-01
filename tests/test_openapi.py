@@ -19,9 +19,11 @@ async def test_get_index(server_with_openapi: int):
 
     op = spec.paths["/"]
     assert op is not None
+    assert op.get is not None
     assert op.get.parameters == []
     assert len(op.get.responses) == 1
     assert op.get.responses["200"]
+    assert isinstance(op.get.responses["200"].content["text/plain"].schema, Schema)
     assert (
         op.get.responses["200"].content["text/plain"].schema.type == Schema.Type.STRING
     )
