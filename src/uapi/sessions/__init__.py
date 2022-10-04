@@ -2,7 +2,8 @@ from typing import Annotated, Callable, Optional, TypeVar
 
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
-from .. import App, Cookie
+from .. import Cookie
+from ..base import App
 from ..cookies import CookieSettings, set_cookie
 from ..status import Headers
 
@@ -48,7 +49,7 @@ def configure_secure_sessions(
     ) -> Session:
         if session is None:
             res = Session()
-            res._serialize = _serialize  # type: ignore
+            res._serialize = _serialize
             return res
         try:
             data = s.loads(session)
@@ -56,7 +57,7 @@ def configure_secure_sessions(
             raise
 
         res = Session(data)
-        res._serialize = _serialize  # type: ignore
+        res._serialize = _serialize
         return res
 
     app.base_incant.register_hook(

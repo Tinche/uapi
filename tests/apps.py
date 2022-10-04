@@ -1,4 +1,4 @@
-from uapi import App
+from uapi.base import App
 
 
 def make_generic_subapp() -> App:

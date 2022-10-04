@@ -14,8 +14,8 @@ try:
 except ImportError:
     from json import loads
 
-from . import App as BaseApp
 from . import ResponseException
+from .base import App as BaseApp
 from .path import (
     angle_to_curly,
     parse_angle_path_params,

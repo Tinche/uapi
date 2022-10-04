@@ -3,7 +3,8 @@ from typing import Generic, Optional, TypeVar
 
 from attrs import frozen
 
-from .. import App, ResponseException
+from .. import ResponseException
+from ..base import App
 from ..sessions.redis import AsyncRedisSessionStore, AsyncSession
 from ..status import BaseResponse, Forbidden, Headers
 

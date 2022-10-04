@@ -13,8 +13,8 @@ try:
 except ImportError:
     from json import loads
 
-from . import App as BaseApp
 from . import ResponseException
+from .base import App as BaseApp
 from .path import parse_curly_path_params
 from .requests import get_cookie_name, get_req_body_attrs, is_req_body_attrs
 from .responses import identity, make_return_adapter

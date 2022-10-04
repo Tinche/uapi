@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Annotated, Optional, TypeVar
 
 from attrs import frozen
 
-from .. import App, Cookie, Headers
+from .. import Cookie, Headers
+from ..base import App
 from ..cookies import CookieSettings, set_cookie
 
 if TYPE_CHECKING:
