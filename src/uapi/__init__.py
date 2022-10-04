@@ -12,10 +12,11 @@ from .cookies import Cookie
 from .openapi import OpenAPI
 from .openapi import converter as openapi_converter
 from .openapi import make_openapi_spec
+from .requests import ReqBody
 from .status import BaseResponse, Found, Headers, Ok, SeeOther
 from .types import PathParamParser
 
-__all__ = ["Cookie", "make_base_incanter", "App"]
+__all__ = ["Cookie", "make_base_incanter", "App", "ReqBody"]
 
 
 @frozen

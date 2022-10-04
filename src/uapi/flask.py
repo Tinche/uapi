@@ -1,7 +1,7 @@
 from inspect import Signature, signature
 from typing import Callable, ClassVar
 
-from attrs import Factory, define, has
+from attrs import Factory, define
 from cattrs import Converter
 from flask import Flask
 from flask import Response as FrameworkResponse
@@ -21,7 +21,7 @@ from .path import (
     parse_curly_path_params,
     strip_path_param_prefix,
 )
-from .requests import get_cookie_name
+from .requests import get_cookie_name, get_req_body_attrs, is_req_body_attrs
 from .responses import dict_to_headers, identity, make_return_adapter
 from .status import BadRequest, BaseResponse, get_status_code
 
@@ -72,7 +72,7 @@ def make_flask_incanter(converter: Converter) -> Incanter:
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
     res.register_hook_factory(
-        lambda p: has(p.annotation), lambda p: attrs_body_factory(p.annotation)
+        is_req_body_attrs, lambda p: attrs_body_factory(get_req_body_attrs(p))
     )
     return res
 

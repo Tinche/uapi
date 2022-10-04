@@ -5,7 +5,7 @@ from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from quart import Response
 
-from uapi import Cookie, ResponseException
+from uapi import Cookie, ReqBody, ResponseException
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.quart import App
 from uapi.status import Created, Forbidden, NoContent, Ok
@@ -73,7 +73,7 @@ def make_app() -> App:
         return Created(None)
 
     @app.post("/post/model")
-    async def post_model(body: NestedModel) -> Created[NestedModel]:
+    async def post_model(body: ReqBody[NestedModel]) -> Created[NestedModel]:
         return Created(body)
 
     @app.put("/put/cookie")

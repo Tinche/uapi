@@ -1,7 +1,7 @@
 from inspect import Parameter, Signature, signature
 from typing import Awaitable, Callable, ClassVar, TypeVar
 
-from attrs import Factory, define, has
+from attrs import Factory, define
 from cattrs import Converter
 from incant import Hook, Incanter
 from starlette.applications import Starlette
@@ -16,7 +16,7 @@ except ImportError:
 from . import App as BaseApp
 from . import ResponseException
 from .path import parse_curly_path_params
-from .requests import get_cookie_name
+from .requests import get_cookie_name, get_req_body_attrs, is_req_body_attrs
 from .responses import identity, make_return_adapter
 from .status import BadRequest, BaseResponse, Headers, get_status_code
 
@@ -95,7 +95,7 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
     res.register_hook_factory(
-        lambda p: has(p.annotation), lambda p: attrs_body_factory(p.annotation)
+        is_req_body_attrs, lambda p: attrs_body_factory(get_req_body_attrs(p))
     )
     return res
 

@@ -3,7 +3,7 @@ from typing import Annotated, Optional, Union
 from aiohttp import web
 from aiohttp.web import Response
 
-from uapi import Cookie, ResponseException
+from uapi import Cookie, ReqBody, ResponseException
 from uapi.aiohttp import App
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.status import Created, Forbidden, NoContent, Ok
@@ -71,7 +71,7 @@ def make_app() -> App:
         return Created(None)
 
     @app.post("/post/model")
-    async def post_model(body: NestedModel) -> Created[NestedModel]:
+    async def post_model(body: ReqBody[NestedModel]) -> Created[NestedModel]:
         return Created(body)
 
     @app.put("/put/cookie")

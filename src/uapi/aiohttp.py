@@ -7,7 +7,6 @@ from aiohttp.web import RouteTableDef, _run_app
 from aiohttp.web_app import Application
 from attrs import Factory, define
 from cattrs import Converter
-from cattrs._compat import has
 from incant import Hook, Incanter
 from multidict import CIMultiDict
 
@@ -19,7 +18,7 @@ except ImportError:
 from . import App as BaseApp
 from . import ResponseException
 from .path import parse_curly_path_params
-from .requests import get_cookie_name
+from .requests import get_cookie_name, get_req_body_attrs, is_req_body_attrs
 from .responses import dict_to_headers, identity, make_return_adapter
 from .status import BadRequest, BaseResponse, get_status_code
 
@@ -85,7 +84,7 @@ def make_aiohttp_incanter(converter: Converter) -> Incanter:
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
     res.register_hook_factory(
-        lambda p: has(p.annotation), lambda p: attrs_body_factory(p.annotation)
+        is_req_body_attrs, lambda p: attrs_body_factory(get_req_body_attrs(p))
     )
     return res
 

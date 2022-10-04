@@ -12,7 +12,7 @@ from cattrs import override
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
-from .requests import get_cookie_name
+from .requests import get_cookie_name, maybe_req_body_attrs
 from .responses import get_status_code_results
 from .types import PathParamParser, Routes, is_subclass
 
@@ -176,9 +176,12 @@ def build_operation(
                         ),
                     )
                 )
-            elif arg_type is not InspectParameter.empty and has(arg_type):
+            elif (
+                arg_type is not InspectParameter.empty
+                and (attrs_type := maybe_req_body_attrs(arg_param)) is not None
+            ):
                 request_bodies[ct] = MediaType(
-                    Reference(f"#/components/schemas/{components[arg_type]}")
+                    Reference(f"#/components/schemas/{components[attrs_type]}")
                 )
                 request_body_required = arg_param.default is InspectParameter.empty
             else:
@@ -281,8 +284,9 @@ def gather_endpoint_components(
     sig = signature(handler)
     for arg in sig.parameters.values():
         if arg.annotation is not InspectParameter.empty:
-            arg_type = arg.annotation
-            if has(arg_type) and arg_type not in components:
+            if (
+                arg_type := maybe_req_body_attrs(arg)
+            ) is not None and arg_type not in components:
                 name = arg_type.__name__
                 counter = 0
                 while name in components.values():

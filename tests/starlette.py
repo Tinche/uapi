@@ -1,11 +1,11 @@
 from asyncio import Event
-from typing import Annotated, Optional, Union
+from typing import Annotated, Optional
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from starlette.responses import Response
 
-from uapi import Cookie, ResponseException
+from uapi import Cookie, ReqBody, ResponseException
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.starlette import App
 from uapi.status import Created, Forbidden, NoContent, Ok
@@ -69,11 +69,11 @@ def make_app() -> App:
         return Created("test")
 
     @app.post("/post/multiple")
-    async def post_multiple_codes() -> Union[Ok[str], Created[None]]:
+    async def post_multiple_codes() -> Ok[str] | Created[None]:
         return Created(None)
 
     @app.post("/post/model")
-    async def post_model(body: NestedModel) -> Created[NestedModel]:
+    async def post_model(body: ReqBody[NestedModel]) -> Created[NestedModel]:
         return Created(body)
 
     @app.put("/put/cookie")
