@@ -39,5 +39,5 @@ def index() -> str:
 app.serve_openapi()
 app.serve_elements()
 
-app.run()  # Now open http://localhost:8000/elements
+run(app.run())  # Now open http://localhost:8000/elements
 ```

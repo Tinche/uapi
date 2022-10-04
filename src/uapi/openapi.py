@@ -406,7 +406,7 @@ converter.register_unstructure_hook(
 converter.register_unstructure_hook(
     Parameter,
     make_dict_unstructure_fn(
-        Parameter, converter, omit_if_default=True, kind=override(rename="in")
+        Parameter, converter, _cattrs_omit_if_default=True, kind=override(rename="in")
     ),
 )
 converter.register_unstructure_hook(
