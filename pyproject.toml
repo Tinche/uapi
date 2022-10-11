@@ -25,6 +25,7 @@ dev = [
     "flask",
     "quart",
     "starlette",
+    "django",
     "hypercorn",
     "mypy",
     "aioredis",
