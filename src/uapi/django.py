@@ -67,8 +67,8 @@ def make_django_incanter(converter: Converter) -> Incanter:
         lambda p: p.annotation is not FrameworkRequest, query_factory
     )
 
-    def string_query_factory(p: Parameter) -> str:
-        def read_query(request: FrameworkRequest):
+    def string_query_factory(p: Parameter):
+        def read_query(request: FrameworkRequest) -> str:
             return (
                 request.GET[p.name]
                 if p.default is Signature.empty
@@ -94,13 +94,13 @@ def framework_return_adapter(resp: BaseResponse):
     if resp.headers:
         res = FrameworkResponse(
             resp.ret or b"",
-            status=get_status_code(resp.__class__),
+            status=get_status_code(resp.__class__),  # type: ignore
             headers=dict_to_headers(resp.headers),
         )
         return res
     else:
         return FrameworkResponse(
-            resp.ret or b"", status=get_status_code(resp.__class__)
+            resp.ret or b"", status=get_status_code(resp.__class__)  # type: ignore
         )
 
 
