@@ -2,6 +2,7 @@
 
 [![Build status](https://github.com/Tinche/uapi/workflows/CI/badge.svg)](https://github.com/Tinche/uapi/actions?workflow=CI)
 [![codecov](https://codecov.io/gh/Tinche/uapi/branch/main/graph/badge.svg?token=XGKYSILAG4)](https://codecov.io/gh/Tinche/uapi)
+[![Code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 ---
 
