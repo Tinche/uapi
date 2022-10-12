@@ -89,7 +89,7 @@ def make_aiohttp_incanter(converter: Converter) -> Incanter:
     return res
 
 
-def _framework_return_adapter(resp: BaseResponse):
+def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:
     return FrameworkResponse(
         body=resp.ret or b"",
         status=get_status_code(resp.__class__),  # type: ignore
@@ -185,17 +185,19 @@ class AiohttpApp(BaseApp):
                         _ra=ra,
                         _fra=_framework_return_adapter,
                         _prepared=prepared,
+                        _path_params=path_params,
+                        _path_types=path_types,
                     ) -> FrameworkResponse:
                         path_args = {
                             p: (
                                 self.converter.structure(
                                     request.match_info[p], path_type
                                 )
-                                if (path_type := path_types[p])
+                                if (path_type := _path_types[p])
                                 not in (str, Signature.empty)
                                 else request.match_info[p]
                             )
-                            for p in path_params
+                            for p in _path_params
                         }
                         try:
                             return _fra(

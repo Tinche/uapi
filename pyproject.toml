@@ -25,6 +25,7 @@ dev = [
     "flask",
     "quart",
     "starlette",
+    "django",
     "hypercorn",
     "mypy",
     "aioredis",
@@ -46,3 +47,7 @@ skip_magic_trailing_comma = true
 
 [tool.mypy]
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = "django.*"
+ignore_missing_imports = true

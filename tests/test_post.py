@@ -42,6 +42,14 @@ async def test_multiple(server):
         assert resp.read() == b""
 
 
+async def test_path_string(server):
+    """Posting to a path URL which returns a string."""
+    async with AsyncClient() as client:
+        resp = await client.post(f"http://localhost:{server}/path1/20")
+        assert resp.status_code == 200
+        assert resp.text == "22"
+
+
 async def test_model(server):
     model = NestedModel()
     unstructured = unstructure(model)

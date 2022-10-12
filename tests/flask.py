@@ -77,6 +77,10 @@ def make_app() -> App:
     def post_model(body: ReqBody[NestedModel]) -> Created[NestedModel]:
         return Created(body)
 
+    @app.post("/path1/<path_id>")
+    def post_path_string(path_id: str) -> str:
+        return str(int(path_id) + 2)
+
     @app.put("/put/cookie")
     def put_cookie(a_cookie: Cookie) -> str:
         return a_cookie
