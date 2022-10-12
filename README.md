@@ -1,8 +1,6 @@
 # uapi
 
-<a href="https://github.com/Tinche/uapi/actions?workflow=CI">
-   <img src="https://github.com/Tinche/uapi/workflows/CI/badge.svg" alt="Build status" />
-</a>
+[![Build status](https://github.com/Tinche/uapi/workflows/CI/badge.svg)](https://github.com/Tinche/uapi/actions?workflow=CI)
 [![codecov](https://codecov.io/gh/Tinche/uapi/branch/main/graph/badge.svg?token=XGKYSILAG4)](https://codecov.io/gh/Tinche/uapi)
 
 ---
