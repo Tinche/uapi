@@ -4,6 +4,8 @@
    <img src="https://github.com/Tinche/uapi/workflows/CI/badge.svg" alt="Build status" />
 </a>
 
+[![codecov](https://codecov.io/gh/Tinche/uapi/branch/main/graph/badge.svg?token=XGKYSILAG4)](https://codecov.io/gh/Tinche/uapi)
+
 ---
 
 `uapi` is a high-level, extremely fast Python microframework for writing HTTP APIs, either synchronously or asynchronously.
