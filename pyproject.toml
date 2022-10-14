@@ -31,9 +31,10 @@ dev = [
     "aioredis",
     "uvicorn",
     "orjson",
-    "sphinx==4.5.0",
+    "sphinx==5.2.3",
     "furo==2022.4.7",
-    "myst_parser==0.17.2",
+    "myst_parser==0.18.1",
+    "sphinx_inline_tabs==2022.1.2b11"
 ]
 
 [tool.isort]
