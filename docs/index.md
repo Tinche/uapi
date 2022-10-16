@@ -7,19 +7,20 @@
 
 self
 handlers.md
+indices.md
 ```
 
 _uapi_ is an elegant, fast, and high-level framework for writing network services in Python 3.10 and later.
 
 Using _uapi_ enables you to:
 
-- write either async or sync styles of handlers, depending on the underlying framework used.
-- use and customize a depedency injection system, based on incant.
-- automatically serialize and deserialize data through attrs and cattrs.
-- generate and use OpenAPI descriptions of your endpoints.
-- optionally type-check your handlers with Mypy.
-- write and use powerful middleware.
-- integrate with existing apps based on Django, FastAPI, Starlette, Flask, Quart or Aiohttp.
+- write **either async or sync** styles of handlers, depending on the underlying framework used.
+- use and customize a **depedency injection** system, based on [incant](https://github.com/Tinche/incant/).
+- automatically **serialize and deserialize** data through [attrs](https://www.attrs.org/en/stable/) and [cattrs](https://cattrs.readthedocs.io/en/latest/).
+- generate and use **OpenAPI** descriptions of your endpoints.
+- optionally **type-check** your handlers with [Mypy](https://mypy.readthedocs.io/en/stable/).
+- write and use **powerful middleware**.
+- **integrate** with existing apps based on [Django](https://docs.djangoproject.com/en/stable/), [FastAPI](https://fastapi.tiangolo.com/), [Starlette](https://www.starlette.io/), [Flask](https://flask.palletsprojects.com/en/latest/), [Quart](https://pgjones.gitlab.io/quart/) or [Aiohttp](https://docs.aiohttp.org/en/stable/).
 
 # Installation
 
@@ -54,9 +55,7 @@ _uapi_ requires an underlying web framework to run. If you are unsure which to p
 
 Let's write a very simple _Hello World_ HTTP handler and expose it on the root path.
 
-Before we start writing our handlers, we need something to register them with.
-
-In _uapi_, that something is an instance of an `App`.
+Before we start writing our handlers, we need something to register them with. In _uapi_, that something is an instance of an `App`.
 
 ````{tab} Starlette
 
@@ -215,9 +214,3 @@ Your app is now running in development mode on localhost, port 8000.
 $ curl 127.0.0.1:8000
 hello world⏎
 ```
-
-# Indices and tables
-
-- :ref:`genindex`
-- :ref:`modindex`
-- :ref:`search`
