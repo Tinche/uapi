@@ -1,14 +1,17 @@
 # Welcome to uapi!
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 :caption: "Contents:"
 :hidden:
+
+self
+handlers.md
 ```
 
-uapi is an elegant, fast, and high-level framework for writing network services in Python 3.10 and later.
+_uapi_ is an elegant, fast, and high-level framework for writing network services in Python 3.10 and later.
 
-Using uapi enables you to:
+Using _uapi_ enables you to:
 
 - write either async or sync styles of handlers, depending on the underlying framework used.
 - use and customize a depedency injection system, based on incant.
@@ -20,7 +23,7 @@ Using uapi enables you to:
 
 # Installation
 
-uapi requires an underlying web framework to run. If you are unsure which to pick, we recommend Starlette for it's good balance of features and speed.
+_uapi_ requires an underlying web framework to run. If you are unsure which to pick, we recommend Starlette for a good balance of features and speed.
 
 ```{tab} Starlette
 
@@ -53,7 +56,7 @@ Let's write a very simple _Hello World_ HTTP handler and expose it on the root p
 
 Before we start writing our handlers, we need something to register them with.
 
-In uapi, that something is an instance of an `App`.
+In _uapi_, that something is an instance of an `App`.
 
 ````{tab} Starlette
 
@@ -123,7 +126,7 @@ async def hello() -> str:
 
 ```{note}
 
-uapi uses type hints in certain places to minimize boilerplate code.
+_uapi_ uses type hints in certain places to minimize boilerplate code.
 This doesn't mean you're required to type-check your code using a tool like Mypy, however.
 We're not the Python police; you do you.
 
@@ -186,7 +189,7 @@ run(app.run(__name__))
 ```{tab} Django
 
 Unfortunately, Django is too complex to be able to spin up a development server quickly.
-Please see the Django section for information on how to integrate a uapi `App` into a Django site.
+Please see the Django section for information on how to integrate a _uapi_ `App` into a Django site.
 ```
 
 ````{tab} Aiohttp

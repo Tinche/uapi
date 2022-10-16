@@ -52,3 +52,13 @@ html_theme = "furo"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+html_css_files = ["custom.css"]
+
+html_theme_options = {
+    "light_css_variables": {
+        "font-stack": "Roboto, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji",
+        "font-stack--monospace": "'Ubuntu Mono', monospace",
+        "code-font-size": "90%",
+    }
+}
