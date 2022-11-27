@@ -75,16 +75,9 @@ Aiohttp uses curly brackets for path parameters and only supports strings.
 
 ````
 
-### Request Bodies
+### JSON Request Bodies
 
-HTTP requests can contain body data.
-If the body data is a JSON object, it should be modeled as an _attrs_ class and declared as a `ReqBody` parameter in the handler.
-
-```{note}
-A parameter annotated as a `ReqBody[T]` will be equivalent to just `T` in the function body.
-
-`ReqBody[T]` is an easier way of saying `typing.Annotated[T, ...]`, and `typing.Annotated` is a way to add metadata to a type.
-```
+If the HTTP request body data is a JSON object, it should be modeled as an _attrs_ class and declared as a `ReqBody` parameter in the handler.
 
 ```python
 from attrs import define
@@ -95,10 +88,39 @@ class Article:
 
 @app.post("/article")
 async def create_article(article: ReqBody[Article]) -> None:
-    pass
+    # `article` is an instance of `Article`
+    ...
 ```
 
-The handler will require the caller to set the `content-type` header to `application/json`; a `415 Unsupported Media Type` error will be returned otherwise.
+```{note}
+A parameter annotated as a `ReqBody[T]` will be equivalent to `T` in the function body.
+
+`ReqBody[T]` is an easier way of saying `typing.Annotated[T, JsonReqLoader()]`, and `typing.Annotated` is a way to add metadata to a type.
+```
+
+If the request body cannot be loaded into the given model, a `400 Bad Request` response will be returned instead.
+
+The handler requires the caller to set the `content-type` header to `application/json`; a `415 Unsupported Media Type` error will be returned otherwise.
 This is a security feature, helping with some forms of [CSRF](https://owasp.org/www-community/attacks/csrf).
+
+Custom values for `content-type` can be required by providing your own instance of {py:class}`uapi.requests.JsonBodyLoader`.
+
+```python
+from typing import Annotated, TypeVar
+from uapi.requests import JsonBodyLoader
+
+T = TypeVar("T")
+
+MyReqBody = Annotated[T, JsonBodyLoader("application/vnd.myapp.v1+json")]
+
+@app.post("/endpoint")
+async def create_article(article: MyReqBody[Article]) -> None:
+    # `article` is an instance of `Article`
+    ...
+
+```
+
+Content type validation can be disabled by passing `None` to the `JsonBodyLoader`; the `content-type` header will be ignored.
+This in inadvisable unless you have no other choice.
 
 ## Returning Data

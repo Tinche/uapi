@@ -1,3 +1,4 @@
+from functools import partial
 from inspect import Parameter, Signature, signature
 from typing import Any, Callable, ClassVar, TypeVar
 
@@ -13,7 +14,13 @@ from multidict import CIMultiDict
 from . import ResponseException
 from .base import App as BaseApp
 from .path import parse_curly_path_params
-from .requests import ReqBytes, get_cookie_name
+from .requests import (
+    ReqBytes,
+    attrs_body_factory,
+    get_cookie_name,
+    get_req_body_attrs,
+    is_req_body_attrs,
+)
 from .responses import dict_to_headers, identity, make_return_adapter
 from .status import BaseResponse, get_status_code
 
@@ -101,13 +108,13 @@ class AiohttpApp(BaseApp):
         self.framework_incant.register_hook(
             lambda p: p.annotation is ReqBytes, request_bytes
         )
-        super()._set_up_default_loader()
+
+        self.framework_incant.register_hook_factory(
+            is_req_body_attrs, partial(attrs_body_factory, converter=self.converter)
+        )
 
     def to_framework_routes(self) -> RouteTableDef:
         r = RouteTableDef()
-
-        for pred, factory, _ in self._req_loaders:
-            self.framework_incant.register_hook_factory(pred, factory)
 
         for (method, path), (handler, name) in self.route_map.items():
             ra = make_return_adapter(
@@ -122,14 +129,9 @@ class AiohttpApp(BaseApp):
             base_sig = signature(base_handler)
             req_ct: str | None = None
             for arg in base_sig.parameters.values():
-                for pred, _, ct in self._req_loaders:
-                    if pred(arg):
-                        if req_ct is None:
-                            req_ct = ct
-                        else:
-                            raise Exception(
-                                f"Conflicting content-types: {req_ct} and {ct}"
-                            )
+                if is_req_body_attrs(arg):
+                    _, loader = get_req_body_attrs(arg)
+                    req_ct = loader.content_type
 
             if ra is None:
                 prepared = self.framework_incant.prepare(

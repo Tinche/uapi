@@ -1,3 +1,4 @@
+from functools import partial
 from inspect import Signature, signature
 from typing import Any, Callable, ClassVar, TypeVar
 
@@ -17,7 +18,13 @@ from .path import (
     parse_curly_path_params,
     strip_path_param_prefix,
 )
-from .requests import ReqBytes, get_cookie_name
+from .requests import (
+    ReqBytes,
+    attrs_body_factory,
+    get_cookie_name,
+    get_req_body_attrs,
+    is_req_body_attrs,
+)
 from .responses import dict_to_headers, identity, make_return_adapter
 from .status import BaseResponse, get_status_code
 
@@ -63,6 +70,15 @@ def make_quart_incanter(converter: Converter) -> Incanter:
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
+
+    async def request_bytes() -> bytes:
+        return await request.data
+
+    res.register_hook(lambda p: p.annotation is ReqBytes, request_bytes)
+
+    res.register_hook_factory(
+        is_req_body_attrs, partial(attrs_body_factory, converter=converter)
+    )
     return res
 
 
@@ -85,20 +101,8 @@ class QuartApp(BaseApp):
     )
     _framework_resp_cls: ClassVar[type] = FrameworkResponse
 
-    def __attrs_post_init__(self) -> None:
-        async def request_bytes() -> bytes:
-            return await request.data
-
-        self.framework_incant.register_hook(
-            lambda p: p.annotation is ReqBytes, request_bytes
-        )
-        super()._set_up_default_loader()
-
     def to_framework_app(self, import_name: str) -> Quart:
         q = Quart(import_name)
-
-        for pred, factory, _ in self._req_loaders:
-            self.framework_incant.register_hook_factory(pred, factory)
 
         for (method, path), (handler, name) in self.route_map.items():
             ra = make_return_adapter(
@@ -113,14 +117,9 @@ class QuartApp(BaseApp):
             base_sig = signature(base_handler)
             req_ct: str | None = None
             for arg in base_sig.parameters.values():
-                for pred, _, ct in self._req_loaders:
-                    if pred(arg):
-                        if req_ct is None:
-                            req_ct = ct
-                        else:
-                            raise Exception(
-                                f"Conflicting content-types: {req_ct} and {ct}"
-                            )
+                if is_req_body_attrs(arg):
+                    _, loader = get_req_body_attrs(arg)
+                    req_ct = loader.content_type
 
             if ra is None:
                 prepared = self.framework_incant.prepare(

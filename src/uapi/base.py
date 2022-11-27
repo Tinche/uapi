@@ -1,5 +1,4 @@
 from functools import partial
-from inspect import Parameter
 from types import NoneType
 from typing import Any, Callable, ClassVar, Optional, Sequence
 
@@ -12,7 +11,6 @@ from orjson import dumps
 from .openapi import OpenAPI
 from .openapi import converter as openapi_converter
 from .openapi import make_openapi_spec
-from .requests import ReqBodySentinel, RequestLoaderPredicate, make_json_loader
 from .status import Ok
 from .types import PathParamParser
 
@@ -30,13 +28,6 @@ class App:
     route_map: dict[tuple[str, str], tuple[Callable, Optional[str]]] = Factory(dict)
     _path_param_parser: PathParamParser = lambda p: (p, [])
     _framework_resp_cls: ClassVar[type] = NoneType
-    _req_loaders: list[tuple[Callable[[Parameter], bool], Callable, str]] = Factory(
-        list
-    )
-
-    def _set_up_default_loader(self) -> None:
-        pred, factory = make_json_loader(ReqBodySentinel, self.converter)
-        self.register_request_loader(pred, factory, "application/json")
 
     def route(
         self,
@@ -84,21 +75,11 @@ class App:
                 name = f"{name_prefix}.{name}"
             self.route_map[(method, (prefix or "") + path)] = (handler, name)
 
-    def register_request_loader(
-        self,
-        predicate: RequestLoaderPredicate,
-        loader_factory: Callable,
-        content_type: str,
-    ) -> None:
-        """Register a request loader with the app."""
-        self._req_loaders.append((predicate, loader_factory, content_type))
-
     def make_openapi_spec(self) -> OpenAPI:
         return make_openapi_spec(
             self.route_map,
             self._path_param_parser,
             framework_resp_cls=self._framework_resp_cls,
-            request_loaders=[(pred, ct) for pred, _, ct in self._req_loaders],
         )
 
     def serve_openapi(self, path: str = "/openapi.json"):

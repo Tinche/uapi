@@ -5,14 +5,14 @@ from enum import Enum, unique
 from inspect import Parameter as InspectParameter
 from inspect import signature
 from types import NoneType
-from typing import Callable, Literal, Mapping, get_args
+from typing import Callable, Literal, Mapping
 
 from attrs import Factory, fields, frozen, has
 from cattrs import override
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
-from .requests import RequestLoaderPredicate, get_cookie_name
+from .requests import get_cookie_name, maybe_req_body_attrs
 from .responses import get_status_code_results
 from .types import PathParamParser, Routes, is_subclass
 
@@ -136,23 +136,12 @@ PYTHON_PRIMITIVES_TO_OPENAPI = {
 }
 
 
-def _find_request_loader(
-    param: InspectParameter, loaders: list[tuple[RequestLoaderPredicate, str]]
-) -> tuple[type, str] | None:
-    for pred, ct in reversed(loaders):
-        if pred(param):
-            return get_args(param.annotation)[0], ct
-
-    return None
-
-
 def build_operation(
     handler: Callable,
     path: str,
     components: dict[type, str],
     path_param_parser: PathParamParser,
     framework_resp_cls: type | None,
-    request_loaders: list[tuple[RequestLoaderPredicate, str]],
 ) -> OpenAPI.PathItem.Operation:
     request_bodies = {}
     request_body_required = False
@@ -190,10 +179,10 @@ def build_operation(
                     )
                 )
             elif arg_type is not InspectParameter.empty and (
-                type_and_ct := _find_request_loader(arg_param, request_loaders)
+                type_and_loader := maybe_req_body_attrs(arg_param)
             ):
-                attrs_type, ct = type_and_ct
-                request_bodies[ct] = MediaType(
+                attrs_type, loader = type_and_loader
+                request_bodies[loader.content_type or "*/*"] = MediaType(
                     Reference(f"#/components/schemas/{components[attrs_type]}")
                 )
                 request_body_required = arg_param.default is InspectParameter.empty
@@ -257,53 +246,27 @@ def build_pathitem(
     components,
     path_param_parser: PathParamParser,
     framework_resp_cls: type | None,
-    request_loaders: list[tuple[RequestLoaderPredicate, str]],
 ) -> OpenAPI.PathItem:
     get = post = put = patch = delete = None
     if get_route := path_routes.get("GET"):
         get = build_operation(
-            get_route,
-            path,
-            components,
-            path_param_parser,
-            framework_resp_cls,
-            request_loaders,
+            get_route, path, components, path_param_parser, framework_resp_cls
         )
     if post_route := path_routes.get("POST"):
         post = build_operation(
-            post_route,
-            path,
-            components,
-            path_param_parser,
-            framework_resp_cls,
-            request_loaders,
+            post_route, path, components, path_param_parser, framework_resp_cls
         )
     if put_route := path_routes.get("PUT"):
         put = build_operation(
-            put_route,
-            path,
-            components,
-            path_param_parser,
-            framework_resp_cls,
-            request_loaders,
+            put_route, path, components, path_param_parser, framework_resp_cls
         )
     if patch_route := path_routes.get("PATCH"):
         patch = build_operation(
-            patch_route,
-            path,
-            components,
-            path_param_parser,
-            framework_resp_cls,
-            request_loaders,
+            patch_route, path, components, path_param_parser, framework_resp_cls
         )
     if delete_route := path_routes.get("DELETE"):
         delete = build_operation(
-            delete_route,
-            path,
-            components,
-            path_param_parser,
-            framework_resp_cls,
-            request_loaders,
+            delete_route, path, components, path_param_parser, framework_resp_cls
         )
     return OpenAPI.PathItem(get, post, put, patch, delete)
 
@@ -313,7 +276,6 @@ def routes_to_paths(
     components: dict[type, dict[str, OpenAPI.PathItem]],
     path_param_parser: PathParamParser,
     framework_resp_cls: type | None = None,
-    req_loaders: list[tuple[RequestLoaderPredicate, str]] = [],
 ) -> dict[str, OpenAPI.PathItem]:
     res: dict[str, dict[str, Callable]] = defaultdict(dict)
 
@@ -322,25 +284,20 @@ def routes_to_paths(
         res[path] = res[path] | {method: handler}
 
     return {
-        k: build_pathitem(
-            k, v, components, path_param_parser, framework_resp_cls, req_loaders
-        )
+        k: build_pathitem(k, v, components, path_param_parser, framework_resp_cls)
         for k, v in res.items()
     }
 
 
 def gather_endpoint_components(
-    handler: Callable,
-    components: dict[type, str],
-    loaders: list[tuple[RequestLoaderPredicate, str]],
+    handler: Callable, components: dict[type, str]
 ) -> dict[type, str]:
     sig = signature(handler)
     for arg in sig.parameters.values():
         if arg.annotation is not InspectParameter.empty:
-            if (
-                type_and_ct := _find_request_loader(arg, loaders)
-            ) is not None and type_and_ct[0] not in components:
-                arg_type = type_and_ct[0]
+            if (type_and_loader := maybe_req_body_attrs(arg)) is not None and (
+                arg_type := type_and_loader[0]
+            ) not in components:
                 name = arg_type.__name__
                 counter = 0
                 while name in components.values():
@@ -359,9 +316,7 @@ def gather_endpoint_components(
     return components
 
 
-def components_to_openapi(
-    routes: Routes, req_loaders: list[tuple[RequestLoaderPredicate, str]]
-) -> tuple[OpenAPI.Components, dict]:
+def components_to_openapi(routes: Routes) -> tuple[OpenAPI.Components, dict]:
     """Build the components part.
 
     Components are complex structures, like classes, as opposed to primitives like ints.
@@ -369,7 +324,7 @@ def components_to_openapi(
     # First pass, we build the component registry.
     components: dict[type, str] = {}
     for handler, _ in routes.values():
-        gather_endpoint_components(handler, components, req_loaders)
+        gather_endpoint_components(handler, components)
 
     res: dict[str, AnySchema | Reference] = {}
     for component in components:
@@ -384,19 +339,12 @@ def make_openapi_spec(
     title: str = "Server",
     version: str = "1.0",
     framework_resp_cls: type | None = None,
-    request_loaders: list[tuple[RequestLoaderPredicate, str]] = [],
 ) -> OpenAPI:
-    c, components = components_to_openapi(routes, request_loaders)
+    c, components = components_to_openapi(routes)
     return OpenAPI(
         "3.0.3",
         OpenAPI.Info(title, version),
-        routes_to_paths(
-            routes,
-            components,
-            path_param_parser,
-            framework_resp_cls,
-            req_loaders=request_loaders,
-        ),
+        routes_to_paths(routes, components, path_param_parser, framework_resp_cls),
         c,
     )
 

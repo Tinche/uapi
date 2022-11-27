@@ -9,15 +9,14 @@ from hypercorn.middleware import AsyncioWSGIMiddleware
 from uapi import Cookie, ReqBody, ResponseException
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.flask import App
-from uapi.requests import make_json_loader
+from uapi.requests import JsonBodyLoader
 from uapi.status import Created, Forbidden, NoContent, Ok
 
 from .apps import make_generic_subapp
 from .models import NestedModel, SimpleModel
 
 T = TypeVar("T")
-sentinel = object()
-CustomReqBody: TypeAlias = Annotated[T, sentinel]
+CustomReqBody: TypeAlias = Annotated[T, JsonBodyLoader("application/vnd.uapi.v1+json")]
 
 
 def make_app() -> App:
@@ -118,13 +117,16 @@ def make_app() -> App:
     def head_with_exc() -> str:
         raise ResponseException(Forbidden(None))
 
-    # A custom json loader.
-    pred, factory = make_json_loader(sentinel, app.converter)
-    app.register_request_loader(pred, factory, "application/vnd.uapi.v1+json")
-
     @app.put("/custom-loader")
     def custom_loader(body: CustomReqBody[NestedModel]) -> Ok[str]:
         return Ok(str(body.simple_model.an_int))
+
+    @app.patch("/custom-loader-no-ct")
+    def custom_loader_no_ct(
+        body: Annotated[NestedModel, JsonBodyLoader(None)]
+    ) -> Ok[str]:
+        """No content-type required."""
+        return Ok(str(body.simple_model.an_int + 1))
 
     # Subapps.
     app.route_app(make_generic_subapp())

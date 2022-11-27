@@ -2,7 +2,7 @@ from inspect import Signature
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Optional, get_args
 
-from attrs import has
+from attrs import define, has
 from cattrs import Converter
 from cattrs._compat import is_union_type
 from incant import is_subclass
@@ -16,6 +16,13 @@ except ImportError:
 
 __all__ = ["dumps", "return_type_to_statuses", "get_status_code_results"]
 empty_dict: Mapping[str, str] = MappingProxyType({})
+
+
+@define
+class ResponseException(Exception):
+    """An exception that is converted into an HTTP response."""
+
+    response: BaseResponse
 
 
 def make_return_adapter(

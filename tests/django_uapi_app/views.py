@@ -1,20 +1,18 @@
-from typing import Annotated, Optional, TypeAlias, TypeVar, Union
+from typing import Annotated, TypeAlias, TypeVar
 
 from django.http import HttpResponse as Response
 
 from uapi import Cookie, ReqBody, ResponseException
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.django import App
-from uapi.requests import make_json_loader
+from uapi.requests import JsonBodyLoader
 from uapi.status import Created, Forbidden, NoContent, Ok
 
 from ..apps import make_generic_subapp
 from ..models import NestedModel, SimpleModel
 
 T = TypeVar("T")
-sentinel = object()
-CustomReqBody: TypeAlias = Annotated[T, sentinel]
-# Create your views here.
+CustomReqBody: TypeAlias = Annotated[T, JsonBodyLoader("application/vnd.uapi.v1+json")]
 app = App()
 
 
@@ -89,7 +87,7 @@ def post_201() -> Created[str]:
 
 
 @app.post("/post/multiple")
-def post_multiple_codes() -> Union[Ok[str], Created[None]]:
+def post_multiple_codes() -> Ok[str] | Created[None]:
     return Created(None)
 
 
@@ -109,7 +107,7 @@ def put_cookie(a_cookie: Cookie) -> str:
 
 
 def put_cookie_optional(
-    a_cookie: Annotated[Optional[str], Cookie("A-COOKIE")] = None
+    a_cookie: Annotated[str | None, Cookie("A-COOKIE")] = None
 ) -> str:
     return a_cookie if a_cookie is not None else "missing"
 
@@ -139,14 +137,15 @@ def head_with_exc() -> str:
     raise ResponseException(Forbidden(None))
 
 
-# A custom json loader.
-pred, factory = make_json_loader(sentinel, app.converter)
-app.register_request_loader(pred, factory, "application/vnd.uapi.v1+json")
-
-
 @app.put("/custom-loader")
 def custom_loader(body: CustomReqBody[NestedModel]) -> Ok[str]:
     return Ok(str(body.simple_model.an_int))
+
+
+@app.patch("/custom-loader-no-ct")
+def custom_loader_no_ct(body: Annotated[NestedModel, JsonBodyLoader(None)]) -> Ok[str]:
+    """No content-type required."""
+    return Ok(str(body.simple_model.an_int + 1))
 
 
 app.route_app(make_generic_subapp())

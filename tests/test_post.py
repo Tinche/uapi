@@ -1,9 +1,4 @@
-from json import dumps
-
-from cattrs import unstructure
 from httpx import AsyncClient
-
-from tests.models import NestedModel
 
 
 async def test_hello(server):
@@ -48,27 +43,3 @@ async def test_path_string(server):
         resp = await client.post(f"http://localhost:{server}/path1/20")
         assert resp.status_code == 200
         assert resp.text == "22"
-
-
-async def test_model(server):
-    model = NestedModel()
-    unstructured = unstructure(model)
-    async with AsyncClient() as client:
-        resp = await client.post(
-            f"http://localhost:{server}/post/model", json=unstructured
-        )
-        assert resp.status_code == 201
-        assert resp.json() == unstructured
-
-
-async def test_model_wrong_content_type(server):
-    """The server should refuse invalid content types, for security."""
-    model = NestedModel()
-    unstructured = unstructure(model)
-    async with AsyncClient() as client:
-        resp = await client.post(
-            f"http://localhost:{server}/post/model",
-            content=dumps(unstructured),
-            headers={"content-type": "text/plain"},
-        )
-        assert resp.status_code == 415
