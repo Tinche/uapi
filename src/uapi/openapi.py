@@ -5,18 +5,21 @@ from enum import Enum, unique
 from inspect import Parameter as InspectParameter
 from inspect import signature
 from types import NoneType
-from typing import Callable, Literal, Mapping, Optional, Union
+from typing import Callable, Literal, Mapping, get_args
 
 from attrs import Factory, fields, frozen, has
 from cattrs import override
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
-from .requests import get_cookie_name, maybe_req_body_attrs
+from .requests import RequestLoaderPredicate, get_cookie_name
 from .responses import get_status_code_results
 from .types import PathParamParser, Routes, is_subclass
 
 converter = make_converter(omit_if_default=True)
+
+# MediaTypeNames are like `application/json`.
+MediaTypeName = str
 
 
 @frozen
@@ -55,7 +58,7 @@ class ArraySchema:
 
 @frozen
 class MediaType:
-    schema: Union[Reference, Schema]
+    schema: Reference | Schema
 
 
 @frozen
@@ -84,7 +87,7 @@ AnySchema = Schema | ArraySchema
 
 @frozen
 class RequestBody:
-    content: Mapping[str, MediaType]
+    content: Mapping[MediaTypeName, MediaType]
     description: str | None = None
     required: bool = False
 
@@ -104,15 +107,15 @@ class OpenAPI:
     class PathItem:
         @frozen
         class Operation:
-            responses: dict[str, Response]
+            responses: dict[MediaTypeName, Response]
             parameters: list[Parameter] = Factory(list)
             requestBody: RequestBody | None = None
 
-        get: Optional[Operation] = None
-        post: Optional[Operation] = None
-        put: Optional[Operation] = None
-        patch: Optional[Operation] = None
-        delete: Optional[Operation] = None
+        get: Operation | None = None
+        post: Operation | None = None
+        put: Operation | None = None
+        patch: Operation | None = None
+        delete: Operation | None = None
 
     @frozen
     class Path:
@@ -133,17 +136,27 @@ PYTHON_PRIMITIVES_TO_OPENAPI = {
 }
 
 
+def _find_request_loader(
+    param: InspectParameter, loaders: list[tuple[RequestLoaderPredicate, str]]
+) -> tuple[type, str] | None:
+    for pred, ct in reversed(loaders):
+        if pred(param):
+            return get_args(param.annotation)[0], ct
+
+    return None
+
+
 def build_operation(
     handler: Callable,
     path: str,
     components: dict[type, str],
     path_param_parser: PathParamParser,
     framework_resp_cls: type | None,
+    request_loaders: list[tuple[RequestLoaderPredicate, str]],
 ) -> OpenAPI.PathItem.Operation:
     request_bodies = {}
     request_body_required = False
     responses = {"200": Response(description="OK")}
-    ct = "application/json"
     params = []
     sig = signature(handler)
     path_params = path_param_parser(path)[1]
@@ -176,10 +189,10 @@ def build_operation(
                         ),
                     )
                 )
-            elif (
-                arg_type is not InspectParameter.empty
-                and (attrs_type := maybe_req_body_attrs(arg_param)) is not None
+            elif arg_type is not InspectParameter.empty and (
+                type_and_ct := _find_request_loader(arg_param, request_loaders)
             ):
+                attrs_type, ct = type_and_ct
                 request_bodies[ct] = MediaType(
                     Reference(f"#/components/schemas/{components[attrs_type]}")
                 )
@@ -204,9 +217,13 @@ def build_operation(
         responses = {}
         for status_code, result_type in statuses:
             if result_type is str:
-                ct = "text/plain"
                 responses[str(status_code)] = Response(
-                    "OK", {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])}
+                    "OK",
+                    {
+                        "text/plain": MediaType(
+                            PYTHON_PRIMITIVES_TO_OPENAPI[result_type]
+                        )
+                    },
                 )
             elif result_type in (None, NoneType):
                 responses[str(status_code)] = Response("OK")
@@ -214,14 +231,19 @@ def build_operation(
                 responses[str(status_code)] = Response(
                     "OK",
                     {
-                        ct: MediaType(
+                        "application/json": MediaType(
                             Reference(f"#/components/schemas/{components[result_type]}")
                         )
                     },
                 )
             else:
                 responses[str(status_code)] = Response(
-                    "OK", {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])}
+                    "OK",
+                    {
+                        "application/json": MediaType(
+                            PYTHON_PRIMITIVES_TO_OPENAPI[result_type]
+                        )
+                    },
                 )
     req_body = None
     if request_bodies:
@@ -235,27 +257,53 @@ def build_pathitem(
     components,
     path_param_parser: PathParamParser,
     framework_resp_cls: type | None,
+    request_loaders: list[tuple[RequestLoaderPredicate, str]],
 ) -> OpenAPI.PathItem:
     get = post = put = patch = delete = None
     if get_route := path_routes.get("GET"):
         get = build_operation(
-            get_route, path, components, path_param_parser, framework_resp_cls
+            get_route,
+            path,
+            components,
+            path_param_parser,
+            framework_resp_cls,
+            request_loaders,
         )
     if post_route := path_routes.get("POST"):
         post = build_operation(
-            post_route, path, components, path_param_parser, framework_resp_cls
+            post_route,
+            path,
+            components,
+            path_param_parser,
+            framework_resp_cls,
+            request_loaders,
         )
     if put_route := path_routes.get("PUT"):
         put = build_operation(
-            put_route, path, components, path_param_parser, framework_resp_cls
+            put_route,
+            path,
+            components,
+            path_param_parser,
+            framework_resp_cls,
+            request_loaders,
         )
     if patch_route := path_routes.get("PATCH"):
         patch = build_operation(
-            patch_route, path, components, path_param_parser, framework_resp_cls
+            patch_route,
+            path,
+            components,
+            path_param_parser,
+            framework_resp_cls,
+            request_loaders,
         )
     if delete_route := path_routes.get("DELETE"):
         delete = build_operation(
-            delete_route, path, components, path_param_parser, framework_resp_cls
+            delete_route,
+            path,
+            components,
+            path_param_parser,
+            framework_resp_cls,
+            request_loaders,
         )
     return OpenAPI.PathItem(get, post, put, patch, delete)
 
@@ -265,6 +313,7 @@ def routes_to_paths(
     components: dict[type, dict[str, OpenAPI.PathItem]],
     path_param_parser: PathParamParser,
     framework_resp_cls: type | None = None,
+    req_loaders: list[tuple[RequestLoaderPredicate, str]] = [],
 ) -> dict[str, OpenAPI.PathItem]:
     res: dict[str, dict[str, Callable]] = defaultdict(dict)
 
@@ -273,20 +322,25 @@ def routes_to_paths(
         res[path] = res[path] | {method: handler}
 
     return {
-        k: build_pathitem(k, v, components, path_param_parser, framework_resp_cls)
+        k: build_pathitem(
+            k, v, components, path_param_parser, framework_resp_cls, req_loaders
+        )
         for k, v in res.items()
     }
 
 
 def gather_endpoint_components(
-    handler: Callable, components: dict[type, str]
+    handler: Callable,
+    components: dict[type, str],
+    loaders: list[tuple[RequestLoaderPredicate, str]],
 ) -> dict[type, str]:
     sig = signature(handler)
     for arg in sig.parameters.values():
         if arg.annotation is not InspectParameter.empty:
             if (
-                arg_type := maybe_req_body_attrs(arg)
-            ) is not None and arg_type not in components:
+                type_and_ct := _find_request_loader(arg, loaders)
+            ) is not None and type_and_ct[0] not in components:
+                arg_type = type_and_ct[0]
                 name = arg_type.__name__
                 counter = 0
                 while name in components.values():
@@ -305,7 +359,9 @@ def gather_endpoint_components(
     return components
 
 
-def components_to_openapi(routes: Routes) -> tuple[OpenAPI.Components, dict]:
+def components_to_openapi(
+    routes: Routes, req_loaders: list[tuple[RequestLoaderPredicate, str]]
+) -> tuple[OpenAPI.Components, dict]:
     """Build the components part.
 
     Components are complex structures, like classes, as opposed to primitives like ints.
@@ -313,7 +369,7 @@ def components_to_openapi(routes: Routes) -> tuple[OpenAPI.Components, dict]:
     # First pass, we build the component registry.
     components: dict[type, str] = {}
     for handler, _ in routes.values():
-        gather_endpoint_components(handler, components)
+        gather_endpoint_components(handler, components, req_loaders)
 
     res: dict[str, AnySchema | Reference] = {}
     for component in components:
@@ -328,12 +384,19 @@ def make_openapi_spec(
     title: str = "Server",
     version: str = "1.0",
     framework_resp_cls: type | None = None,
+    request_loaders: list[tuple[RequestLoaderPredicate, str]] = [],
 ) -> OpenAPI:
-    c, components = components_to_openapi(routes)
+    c, components = components_to_openapi(routes, request_loaders)
     return OpenAPI(
         "3.0.3",
         OpenAPI.Info(title, version),
-        routes_to_paths(routes, components, path_param_parser, framework_resp_cls),
+        routes_to_paths(
+            routes,
+            components,
+            path_param_parser,
+            framework_resp_cls,
+            req_loaders=request_loaders,
+        ),
         c,
     )
 

@@ -1,5 +1,5 @@
 from asyncio import Event
-from typing import Annotated, Optional, Union
+from typing import Annotated, TypeAlias, TypeVar, Union
 
 from flask import Response
 from hypercorn.asyncio import serve
@@ -9,10 +9,15 @@ from hypercorn.middleware import AsyncioWSGIMiddleware
 from uapi import Cookie, ReqBody, ResponseException
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.flask import App
+from uapi.requests import make_json_loader
 from uapi.status import Created, Forbidden, NoContent, Ok
 
 from .apps import make_generic_subapp
 from .models import NestedModel, SimpleModel
+
+T = TypeVar("T")
+sentinel = object()
+CustomReqBody: TypeAlias = Annotated[T, sentinel]
 
 
 def make_app() -> App:
@@ -27,6 +32,10 @@ def make_app() -> App:
         return Response(str(path_id + 1))
 
     app.route("/path/<int:path_id>", path)
+
+    @app.options("/unannotated-exception")
+    def unannotated_exception() -> Response:
+        raise ResponseException(NoContent(None))
 
     @app.get("/query/unannotated")
     def query_unannotated(query) -> Response:
@@ -86,7 +95,7 @@ def make_app() -> App:
         return a_cookie
 
     def put_cookie_optional(
-        a_cookie: Annotated[Optional[str], Cookie("A-COOKIE")] = None
+        a_cookie: Annotated[str | None, Cookie("A-COOKIE")] = None
     ) -> str:
         return a_cookie if a_cookie is not None else "missing"
 
@@ -109,6 +118,15 @@ def make_app() -> App:
     def head_with_exc() -> str:
         raise ResponseException(Forbidden(None))
 
+    # A custom json loader.
+    pred, factory = make_json_loader(sentinel, app.converter)
+    app.register_request_loader(pred, factory, "application/vnd.uapi.v1+json")
+
+    @app.put("/custom-loader")
+    def custom_loader(body: CustomReqBody[NestedModel]) -> Ok[str]:
+        return Ok(str(body.simple_model.an_int))
+
+    # Subapps.
     app.route_app(make_generic_subapp())
     app.route_app(make_generic_subapp(), "/subapp", "subapp")
 

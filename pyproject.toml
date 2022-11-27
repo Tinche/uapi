@@ -27,7 +27,7 @@ dev = [
     "starlette",
     "django",
     "hypercorn",
-    "mypy",
+    "mypy==0.991",
     "aioredis",
     "uvicorn",
     "orjson",

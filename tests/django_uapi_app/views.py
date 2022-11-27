@@ -1,15 +1,19 @@
-from typing import Annotated, Optional, Union
+from typing import Annotated, Optional, TypeAlias, TypeVar, Union
 
-from django.http import HttpResponse
+from django.http import HttpResponse as Response
 
 from uapi import Cookie, ReqBody, ResponseException
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.django import App
+from uapi.requests import make_json_loader
 from uapi.status import Created, Forbidden, NoContent, Ok
 
 from ..apps import make_generic_subapp
 from ..models import NestedModel, SimpleModel
 
+T = TypeVar("T")
+sentinel = object()
+CustomReqBody: TypeAlias = Annotated[T, sentinel]
 # Create your views here.
 app = App()
 
@@ -20,31 +24,36 @@ def hello() -> str:
     return "Hello, world"
 
 
-def path(path_id: int) -> HttpResponse:
-    return HttpResponse(str(path_id + 1))
+def path(path_id: int) -> Response:
+    return Response(str(path_id + 1))
 
 
 app.route("/path/<int:path_id>", path)
 
 
+@app.options("/unannotated-exception")
+def unannotated_exception() -> Response:
+    raise ResponseException(NoContent(None))
+
+
 @app.get("/query/unannotated")
-def query_unannotated(query) -> HttpResponse:
-    return HttpResponse(query + "suffix")
+def query_unannotated(query) -> Response:
+    return Response(query + "suffix")
 
 
 @app.get("/query/string")
-def query_string(query: str) -> HttpResponse:
-    return HttpResponse(query + "suffix")
+def query_string(query: str) -> Response:
+    return Response(query + "suffix")
 
 
 @app.get("/query")
-def query(page: int) -> HttpResponse:
-    return HttpResponse(str(page + 1))
+def query(page: int) -> Response:
+    return Response(str(page + 1))
 
 
 @app.get("/query-default")
-def query_default(page: int = 0) -> HttpResponse:
-    return HttpResponse(str(page + 1))
+def query_default(page: int = 0) -> Response:
+    return Response(str(page + 1))
 
 
 @app.get("/query-bytes")
@@ -63,8 +72,8 @@ def get_model_status() -> Created[NestedModel]:
 
 
 @app.post("/post/no-body-native-response")
-def post_no_body() -> HttpResponse:
-    return HttpResponse("post", status=201)
+def post_no_body() -> Response:
+    return Response("post", status=201)
 
 
 def post_no_body_no_resp() -> None:
@@ -128,6 +137,16 @@ app.route("/patch/attrs", patch_attrs_union, methods=["patch"])
 @app.head("/head/exc")
 def head_with_exc() -> str:
     raise ResponseException(Forbidden(None))
+
+
+# A custom json loader.
+pred, factory = make_json_loader(sentinel, app.converter)
+app.register_request_loader(pred, factory, "application/vnd.uapi.v1+json")
+
+
+@app.put("/custom-loader")
+def custom_loader(body: CustomReqBody[NestedModel]) -> Ok[str]:
+    return Ok(str(body.simple_model.an_int))
 
 
 app.route_app(make_generic_subapp())

@@ -1,5 +1,5 @@
 from inspect import Signature, signature
-from typing import Callable, ClassVar
+from typing import Any, Callable, ClassVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -7,11 +7,6 @@ from flask import Flask
 from flask import Response as FrameworkResponse
 from flask import request
 from incant import Hook, Incanter
-
-try:
-    from orjson import loads
-except ImportError:
-    from json import loads
 
 from . import ResponseException
 from .base import App as BaseApp
@@ -21,36 +16,30 @@ from .path import (
     parse_curly_path_params,
     strip_path_param_prefix,
 )
-from .requests import get_cookie_name, get_req_body_attrs, is_req_body_attrs
+from .requests import ReqBytes, get_cookie_name
 from .responses import dict_to_headers, identity, make_return_adapter
-from .status import BadRequest, BaseResponse, get_status_code
+from .status import BaseResponse, get_status_code
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
     if default is Signature.empty:
 
-        def read_cookie():
+        def read_cookie() -> str:
             return request.cookies[cookie_name]
+
+        return read_cookie
 
     else:
 
-        def read_cookie():
+        def read_cookie_opt() -> Any:
             return request.cookies.get(cookie_name, default)
 
-    return read_cookie
+        return read_cookie_opt
 
 
 def make_flask_incanter(converter: Converter) -> Incanter:
-    """Create the framework incanter for Quart."""
+    """Create the framework incanter for Flask."""
     res = Incanter()
-
-    def attrs_body_factory(attrs_cls: type):
-        def structure_body() -> attrs_cls:  # type: ignore
-            if not request.is_json:
-                raise ResponseException(BadRequest("invalid content-type"))
-            return converter.structure(loads(request.data), attrs_cls)
-
-        return structure_body
 
     res.register_hook_factory(
         lambda _: True,
@@ -71,13 +60,10 @@ def make_flask_incanter(converter: Converter) -> Incanter:
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
-    res.register_hook_factory(
-        is_req_body_attrs, lambda p: attrs_body_factory(get_req_body_attrs(p))
-    )
     return res
 
 
-def framework_return_adapter(resp: BaseResponse):
+def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:
     return FrameworkResponse(
         resp.ret or b"", get_status_code(resp.__class__), dict_to_headers(resp.headers)  # type: ignore
     )
@@ -94,8 +80,20 @@ class FlaskApp(BaseApp):
     )
     _framework_resp_cls: ClassVar[type] = FrameworkResponse
 
+    def __attrs_post_init__(self) -> None:
+        def request_bytes() -> bytes:
+            return request.data
+
+        self.framework_incant.register_hook(
+            lambda p: p.annotation is ReqBytes, request_bytes
+        )
+        super()._set_up_default_loader()
+
     def to_framework_app(self, import_name: str) -> Flask:
         f = Flask(import_name)
+
+        for pred, factory, _ in self._req_loaders:
+            self.framework_incant.register_hook_factory(pred, factory)
 
         for (method, path), (handler, name) in self.route_map.items():
             ra = make_return_adapter(
@@ -104,33 +102,65 @@ class FlaskApp(BaseApp):
             path_params = parse_angle_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
 
+            base_handler = self.base_incant.prepare(handler, is_async=False)
+            # Detect required content-types here, based on the registered
+            # request loaders.
+            base_sig = signature(base_handler)
+            req_ct: str | None = None
+            for arg in base_sig.parameters.values():
+                for pred, _, ct in self._req_loaders:
+                    if pred(arg):
+                        if req_ct is None:
+                            req_ct = ct
+                        else:
+                            raise Exception(
+                                f"Conflicting content-types: {req_ct} and {ct}"
+                            )
+
             if ra is None:
-                base_handler = self.base_incant.prepare(handler, is_async=False)
                 prepared = self.framework_incant.prepare(
                     base_handler, hooks, is_async=False
                 )
 
-                def o0(prepared=prepared):
+                def o0(
+                    prepared=prepared, _req_ct=req_ct, _fra=_framework_return_adapter
+                ):
                     def adapted(**kwargs):
-                        return prepared(**kwargs)
+                        if (
+                            _req_ct is not None
+                            and request.headers.get("content-type") != _req_ct
+                        ):
+                            return FrameworkResponse(
+                                f"invalid content type (expected {_req_ct})", 415
+                            )
+                        try:
+                            return prepared(**kwargs)
+                        except ResponseException as exc:
+                            return _fra(exc.response)
 
                     return adapted
 
                 adapted = o0()
 
             else:
-                base_handler = self.base_incant.prepare(handler, is_async=False)
                 prepared = self.framework_incant.prepare(
                     base_handler, hooks, is_async=False
                 )
                 if ra == identity:
 
-                    def o1(prepared=prepared):
+                    def o1(prepared=prepared, _req_ct=req_ct):
                         def adapted(**kwargs):
+                            if (
+                                _req_ct is not None
+                                and request.headers.get("content-type") != _req_ct
+                            ):
+                                return FrameworkResponse(
+                                    f"invalid content type (expected {_req_ct})", 415
+                                )
                             try:
-                                return framework_return_adapter(prepared(**kwargs))
+                                return _framework_return_adapter(prepared(**kwargs))
                             except ResponseException as exc:
-                                return framework_return_adapter(exc.response)
+                                return _framework_return_adapter(exc.response)
 
                         return adapted
 
@@ -138,12 +168,19 @@ class FlaskApp(BaseApp):
 
                 else:
 
-                    def o2(prepared=prepared, ra=ra):
+                    def o2(prepared=prepared, ra=ra, _req_ct=req_ct):
                         def adapted(**kwargs):
+                            if (
+                                _req_ct is not None
+                                and request.headers.get("content-type") != _req_ct
+                            ):
+                                return FrameworkResponse(
+                                    f"invalid content type (expected {_req_ct})", 415
+                                )
                             try:
-                                return framework_return_adapter(ra(prepared(**kwargs)))
+                                return _framework_return_adapter(ra(prepared(**kwargs)))
                             except ResponseException as exc:
-                                return framework_return_adapter(exc.response)
+                                return _framework_return_adapter(exc.response)
 
                         return adapted
 

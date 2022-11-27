@@ -1,5 +1,5 @@
 from asyncio import Event
-from typing import Annotated, Optional, Union
+from typing import Annotated, Optional, TypeAlias, TypeVar, Union
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
@@ -8,10 +8,15 @@ from quart import Response
 from uapi import Cookie, ReqBody, ResponseException
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.quart import App
+from uapi.requests import make_json_loader
 from uapi.status import Created, Forbidden, NoContent, Ok
 
 from .apps import make_generic_subapp
 from .models import NestedModel, SimpleModel
+
+T = TypeVar("T")
+sentinel = object()
+CustomReqBody: TypeAlias = Annotated[T, sentinel]
 
 
 def make_app() -> App:
@@ -26,6 +31,10 @@ def make_app() -> App:
         return Response(str(path_id + 1))
 
     app.route("/path/<int:path_id>", path)
+
+    @app.options("/unannotated-exception")
+    async def unannotated_exception() -> Response:
+        raise ResponseException(NoContent(None))
 
     @app.get("/query/unannotated")
     async def query_unannotated(query) -> Response:
@@ -107,6 +116,14 @@ def make_app() -> App:
     @app.head("/head/exc")
     async def head_with_exc() -> str:
         raise ResponseException(Forbidden(None))
+
+    # A custom json loader.
+    pred, factory = make_json_loader(sentinel, app.converter)
+    app.register_request_loader(pred, factory, "application/vnd.uapi.v1+json")
+
+    @app.put("/custom-loader")
+    async def custom_loader(body: CustomReqBody[NestedModel]) -> Ok[str]:
+        return Ok(str(body.simple_model.an_int))
 
     app.route_app(make_generic_subapp())
     app.route_app(make_generic_subapp(), "/subapp", "subapp")

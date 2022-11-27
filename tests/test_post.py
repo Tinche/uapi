@@ -71,4 +71,4 @@ async def test_model_wrong_content_type(server):
             content=dumps(unstructured),
             headers={"content-type": "text/plain"},
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 415

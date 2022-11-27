@@ -6,6 +6,8 @@ We **strongly recommend** not using async handlers with Flask or Django unless y
 
 ## Receiving Data
 
+### Path Parameters
+
 The first way to get data into a handler is by using _path parameters_.
 A path parameter is inserted into the _handler route string_, and the value of the parameter is given to the handler.
 Since the routing is left to the underlying framework, the format of the route string is framework-specific.
@@ -72,5 +74,31 @@ async def get_article(article_id: str) -> str:
 Aiohttp uses curly brackets for path parameters and only supports strings.
 
 ````
+
+### Request Bodies
+
+HTTP requests can contain body data.
+If the body data is a JSON object, it should be modeled as an _attrs_ class and declared as a `ReqBody` parameter in the handler.
+
+```{note}
+A parameter annotated as a `ReqBody[T]` will be equivalent to just `T` in the function body.
+
+`ReqBody[T]` is an easier way of saying `typing.Annotated[T, ...]`, and `typing.Annotated` is a way to add metadata to a type.
+```
+
+```python
+from attrs import define
+
+@define
+class Article:
+    article_id: str
+
+@app.post("/article")
+async def create_article(article: ReqBody[Article]) -> None:
+    pass
+```
+
+The handler will require the caller to set the `content-type` header to `application/json`; a `415 Unsupported Media Type` error will be returned otherwise.
+This is a security feature, helping with some forms of [CSRF](https://owasp.org/www-community/attacks/csrf).
 
 ## Returning Data

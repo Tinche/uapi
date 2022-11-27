@@ -1,5 +1,5 @@
 from inspect import Parameter, Signature, signature
-from typing import Callable, ClassVar, TypeVar
+from typing import Any, Callable, ClassVar, TypeVar
 
 from aiohttp.web import Request as FrameworkRequest
 from aiohttp.web import Response as FrameworkResponse
@@ -10,17 +10,12 @@ from cattrs import Converter
 from incant import Hook, Incanter
 from multidict import CIMultiDict
 
-try:
-    from orjson import loads
-except ImportError:
-    from json import loads
-
 from . import ResponseException
 from .base import App as BaseApp
 from .path import parse_curly_path_params
-from .requests import get_cookie_name, get_req_body_attrs, is_req_body_attrs
+from .requests import ReqBytes, get_cookie_name
 from .responses import dict_to_headers, identity, make_return_adapter
-from .status import BadRequest, BaseResponse, get_status_code
+from .status import BaseResponse, get_status_code
 
 C = TypeVar("C")
 
@@ -28,15 +23,17 @@ C = TypeVar("C")
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
     if default is Signature.empty:
 
-        def read_cookie(request: FrameworkRequest):
-            return request.cookies[cookie_name]
+        def read_cookie(_request: FrameworkRequest) -> str:
+            return _request.cookies[cookie_name]
+
+        return read_cookie
 
     else:
 
-        def read_cookie(request: FrameworkRequest):
-            return request.cookies.get(cookie_name, default)
+        def read_opt_cookie(_request: FrameworkRequest) -> Any:
+            return _request.cookies.get(cookie_name, default)
 
-    return read_cookie
+        return read_opt_cookie
 
 
 def make_aiohttp_incanter(converter: Converter) -> Incanter:
@@ -44,34 +41,26 @@ def make_aiohttp_incanter(converter: Converter) -> Incanter:
     res = Incanter()
 
     def query_factory(p: Parameter):
-        def read_query(request: FrameworkRequest):
+        def read_query(_request: FrameworkRequest):
             return converter.structure(
-                request.query[p.name]
+                _request.query[p.name]
                 if p.default is Signature.empty
-                else request.query.get(p.name, p.default),
+                else _request.query.get(p.name, p.default),
                 p.annotation,
             )
 
         return read_query
 
-    def attrs_body_factory(attrs_cls: type[C]):
-        async def structure_body(request: FrameworkRequest) -> C:
-            if request.headers.get("content-type") != "application/json":
-                raise ResponseException(BadRequest("invalid content-type"))
-            return converter.structure(await request.json(loads=loads), attrs_cls)
-
-        return structure_body
-
     res.register_hook_factory(
         lambda p: p.annotation is not FrameworkRequest, query_factory
     )
 
-    def string_query_factory(p: Parameter):
-        def read_query(request: FrameworkRequest):
+    def string_query_factory(p: Parameter) -> Callable[[FrameworkRequest], Any]:
+        def read_query(_request: FrameworkRequest):
             return (
-                request.query[p.name]
+                _request.query[p.name]
                 if p.default is Signature.empty
-                else request.query.get(p.name, p.default)
+                else _request.query.get(p.name, p.default)
             )
 
         return read_query
@@ -82,9 +71,6 @@ def make_aiohttp_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
-    )
-    res.register_hook_factory(
-        is_req_body_attrs, lambda p: attrs_body_factory(get_req_body_attrs(p))
     )
     return res
 
@@ -108,8 +94,20 @@ class AiohttpApp(BaseApp):
     )
     _framework_resp_cls: ClassVar[type] = FrameworkResponse
 
+    def __attrs_post_init__(self) -> None:
+        async def request_bytes(_request: FrameworkRequest) -> bytes:
+            return await _request.read()
+
+        self.framework_incant.register_hook(
+            lambda p: p.annotation is ReqBytes, request_bytes
+        )
+        super()._set_up_default_loader()
+
     def to_framework_routes(self) -> RouteTableDef:
         r = RouteTableDef()
+
+        for pred, factory, _ in self._req_loaders:
+            self.framework_incant.register_hook_factory(pred, factory)
 
         for (method, path), (handler, name) in self.route_map.items():
             ra = make_return_adapter(
@@ -117,8 +115,23 @@ class AiohttpApp(BaseApp):
             )
             path_params = parse_curly_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
+
+            base_handler = self.base_incant.prepare(handler, is_async=True)
+            # Detect required content-types here, based on the registered
+            # request loaders.
+            base_sig = signature(base_handler)
+            req_ct: str | None = None
+            for arg in base_sig.parameters.values():
+                for pred, _, ct in self._req_loaders:
+                    if pred(arg):
+                        if req_ct is None:
+                            req_ct = ct
+                        else:
+                            raise Exception(
+                                f"Conflicting content-types: {req_ct} and {ct}"
+                            )
+
             if ra is None:
-                base_handler = self.base_incant.prepare(handler, is_async=True)
                 prepared = self.framework_incant.prepare(
                     base_handler, hooks, is_async=True
                 )
@@ -128,23 +141,38 @@ class AiohttpApp(BaseApp):
                 async def adapted(
                     request: FrameworkRequest,
                     _incant=self.framework_incant.aincant,
+                    _fra=_framework_return_adapter,
                     _prepared=prepared,
                     _path_params=path_params,
                     _path_types=path_types,
+                    _req_ct=req_ct,
                 ) -> FrameworkResponse:
-                    path_args = {
-                        p: (
-                            self.converter.structure(request.match_info[p], path_type)
-                            if (path_type := _path_types[p])
-                            not in (str, Signature.empty)
-                            else request.match_info[p]
+                    if (
+                        _req_ct is not None
+                        and request.headers.get("content-type") != _req_ct
+                    ):
+                        return FrameworkResponse(
+                            body=f"invalid content type (expected {_req_ct})",
+                            status=415,
                         )
-                        for p in _path_params
-                    }
-                    return await _incant(_prepared, request=request, **path_args)
+
+                    try:
+                        path_args = {
+                            p: (
+                                self.converter.structure(
+                                    request.match_info[p], path_type
+                                )
+                                if (path_type := _path_types[p])
+                                not in (str, Signature.empty)
+                                else request.match_info[p]
+                            )
+                            for p in _path_params
+                        }
+                        return await _incant(_prepared, _request=request, **path_args)
+                    except ResponseException as exc:
+                        return _fra(exc.response)
 
             else:
-                base_handler = self.base_incant.prepare(handler, is_async=True)
                 prepared = self.framework_incant.prepare(
                     base_handler, hooks, is_async=True
                 )
@@ -158,7 +186,16 @@ class AiohttpApp(BaseApp):
                         _incant=self.framework_incant.aincant,
                         _fra=_framework_return_adapter,
                         _prepared=prepared,
+                        _req_ct=req_ct,
                     ) -> FrameworkResponse:
+                        if (
+                            _req_ct is not None
+                            and request.headers.get("content-type") != _req_ct
+                        ):
+                            return FrameworkResponse(
+                                body=f"invalid content type (expected {_req_ct})",
+                                status=415,
+                            )
                         path_args = {
                             p: (
                                 self.converter.structure(
@@ -172,7 +209,7 @@ class AiohttpApp(BaseApp):
                         }
                         try:
                             return _fra(
-                                await _incant(_prepared, request=request, **path_args)
+                                await _incant(_prepared, _request=request, **path_args)
                             )
                         except ResponseException as exc:
                             return _fra(exc.response)
@@ -187,7 +224,16 @@ class AiohttpApp(BaseApp):
                         _prepared=prepared,
                         _path_params=path_params,
                         _path_types=path_types,
+                        _req_ct=req_ct,
                     ) -> FrameworkResponse:
+                        if (
+                            _req_ct is not None
+                            and request.headers.get("content-type") != _req_ct
+                        ):
+                            return FrameworkResponse(
+                                body=f"invalid content type (expected {_req_ct})",
+                                status=415,
+                            )
                         path_args = {
                             p: (
                                 self.converter.structure(
@@ -203,7 +249,7 @@ class AiohttpApp(BaseApp):
                             return _fra(
                                 _ra(
                                     await _incant(
-                                        _prepared, request=request, **path_args
+                                        _prepared, _request=request, **path_args
                                     )
                                 )
                             )
