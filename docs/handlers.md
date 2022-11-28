@@ -99,6 +99,26 @@ A parameter annotated as a `ReqBody[T]` will be equivalent to `T` in the functio
 ```
 
 If the request body cannot be loaded into the given model, a `400 Bad Request` response will be returned instead.
+This can be customized by providing your own own instance of {py:class}`uapi.requests.JsonBodyLoader` with a custom `error_handler`.
+
+```python
+from typing import Annotated, TypeVar
+from uapi.requests import JsonBodyLoader
+from uapi.status import BadRequest
+
+T = TypeVar("T")
+
+def make_error_response(exc: Exception, bytes: payload) -> BadRequest[None]:
+    # Examine the exception.
+    return BadRequest("Bad payload buddy")
+
+MyErrorReqBody = Annotated[T, JsonBodyLoader(error_handler=make_error_response)]
+
+@app.post("/endpoint")
+async def create_article(article: MyErrorReqBody[Article]) -> None:
+    # `article` is an instance of `Article`
+    ...
+```
 
 The handler requires the caller to set the `content-type` header to `application/json`; a `415 Unsupported Media Type` error will be returned otherwise.
 This is a security feature, helping with some forms of [CSRF](https://owasp.org/www-community/attacks/csrf).
