@@ -1,8 +1,9 @@
+from contextlib import suppress
 from inspect import Signature
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Optional, get_args
 
-from attrs import has
+from attrs import define, has
 from cattrs import Converter
 from cattrs._compat import is_union_type
 from incant import is_subclass
@@ -18,6 +19,13 @@ __all__ = ["dumps", "return_type_to_statuses", "get_status_code_results"]
 empty_dict: Mapping[str, str] = MappingProxyType({})
 
 
+@define
+class ResponseException(Exception):
+    """An exception that is converted into an HTTP response."""
+
+    response: BaseResponse
+
+
 def make_return_adapter(
     return_type: Any, framework_response_cls: type, converter: Converter
 ) -> Optional[Callable[..., BaseResponse]]:
@@ -25,9 +33,12 @@ def make_return_adapter(
         # You're on your own, buddy.
         return None
     if return_type is None:
-        return lambda r: Ok(None)
+        return lambda _: Ok(None)
     if return_type in (str, bytes):
         return lambda r: Ok(r)
+    with suppress(Exception):
+        if issubclass(return_type, BaseResponse):
+            return identity
     if has(return_type):
         return lambda r: Ok(
             dumps(converter.unstructure(r, unstructure_as=return_type)),
@@ -49,8 +60,12 @@ def return_type_to_statuses(t: type) -> dict[int, Any]:
         if is_subclass(t, BaseResponse) or is_subclass(
             getattr(t, "__origin__", None), BaseResponse
         ):
-            status = get_status_code(t.__origin__)  # type: ignore
-            t = t.__args__[0]  # type: ignore
+            if hasattr(t, "__origin__"):
+                status = get_status_code(t.__origin__)
+                t = t.__args__[0]  # type: ignore
+            else:
+                status = get_status_code(t)
+                t = type(None)
         else:
             status = 200
         if status in per_status:

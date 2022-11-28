@@ -1,5 +1,6 @@
+from functools import partial
 from inspect import Parameter, Signature, signature
-from typing import Awaitable, Callable, ClassVar, TypeVar
+from typing import Any, Callable, ClassVar, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -8,17 +9,18 @@ from starlette.applications import Starlette
 from starlette.requests import Request as FrameworkRequest
 from starlette.responses import Response as FrameworkResponse
 
-try:
-    from orjson import loads
-except ImportError:
-    from json import loads
-
 from . import ResponseException
 from .base import App as BaseApp
 from .path import parse_curly_path_params
-from .requests import get_cookie_name, get_req_body_attrs, is_req_body_attrs
+from .requests import (
+    ReqBytes,
+    attrs_body_factory,
+    get_cookie_name,
+    get_req_body_attrs,
+    is_req_body_attrs,
+)
 from .responses import identity, make_return_adapter
-from .status import BadRequest, BaseResponse, Headers, get_status_code
+from .status import BaseResponse, Headers, get_status_code
 
 C = TypeVar("C")
 
@@ -26,15 +28,17 @@ C = TypeVar("C")
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
     if default is Signature.empty:
 
-        def read_cookie(request: FrameworkRequest):
-            return request.cookies[cookie_name]
+        def read_cookie(_request: FrameworkRequest) -> str:
+            return _request.cookies[cookie_name]
+
+        return read_cookie
 
     else:
 
-        def read_cookie(request: FrameworkRequest):
-            return request.cookies.get(cookie_name, default)
+        def read_cookie_opt(_request: FrameworkRequest) -> Any:
+            return _request.cookies.get(cookie_name, default)
 
-    return read_cookie
+        return read_cookie_opt
 
 
 def extract_cookies(headers: Headers) -> tuple[dict[str, str], list[str]]:
@@ -52,22 +56,12 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
     """Create the framework incanter for Starlette."""
     res = Incanter()
 
-    def attrs_body_factory(
-        attrs_cls: type[C],
-    ) -> Callable[[FrameworkRequest], Awaitable[C]]:
-        async def structure_body(request: FrameworkRequest) -> C:
-            if request.headers["content-type"] != "application/json":
-                raise ResponseException(BadRequest("invalid content-type"))
-            return converter.structure(loads(await request.body()), attrs_cls)
-
-        return structure_body
-
-    def query_factory(p: Parameter):
-        def read_query(request: FrameworkRequest):
+    def query_factory(p: Parameter) -> Callable[[FrameworkRequest], Any]:
+        def read_query(_request: FrameworkRequest) -> Any:
             return converter.structure(
-                request.query_params[p.name]
+                _request.query_params[p.name]
                 if p.default is Signature.empty
-                else request.query_params.get(p.name, p.default),
+                else _request.query_params.get(p.name, p.default),
                 p.annotation,
             )
 
@@ -77,12 +71,12 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
         lambda p: p.annotation is not FrameworkRequest, query_factory
     )
 
-    def string_query_factory(p: Parameter):
-        def read_query(request: FrameworkRequest):
+    def string_query_factory(p: Parameter) -> Callable[[FrameworkRequest], Any]:
+        def read_query(_request: FrameworkRequest) -> Any:
             return (
-                request.query_params[p.name]
+                _request.query_params[p.name]
                 if p.default is Signature.empty
-                else request.query_params.get(p.name, p.default)
+                else _request.query_params.get(p.name, p.default)
             )
 
         return read_query
@@ -94,13 +88,19 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
+
+    async def request_bytes(_request: FrameworkRequest) -> bytes:
+        return await _request.body()
+
+    res.register_hook(lambda p: p.annotation is ReqBytes, request_bytes)
+
     res.register_hook_factory(
-        is_req_body_attrs, lambda p: attrs_body_factory(get_req_body_attrs(p))
+        is_req_body_attrs, partial(attrs_body_factory, converter=converter)
     )
     return res
 
 
-def framework_return_adapter(resp: BaseResponse):
+def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:
     if resp.headers:
         headers, cookies = extract_cookies(resp.headers)
         res = FrameworkResponse(
@@ -133,8 +133,18 @@ class StarletteApp(BaseApp):
             )
             path_params = parse_curly_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
+
+            base_handler = self.base_incant.prepare(handler, is_async=True)
+            # Detect required content-types here, based on the registered
+            # request loaders.
+            base_sig = signature(base_handler)
+            req_ct: str | None = None
+            for arg in base_sig.parameters.values():
+                if is_req_body_attrs(arg):
+                    _, loader = get_req_body_attrs(arg)
+                    req_ct = loader.content_type
+
             if ra is None:
-                base_handler = self.base_incant.prepare(handler, is_async=True)
                 prepared = self.framework_incant.prepare(
                     base_handler, hooks, is_async=True
                 )
@@ -144,23 +154,36 @@ class StarletteApp(BaseApp):
                 async def adapted(
                     request: FrameworkRequest,
                     _incant=self.framework_incant.aincant,
+                    _fra=_framework_return_adapter,
                     _prepared=prepared,
                     _path_params=path_params,
                     _path_types=path_types,
+                    _req_ct=req_ct,
                 ) -> FrameworkResponse:
-                    path_args = {
-                        p: (
-                            self.converter.structure(request.path_params[p], path_type)
-                            if (path_type := _path_types[p])
-                            not in (str, Signature.empty)
-                            else request.path_params[p]
+                    if (
+                        _req_ct is not None
+                        and request.headers.get("content-type") != _req_ct
+                    ):
+                        return FrameworkResponse(
+                            f"invalid content type (expected {_req_ct})", 415
                         )
-                        for p in _path_params
-                    }
-                    return await _incant(_prepared, request=request, **path_args)
+                    try:
+                        path_args = {
+                            p: (
+                                self.converter.structure(
+                                    request.path_params[p], path_type
+                                )
+                                if (path_type := _path_types[p])
+                                not in (str, Signature.empty)
+                                else request.path_params[p]
+                            )
+                            for p in _path_params
+                        }
+                        return await _incant(_prepared, _request=request, **path_args)
+                    except ResponseException as exc:
+                        return _fra(exc.response)
 
             else:
-                base_handler = self.base_incant.prepare(handler, is_async=True)
                 prepared = self.framework_incant.prepare(
                     base_handler, hooks, is_async=True
                 )
@@ -169,14 +192,22 @@ class StarletteApp(BaseApp):
 
                 if ra == identity:
 
-                    async def adapted(  # type: ignore
+                    async def adapted(
                         request: FrameworkRequest,
                         _incant=self.framework_incant.aincant,
-                        _fra=framework_return_adapter,
+                        _fra=_framework_return_adapter,
                         _prepared=prepared,
                         _path_params=path_params,
                         _path_types=path_types,
+                        _req_ct=req_ct,
                     ) -> FrameworkResponse:
+                        if (
+                            _req_ct is not None
+                            and request.headers.get("content-type") != _req_ct
+                        ):
+                            return FrameworkResponse(
+                                f"invalid content type (expected {_req_ct})", 415
+                            )
                         path_args = {
                             p: (
                                 self.converter.structure(
@@ -190,7 +221,7 @@ class StarletteApp(BaseApp):
                         }
                         try:
                             return _fra(
-                                await _incant(_prepared, request=request, **path_args)
+                                await _incant(_prepared, _request=request, **path_args)
                             )
                         except ResponseException as exc:
                             return _fra(exc.response)
@@ -201,11 +232,19 @@ class StarletteApp(BaseApp):
                         request: FrameworkRequest,
                         _incant=self.framework_incant.aincant,
                         _ra=ra,
-                        _fra=framework_return_adapter,
+                        _fra=_framework_return_adapter,
                         _prepared=prepared,
                         _path_params=path_params,
                         _path_types=path_types,
+                        _req_ct=req_ct,
                     ) -> FrameworkResponse:
+                        if (
+                            _req_ct is not None
+                            and request.headers.get("content-type") != _req_ct
+                        ):
+                            return FrameworkResponse(
+                                f"invalid content type (expected {_req_ct})", 415
+                            )
                         path_args = {
                             p: (
                                 self.converter.structure(
@@ -221,7 +260,7 @@ class StarletteApp(BaseApp):
                             return _fra(
                                 _ra(
                                     await _incant(
-                                        _prepared, request=request, **path_args
+                                        _prepared, _request=request, **path_args
                                     )
                                 )
                             )
@@ -233,7 +272,7 @@ class StarletteApp(BaseApp):
         return s
 
     async def run(self, port: int = 8000):
-        from uvicorn import Config, Server  # type: ignore
+        from uvicorn import Config, Server
 
         config = Config(self.to_framework_app(), port=port, access_log=False)
         server = Server(config=config)

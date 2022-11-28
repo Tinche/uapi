@@ -13,7 +13,7 @@
 # import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
-
+from importlib.metadata import version as v
 
 # -- Project information -----------------------------------------------------
 
@@ -22,7 +22,7 @@ copyright = "2022, Tin Tvrtkovic"
 author = "Tin Tvrtkovic"
 
 # The full version, including alpha/beta/rc tags
-release = "22.1.0"
+release = v("uapi")
 
 
 # -- General configuration ---------------------------------------------------
@@ -30,7 +30,7 @@ release = "22.1.0"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["myst_parser", "sphinx_inline_tabs"]
+extensions = ["sphinx.ext.autodoc", "myst_parser", "sphinx_inline_tabs"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -54,11 +54,12 @@ html_theme = "furo"
 html_static_path = ["_static"]
 
 html_css_files = ["custom.css"]
-
 html_theme_options = {
     "light_css_variables": {
         "font-stack": "Roboto, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji",
         "font-stack--monospace": "'Ubuntu Mono', monospace",
         "code-font-size": "90%",
-    }
+        "color-highlight-on-target": "transparent",
+    },
+    "dark_css_variables": {"color-highlight-on-target": "transparent"},
 }

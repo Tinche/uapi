@@ -39,9 +39,9 @@ def configure_secure_session_app(
             return Created(None, session.update_session())
 
         @app.post("/logout")
-        def logout(session: Session) -> NoContent[None]:
+        def logout(session: Session) -> NoContent:
             session.pop("user_id", None)
-            return NoContent(None, session.update_session())
+            return NoContent(session.update_session())
 
     else:
 
@@ -58,9 +58,9 @@ def configure_secure_session_app(
             return Created(None, session.update_session())
 
         @app.post("/logout")
-        async def logout(session: Session) -> NoContent[None]:
+        async def logout(session: Session) -> NoContent:
             session.pop("user_id", None)
-            return NoContent(None, session.update_session())
+            return NoContent(session.update_session())
 
 
 @pytest.fixture(params=["aiohttp", "flask", "quart", "starlette"], scope="session")

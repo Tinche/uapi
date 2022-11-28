@@ -84,10 +84,10 @@ class App:
 
     def serve_openapi(self, path: str = "/openapi.json"):
         openapi = self.make_openapi_spec()
-        payload = openapi_converter.unstructure(openapi)
+        payload = dumps(openapi_converter.unstructure(openapi))
 
         def openapi_handler() -> Ok[bytes]:
-            return Ok(dumps(payload), {"content-type": "application/json"})
+            return Ok(payload, {"content-type": "application/json"})
 
         self.route(path, openapi_handler)
 

@@ -16,10 +16,14 @@ class BaseResponse(Generic[S, R]):
     ret: R
     headers: Headers = MappingProxyType({})
 
+    @classmethod
+    def status_code(cls) -> int:
+        return cls.__orig_bases__[0].__args__[0].__args__[0]  # type: ignore
+
 
 @cache
 def get_status_code(resp: type[BaseResponse]) -> int:
-    return resp.__orig_bases__[0].__args__[0].__args__[0]  # type: ignore
+    return resp.status_code()
 
 
 @define
@@ -33,8 +37,12 @@ class Created(BaseResponse[Literal[201], R]):
 
 
 @define
-class NoContent(BaseResponse[Literal[204], R]):
-    pass
+class NoContent(BaseResponse[Literal[204], None]):
+    ret: None = None
+
+    @classmethod
+    def status_code(cls) -> int:
+        return 204
 
 
 @define

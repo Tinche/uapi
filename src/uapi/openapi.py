@@ -5,7 +5,7 @@ from enum import Enum, unique
 from inspect import Parameter as InspectParameter
 from inspect import signature
 from types import NoneType
-from typing import Callable, Literal, Mapping, Optional, Union
+from typing import Callable, Literal, Mapping
 
 from attrs import Factory, fields, frozen, has
 from cattrs import override
@@ -14,9 +14,13 @@ from cattrs.preconf.json import make_converter
 
 from .requests import get_cookie_name, maybe_req_body_attrs
 from .responses import get_status_code_results
+from .status import BaseResponse
 from .types import PathParamParser, Routes, is_subclass
 
 converter = make_converter(omit_if_default=True)
+
+# MediaTypeNames are like `application/json`.
+MediaTypeName = str
 
 
 @frozen
@@ -55,7 +59,7 @@ class ArraySchema:
 
 @frozen
 class MediaType:
-    schema: Union[Reference, Schema]
+    schema: Reference | Schema
 
 
 @frozen
@@ -84,7 +88,7 @@ AnySchema = Schema | ArraySchema
 
 @frozen
 class RequestBody:
-    content: Mapping[str, MediaType]
+    content: Mapping[MediaTypeName, MediaType]
     description: str | None = None
     required: bool = False
 
@@ -104,15 +108,15 @@ class OpenAPI:
     class PathItem:
         @frozen
         class Operation:
-            responses: dict[str, Response]
+            responses: dict[MediaTypeName, Response]
             parameters: list[Parameter] = Factory(list)
             requestBody: RequestBody | None = None
 
-        get: Optional[Operation] = None
-        post: Optional[Operation] = None
-        put: Optional[Operation] = None
-        patch: Optional[Operation] = None
-        delete: Optional[Operation] = None
+        get: Operation | None = None
+        post: Operation | None = None
+        put: Operation | None = None
+        patch: Operation | None = None
+        delete: Operation | None = None
 
     @frozen
     class Path:
@@ -143,7 +147,6 @@ def build_operation(
     request_bodies = {}
     request_body_required = False
     responses = {"200": Response(description="OK")}
-    ct = "application/json"
     params = []
     sig = signature(handler)
     path_params = path_param_parser(path)[1]
@@ -176,11 +179,11 @@ def build_operation(
                         ),
                     )
                 )
-            elif (
-                arg_type is not InspectParameter.empty
-                and (attrs_type := maybe_req_body_attrs(arg_param)) is not None
+            elif arg_type is not InspectParameter.empty and (
+                type_and_loader := maybe_req_body_attrs(arg_param)
             ):
-                request_bodies[ct] = MediaType(
+                attrs_type, loader = type_and_loader
+                request_bodies[loader.content_type or "*/*"] = MediaType(
                     Reference(f"#/components/schemas/{components[attrs_type]}")
                 )
                 request_body_required = arg_param.default is InspectParameter.empty
@@ -204,9 +207,13 @@ def build_operation(
         responses = {}
         for status_code, result_type in statuses:
             if result_type is str:
-                ct = "text/plain"
                 responses[str(status_code)] = Response(
-                    "OK", {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])}
+                    "OK",
+                    {
+                        "text/plain": MediaType(
+                            PYTHON_PRIMITIVES_TO_OPENAPI[result_type]
+                        )
+                    },
                 )
             elif result_type in (None, NoneType):
                 responses[str(status_code)] = Response("OK")
@@ -214,14 +221,19 @@ def build_operation(
                 responses[str(status_code)] = Response(
                     "OK",
                     {
-                        ct: MediaType(
+                        "application/json": MediaType(
                             Reference(f"#/components/schemas/{components[result_type]}")
                         )
                     },
                 )
             else:
                 responses[str(status_code)] = Response(
-                    "OK", {ct: MediaType(PYTHON_PRIMITIVES_TO_OPENAPI[result_type])}
+                    "OK",
+                    {
+                        "application/json": MediaType(
+                            PYTHON_PRIMITIVES_TO_OPENAPI[result_type]
+                        )
+                    },
                 )
     req_body = None
     if request_bodies:
@@ -284,9 +296,9 @@ def gather_endpoint_components(
     sig = signature(handler)
     for arg in sig.parameters.values():
         if arg.annotation is not InspectParameter.empty:
-            if (
-                arg_type := maybe_req_body_attrs(arg)
-            ) is not None and arg_type not in components:
+            if (type_and_loader := maybe_req_body_attrs(arg)) is not None and (
+                arg_type := type_and_loader[0]
+            ) not in components:
                 name = arg_type.__name__
                 counter = 0
                 while name in components.values():
@@ -295,7 +307,7 @@ def gather_endpoint_components(
                 components[arg_type] = name
     if (ret_type := sig.return_annotation) is not InspectParameter.empty:
         for _, r in get_status_code_results(ret_type):
-            if has(r) and r not in components:
+            if has(r) and not issubclass(r, BaseResponse) and r not in components:
                 name = r.__name__
                 counter = 0
                 while name in components.values():

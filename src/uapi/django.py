@@ -1,3 +1,4 @@
+from functools import partial
 from inspect import Parameter, Signature, signature
 from typing import Any, Callable, ClassVar, TypeVar
 
@@ -11,17 +12,18 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from incant import Hook, Incanter
 
-try:
-    from orjson import loads
-except ImportError:
-    from json import loads
-
 from . import ResponseException
 from .base import App as BaseApp
 from .path import parse_angle_path_params
-from .requests import get_cookie_name, get_req_body_attrs, is_req_body_attrs
+from .requests import (
+    ReqBytes,
+    attrs_body_factory,
+    get_cookie_name,
+    get_req_body_attrs,
+    is_req_body_attrs,
+)
 from .responses import dict_to_headers, identity, make_return_adapter
-from .status import BadRequest, BaseResponse, get_status_code
+from .status import BaseResponse, get_status_code
 
 C = TypeVar("C")
 
@@ -29,35 +31,29 @@ C = TypeVar("C")
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
     if default is Signature.empty:
 
-        def read_cookie(request: FrameworkRequest) -> str:
-            return request.COOKIES[cookie_name]
+        def read_cookie(_request: FrameworkRequest) -> str:
+            return _request.COOKIES[cookie_name]
+
+        return read_cookie
 
     else:
 
-        def read_cookie(request: FrameworkRequest) -> str:
-            return request.COOKIES.get(cookie_name, default)
+        def read_cookie_opt(_request: FrameworkRequest) -> Any:
+            return _request.COOKIES.get(cookie_name, default)
 
-    return read_cookie
+        return read_cookie_opt
 
 
 def make_django_incanter(converter: Converter) -> Incanter:
     """Create the framework incanter for Starlette."""
     res = Incanter()
 
-    def attrs_body_factory(attrs_cls: type[C]) -> Callable[[FrameworkRequest], C]:
-        def structure_body(request: FrameworkRequest) -> C:
-            if request.headers["content-type"] != "application/json":
-                raise ResponseException(BadRequest("invalid content-type"))
-            return converter.structure(loads(request.body), attrs_cls)
-
-        return structure_body
-
     def query_factory(p: Parameter):
-        def read_query(request: FrameworkRequest):
+        def read_query(_request: FrameworkRequest) -> Any:
             return converter.structure(
-                request.GET[p.name]
+                _request.GET[p.name]
                 if p.default is Signature.empty
-                else request.GET.get(p.name, p.default),
+                else _request.GET.get(p.name, p.default),
                 p.annotation,
             )
 
@@ -68,11 +64,11 @@ def make_django_incanter(converter: Converter) -> Incanter:
     )
 
     def string_query_factory(p: Parameter):
-        def read_query(request: FrameworkRequest) -> str:
+        def read_query(_request: FrameworkRequest) -> str:
             return (
-                request.GET[p.name]
+                _request.GET[p.name]
                 if p.default is Signature.empty
-                else request.GET.get(p.name, p.default)
+                else _request.GET.get(p.name, p.default)
             )
 
         return read_query
@@ -84,13 +80,18 @@ def make_django_incanter(converter: Converter) -> Incanter:
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
+
+    def request_bytes(_request: FrameworkRequest) -> bytes:
+        return _request.body
+
+    res.register_hook(lambda p: p.annotation is ReqBytes, request_bytes)
     res.register_hook_factory(
-        is_req_body_attrs, lambda p: attrs_body_factory(get_req_body_attrs(p))
+        is_req_body_attrs, partial(attrs_body_factory, converter=converter)
     )
     return res
 
 
-def framework_return_adapter(resp: BaseResponse):
+def _framework_return_adapter(resp: BaseResponse):
     if resp.headers:
         res = FrameworkResponse(
             resp.ret or b"",
@@ -108,9 +109,10 @@ def _make_method_router(
     methods_to_handlers: dict[str, Callable]
 ) -> Callable[[FrameworkRequest], FrameworkResponse]:
     def method_router(request: FrameworkRequest) -> FrameworkResponse:
-        for method, handler in methods_to_handlers.items():
-            if request.method == method:
-                return handler(request)
+        if request.method in methods_to_handlers:
+            return methods_to_handlers[request.method](request)
+        else:
+            return FrameworkResponse(status=405)
 
     return method_router
 
@@ -128,6 +130,7 @@ class DjangoApp(BaseApp):
 
     def to_urlpatterns(self) -> list[URLPattern]:
         res = []
+
         by_path_by_method: dict[str, dict[str, tuple[Callable, str | None]]] = {}
         for (method, path), (handler, name) in self.route_map.items():
             by_path_by_method.setdefault(path, {})[method] = (handler, name)
@@ -144,8 +147,17 @@ class DjangoApp(BaseApp):
                 )
                 path_params = parse_angle_path_params(path)
                 hooks = [Hook.for_name(p, None) for p in path_params]
+                base_handler = self.base_incant.prepare(handler, is_async=False)
+                # Detect required content-types here, based on the registered
+                # request loaders.
+                base_sig = signature(base_handler)
+                req_ct: str | None = None
+                for arg in base_sig.parameters.values():
+                    if is_req_body_attrs(arg):
+                        _, loader = get_req_body_attrs(arg)
+                        req_ct = loader.content_type
+
                 if ra is None:
-                    base_handler = self.base_incant.prepare(handler, is_async=False)
                     prepared = self.framework_incant.prepare(
                         base_handler, hooks, is_async=False
                     )
@@ -155,24 +167,35 @@ class DjangoApp(BaseApp):
                     def adapted(
                         request: FrameworkRequest,
                         _incant=self.framework_incant.incant,
+                        _fra=_framework_return_adapter,
                         _prepared=prepared,
                         _path_params=path_params,
                         _path_types=path_types,
+                        _req_ct=req_ct,
                         **kwargs: Any,
                     ) -> FrameworkResponse:
-                        path_args = {
-                            p: (
-                                self.converter.structure(kwargs[p], path_type)
-                                if (path_type := _path_types[p])
-                                not in (str, Signature.empty)
-                                else kwargs[p]
+                        if (
+                            _req_ct is not None
+                            and request.headers.get("content-type") != _req_ct
+                        ):
+                            return FrameworkResponse(
+                                f"invalid content type (expected {_req_ct})", status=415
                             )
-                            for p in _path_params
-                        }
-                        return _incant(_prepared, request=request, **path_args)
+                        try:
+                            path_args = {
+                                p: (
+                                    self.converter.structure(kwargs[p], path_type)
+                                    if (path_type := _path_types[p])
+                                    not in (str, Signature.empty)
+                                    else kwargs[p]
+                                )
+                                for p in _path_params
+                            }
+                            return _incant(_prepared, _request=request, **path_args)
+                        except ResponseException as exc:
+                            return _fra(exc.response)
 
                 else:
-                    base_handler = self.base_incant.prepare(handler, is_async=False)
                     prepared = self.framework_incant.prepare(
                         base_handler, hooks, is_async=False
                     )
@@ -181,15 +204,24 @@ class DjangoApp(BaseApp):
 
                     if ra == identity:
 
-                        def adapted(  # type: ignore
+                        def adapted(
                             request: FrameworkRequest,
                             _incant=self.framework_incant.incant,
-                            _fra=framework_return_adapter,
+                            _fra=_framework_return_adapter,
                             _prepared=prepared,
                             _path_params=path_params,
                             _path_types=path_types,
+                            _req_ct=req_ct,
                             **kwargs: Any,
                         ) -> FrameworkResponse:
+                            if (
+                                _req_ct is not None
+                                and request.headers.get("content-type") != _req_ct
+                            ):
+                                return FrameworkResponse(
+                                    f"invalid content type (expected {_req_ct})",
+                                    status=415,
+                                )
                             path_args = {
                                 p: (
                                     self.converter.structure(kwargs[p], path_type)
@@ -201,7 +233,7 @@ class DjangoApp(BaseApp):
                             }
                             try:
                                 return _fra(
-                                    _incant(_prepared, request=request, **path_args)
+                                    _incant(_prepared, _request=request, **path_args)
                                 )
                             except ResponseException as exc:
                                 return _fra(exc.response)
@@ -212,12 +244,21 @@ class DjangoApp(BaseApp):
                             request: FrameworkRequest,
                             _incant=self.framework_incant.incant,
                             _ra=ra,
-                            _fra=framework_return_adapter,
+                            _fra=_framework_return_adapter,
                             _prepared=prepared,
                             _path_params=path_params,
                             _path_types=path_types,
+                            _req_ct=req_ct,
                             **kwargs: Any,
                         ) -> FrameworkResponse:
+                            if (
+                                _req_ct is not None
+                                and request.headers.get("content-type") != _req_ct
+                            ):
+                                return FrameworkResponse(
+                                    f"invalid content type (expected {_req_ct})",
+                                    status=415,
+                                )
                             path_args = {
                                 p: (
                                     self.converter.structure(kwargs[p], path_type)
@@ -230,7 +271,9 @@ class DjangoApp(BaseApp):
                             try:
                                 return _fra(
                                     _ra(
-                                        _incant(_prepared, request=request, **path_args)
+                                        _incant(
+                                            _prepared, _request=request, **path_args
+                                        )
                                     )
                                 )
                             except ResponseException as exc:

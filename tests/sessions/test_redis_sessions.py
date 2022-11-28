@@ -34,8 +34,8 @@ def configure_redis_session_app(app: AiohttpApp):
         return Created(None, await session.update_session(namespace=username))
 
     @app.post("/logout")
-    async def logout(session: AsyncSession) -> NoContent[None]:
-        return NoContent(None, await session.clear_session())
+    async def logout(session: AsyncSession) -> NoContent:
+        return NoContent(await session.clear_session())
 
 
 @pytest.fixture(scope="session")
