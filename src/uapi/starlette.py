@@ -272,7 +272,7 @@ class StarletteApp(BaseApp):
         return s
 
     async def run(self, port: int = 8000):
-        from uvicorn import Config, Server  # type: ignore
+        from uvicorn import Config, Server
 
         config = Config(self.to_framework_app(), port=port, access_log=False)
         server = Server(config=config)

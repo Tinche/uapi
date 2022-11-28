@@ -210,7 +210,7 @@ class QuartApp(BaseApp):
         return q
 
     async def run(self, import_name: str, port: int = 8000):
-        from uvicorn import Config, Server  # type: ignore
+        from uvicorn import Config, Server
 
         config = Config(self.to_framework_app(import_name), port=port, access_log=False)
         server = Server(config=config)
