@@ -1,3 +1,4 @@
+from contextlib import suppress
 from inspect import Signature
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Optional, get_args
@@ -32,9 +33,12 @@ def make_return_adapter(
         # You're on your own, buddy.
         return None
     if return_type is None:
-        return lambda r: Ok(None)
+        return lambda _: Ok(None)
     if return_type in (str, bytes):
         return lambda r: Ok(r)
+    with suppress(Exception):
+        if issubclass(return_type, BaseResponse):
+            return identity
     if has(return_type):
         return lambda r: Ok(
             dumps(converter.unstructure(r, unstructure_as=return_type)),
@@ -56,8 +60,12 @@ def return_type_to_statuses(t: type) -> dict[int, Any]:
         if is_subclass(t, BaseResponse) or is_subclass(
             getattr(t, "__origin__", None), BaseResponse
         ):
-            status = get_status_code(t.__origin__)  # type: ignore
-            t = t.__args__[0]  # type: ignore
+            if hasattr(t, "__origin__"):
+                status = get_status_code(t.__origin__)  # type: ignore
+                t = t.__args__[0]  # type: ignore
+            else:
+                status = get_status_code(t)
+                t = None
         else:
             status = 200
         if status in per_status:

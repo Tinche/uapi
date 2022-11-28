@@ -14,6 +14,7 @@ from cattrs.preconf.json import make_converter
 
 from .requests import get_cookie_name, maybe_req_body_attrs
 from .responses import get_status_code_results
+from .status import BaseResponse
 from .types import PathParamParser, Routes, is_subclass
 
 converter = make_converter(omit_if_default=True)
@@ -306,7 +307,7 @@ def gather_endpoint_components(
                 components[arg_type] = name
     if (ret_type := sig.return_annotation) is not InspectParameter.empty:
         for _, r in get_status_code_results(ret_type):
-            if has(r) and r not in components:
+            if has(r) and not issubclass(r, BaseResponse) and r not in components:
                 name = r.__name__
                 counter = 0
                 while name in components.values():

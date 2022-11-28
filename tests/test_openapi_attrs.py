@@ -15,15 +15,26 @@ from uapi.openapi import (
 )
 
 from .aiohttp import make_app as aiohttp_make_app
+from .django_uapi_app.views import app as django_app
 from .flask import make_app as flask_make_app
 from .quart import make_app as quart_make_app
 from .starlette import make_app as starlette_make_app
 
 
+def django_make_app() -> App:
+    return django_app
+
+
 @pytest.mark.parametrize(
     "app_factory",
-    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
-    ids=["aiohttp", "flask", "quart", "starlette"],
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
 )
 def test_get_model(app_factory) -> None:
     app = app_factory()
@@ -62,8 +73,14 @@ def test_get_model(app_factory) -> None:
 
 @pytest.mark.parametrize(
     "app_factory",
-    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
-    ids=["aiohttp", "flask", "quart", "starlette"],
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
 )
 def test_get_model_status(app_factory) -> None:
     app = app_factory()
@@ -103,8 +120,14 @@ def test_get_model_status(app_factory) -> None:
 
 @pytest.mark.parametrize(
     "app_factory",
-    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
-    ids=["aiohttp", "flask", "quart", "starlette"],
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
 )
 def test_post_model(app_factory) -> None:
     app = app_factory()
@@ -145,8 +168,14 @@ def test_post_model(app_factory) -> None:
 
 @pytest.mark.parametrize(
     "app_factory",
-    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
-    ids=["aiohttp", "flask", "quart", "starlette"],
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
 )
 def test_patch_union(app_factory) -> None:
     app = app_factory()
@@ -188,8 +217,14 @@ def test_patch_union(app_factory) -> None:
 
 @pytest.mark.parametrize(
     "app_factory",
-    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
-    ids=["aiohttp", "flask", "quart", "starlette"],
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
 )
 def test_custom_loader(app_factory: Callable[[], App]) -> None:
     """Custom loaders advertise proper content types."""

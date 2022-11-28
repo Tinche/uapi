@@ -188,6 +188,7 @@ class AiohttpApp(BaseApp):
                         _incant=self.framework_incant.aincant,
                         _fra=_framework_return_adapter,
                         _prepared=prepared,
+                        _path_params=path_params,
                         _req_ct=req_ct,
                     ) -> FrameworkResponse:
                         if (
@@ -207,7 +208,7 @@ class AiohttpApp(BaseApp):
                                 not in (str, Signature.empty)
                                 else request.match_info[p]
                             )
-                            for p in path_params
+                            for p in _path_params
                         }
                         try:
                             return _fra(

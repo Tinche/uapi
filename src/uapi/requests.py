@@ -6,7 +6,7 @@ from cattrs import Converter
 from cattrs._compat import get_args, is_annotated
 
 from .responses import ResponseException
-from .status import BadRequest
+from .status import BadRequest, BaseResponse
 
 try:
     from orjson import loads
@@ -24,6 +24,9 @@ class JsonBodyLoader:
     """Metadata for customized loading and structuring of JSON bodies."""
 
     content_type: str | None = "application/json"
+    error_handler: Callable[
+        [Exception, bytes], BaseResponse
+    ] = lambda _, __: BadRequest("invalid payload")
 
 
 ReqBody = Annotated[T, JsonBodyLoader()]
@@ -43,13 +46,13 @@ def get_cookie_name(t, arg_name: str) -> Optional[str]:
 def attrs_body_factory(
     parameter: Parameter, converter: Converter
 ) -> Callable[[ReqBytes], Any]:
-    attrs_cls, _ = get_req_body_attrs(parameter)
+    attrs_cls, loader = get_req_body_attrs(parameter)
 
     def structure_body(body: ReqBytes) -> Any:
         try:
             return converter.structure(loads(body), attrs_cls)
-        except Exception:
-            raise ResponseException(BadRequest(""))
+        except Exception as exc:
+            raise ResponseException(loader.error_handler(exc, body))
 
     return structure_body
 

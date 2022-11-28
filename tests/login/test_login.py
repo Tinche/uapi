@@ -35,8 +35,8 @@ def configure_login_app(app: FrameworkApp):
         return Created(None, await login_session.login_and_return(10))
 
     @app.post("/logout")
-    async def logout(login_session: AsyncLoginSession[int]) -> NoContent[None]:
-        return NoContent(None, await login_session.logout_and_return())
+    async def logout(login_session: AsyncLoginSession[int]) -> NoContent:
+        return NoContent(await login_session.logout_and_return())
 
     @app.delete("/sessions/{user_id}")
     async def logout_other(current_user_id: int, user_id: int) -> str:
