@@ -61,11 +61,11 @@ def return_type_to_statuses(t: type) -> dict[int, Any]:
             getattr(t, "__origin__", None), BaseResponse
         ):
             if hasattr(t, "__origin__"):
-                status = get_status_code(t.__origin__)  # type: ignore
+                status = get_status_code(t.__origin__)
                 t = t.__args__[0]  # type: ignore
             else:
                 status = get_status_code(t)
-                t = None
+                t = type(None)
         else:
             status = 200
         if status in per_status:
