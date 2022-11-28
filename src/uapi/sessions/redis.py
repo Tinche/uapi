@@ -43,8 +43,8 @@ class AsyncSession(dict[str, str]):
 
         pipeline = self._aioredis.pipeline()
 
-        pipeline.set(key, dumps(self, separators=(",", ":")), ex=existing_id_ttl)
-        pipeline.zadd(ns_key, {self._id: now + existing_id_ttl})
+        pipeline.set(key, dumps(self, separators=(",", ":")), expire=existing_id_ttl)
+        pipeline.zadd(ns_key, now + existing_id_ttl, self._id)
         if existing_id_ttl > existing_namespace_ttl:
             pipeline.expire(ns_key, existing_id_ttl)
 
@@ -71,13 +71,13 @@ class AsyncRedisSessionStore:
     _cookie_name: str
     _cookie_settings: CookieSettings
 
-    async def remove_namespace(self, namespace: str):
+    async def remove_namespace(self, namespace: str) -> None:
         """Remove all sessions in a particular namespace."""
         ns_key = f"{self._key_prefix}{namespace}:s"
         session_ids = await self._redis.zrangebyscore(ns_key, time(), float("inf"))
         pipeline = self._redis.pipeline()
         for session_id in session_ids:
-            pipeline.delete(f"{ns_key}:{session_id.decode()}")
+            pipeline.delete(f"{ns_key}:{session_id}")
         pipeline.delete(ns_key)
         await pipeline.execute()
 

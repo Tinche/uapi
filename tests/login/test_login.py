@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Callable, Optional
 
 import pytest
-from aioredis import Redis
+from aioredis import create_redis_pool
 from httpx import AsyncClient
 
 from tests.starlette import run_on_starlette as run_on_framework
@@ -14,10 +14,10 @@ from uapi.starlette import App as FrameworkApp
 from uapi.status import Created, NoContent
 
 
-def configure_login_app(app: FrameworkApp):
+async def configure_login_app(app: FrameworkApp) -> None:
     rss = configure_async_sessions(
         app,
-        Redis.from_url("redis://", encoding="utf8"),
+        await create_redis_pool("redis://", encoding="utf8"),
         cookie_settings=CookieSettings(secure=False),
         max_age=timedelta(seconds=1),
     )
@@ -49,7 +49,7 @@ def configure_login_app(app: FrameworkApp):
 async def login_app(unused_tcp_port_factory: Callable[..., int]):
     unused_tcp_port = unused_tcp_port_factory()
     app = FrameworkApp()
-    configure_login_app(app)
+    await configure_login_app(app)
     shutdown_event = Event()
     t = create_task(run_on_framework(app, unused_tcp_port, shutdown_event))
     yield unused_tcp_port

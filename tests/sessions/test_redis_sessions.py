@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Callable
 
 import pytest
-from aioredis import Redis
+from aioredis import create_redis_pool
 from httpx import AsyncClient
 
 from tests.aiohttp import run_on_aiohttp
@@ -13,10 +13,10 @@ from uapi.sessions.redis import AsyncSession, configure_async_sessions
 from uapi.status import Created, NoContent
 
 
-def configure_redis_session_app(app: AiohttpApp):
+async def configure_redis_session_app(app: AiohttpApp) -> None:
     configure_async_sessions(
         app,
-        Redis.from_url("redis://"),
+        await create_redis_pool("redis://"),
         cookie_settings=CookieSettings(secure=False),
         max_age=timedelta(seconds=1),
     )
@@ -42,7 +42,7 @@ def configure_redis_session_app(app: AiohttpApp):
 async def redis_session_app(unused_tcp_port_factory: Callable[..., int]):
     unused_tcp_port = unused_tcp_port_factory()
     app = AiohttpApp()
-    configure_redis_session_app(app)
+    await configure_redis_session_app(app)
     t = create_task(run_on_aiohttp(app, unused_tcp_port))
     yield unused_tcp_port
     t.cancel()
