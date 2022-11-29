@@ -1,5 +1,5 @@
 from asyncio import CancelledError, Event, create_task
-from typing import Callable, Union
+from typing import Callable
 
 import pytest
 
@@ -18,10 +18,10 @@ from ..starlette import run_on_starlette
 
 
 def configure_secure_session_app(
-    app: Union[AiohttpApp, QuartApp, StarletteApp, FlaskApp]
-):
+    app: AiohttpApp | QuartApp | StarletteApp | FlaskApp,
+) -> None:
     configure_secure_sessions(
-        app, "test", settings=CookieSettings(max_age=1, secure=False)
+        app, "test", settings=CookieSettings(max_age=2, secure=False)
     )
 
     if isinstance(app, FlaskApp):

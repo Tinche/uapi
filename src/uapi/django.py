@@ -14,7 +14,12 @@ from incant import Hook, Incanter
 
 from . import ResponseException
 from .base import App as BaseApp
-from .path import parse_angle_path_params
+from .path import (
+    angle_to_curly,
+    parse_angle_path_params,
+    parse_curly_path_params,
+    strip_path_param_prefix,
+)
 from .requests import (
     ReqBytes,
     attrs_body_factory,
@@ -123,8 +128,8 @@ class DjangoApp(BaseApp):
         lambda self: make_django_incanter(self.converter), takes_self=True
     )
     _path_param_parser: Callable[[str], tuple[str, list[str]]] = lambda p: (
-        p,
-        parse_angle_path_params(p),
+        strip_path_param_prefix(angle_to_curly(p)),
+        parse_curly_path_params(p),
     )
     _framework_resp_cls: ClassVar[type] = FrameworkResponse
 

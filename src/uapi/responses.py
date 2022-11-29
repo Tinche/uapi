@@ -1,6 +1,6 @@
 from contextlib import suppress
 from inspect import Signature
-from types import MappingProxyType
+from types import MappingProxyType, NoneType
 from typing import Any, Callable, Mapping, Optional, get_args
 
 from attrs import define, has
@@ -8,7 +8,7 @@ from cattrs import Converter
 from cattrs._compat import is_union_type
 from incant import is_subclass
 
-from .status import BaseResponse, Headers, Ok, get_status_code
+from .status import BaseResponse, Headers, NoContent, Ok, get_status_code
 
 try:
     from orjson import dumps as dumps
@@ -26,6 +26,10 @@ class ResponseException(Exception):
     response: BaseResponse
 
 
+def no_content(_, _nc: NoContent = NoContent()) -> NoContent:
+    return _nc
+
+
 def make_return_adapter(
     return_type: Any, framework_response_cls: type, converter: Converter
 ) -> Optional[Callable[..., BaseResponse]]:
@@ -33,7 +37,7 @@ def make_return_adapter(
         # You're on your own, buddy.
         return None
     if return_type is None:
-        return lambda _: Ok(None)
+        return no_content
     if return_type in (str, bytes):
         return lambda r: Ok(r)
     with suppress(Exception):
@@ -66,6 +70,8 @@ def return_type_to_statuses(t: type) -> dict[int, Any]:
             else:
                 status = get_status_code(t)
                 t = type(None)
+        elif t in (None, NoneType):
+            status = 204
         else:
             status = 200
         if status in per_status:

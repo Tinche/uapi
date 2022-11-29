@@ -144,3 +144,30 @@ Content type validation can be disabled by passing `None` to the `JsonBodyLoader
 This in inadvisable unless you have no other choice.
 
 ## Returning Data
+
+### Nothing `(204 No Content)`
+
+If your handler returns no data, annotate the return type as `None`.
+
+```python
+@app.delete("/article")
+async def delete_article() -> None:
+    ... # Perform side-effects.
+```
+
+```{tip}
+Whether the response contains the `content-type` header is up to the underlying framework.
+
+Flask, Quart and Django add a `text/html` content type by default.
+```
+
+A longer equivalent, with the added benefit of being able to specify response headers, is returning the {py:class}`NoContent <uapi.status.NoContent>` response explicitly.
+
+```python
+from uapi.status import NoContent
+
+@app.delete("/article")
+async def delete_article() -> NoContent:
+    # Perform side-effects.
+    return NoContent(headers={"key": "value"})
+```

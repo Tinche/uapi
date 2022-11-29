@@ -216,7 +216,7 @@ def build_operation(
                     },
                 )
             elif result_type in (None, NoneType):
-                responses[str(status_code)] = Response("OK")
+                responses[str(status_code)] = Response("No content")
             elif has(result_type):
                 responses[str(status_code)] = Response(
                     "OK",

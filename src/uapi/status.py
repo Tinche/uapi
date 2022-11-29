@@ -2,7 +2,7 @@ from functools import cache
 from types import MappingProxyType
 from typing import Generic, Literal, Mapping, TypeAlias, TypeVar
 
-from attrs import define
+from attrs import define, frozen
 
 R = TypeVar("R")
 S = TypeVar("S")
@@ -36,7 +36,7 @@ class Created(BaseResponse[Literal[201], R]):
     pass
 
 
-@define
+@frozen
 class NoContent(BaseResponse[Literal[204], None]):
     ret: None = None
 

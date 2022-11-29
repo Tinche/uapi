@@ -17,10 +17,11 @@ async def test_no_body_native_response_post(server):
         assert resp.text == "post"
 
 
-async def test_no_body_no_response_post(server):
+async def test_no_body_no_response_post(server: int) -> None:
     async with AsyncClient() as client:
         resp = await client.post(f"http://localhost:{server}/post/no-body-no-response")
-        assert resp.status_code == 200
+        assert resp.status_code == 204
+        assert resp.read() == b""
 
 
 async def test_201(server):

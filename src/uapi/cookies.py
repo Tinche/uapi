@@ -7,13 +7,12 @@ from .status import Headers
 T1 = TypeVar("T1")
 T2 = TypeVar("T2")
 
-DELETE_EXPIRES = "Thu, 01 Jan 1970 00:00:00 GMT;"
 SameSite = Literal["strict", "lax", "none"]
 
 
 @frozen
 class CookieSettings:
-    max_age: Optional[int] = None
+    max_age: Optional[int] = None  # Seconds
     http_only: bool = True
     secure: bool = True
     path: Optional[str] = None
@@ -39,7 +38,7 @@ def _make_cookie_header(name: str, value: str, settings: CookieSettings) -> Head
 
 
 def _make_delete_cookie_header(name: str) -> dict:
-    val = f"{name}=0; expires={DELETE_EXPIRES}"
+    val = f"{name}=0; expires=Thu, 01 Jan 1970 00:00:00 GMT;"
     return {f"__cookie_{name}": val}
 
 

@@ -21,6 +21,8 @@ async def index() -> str:
 run(app.run())
 ```
 
+Documentation is available at https://uapi-docs.readthedocs.io/en/latest/.
+
 `uapi` uses a lower-level HTTP framework to run. Currently supported frameworks are aiohttp, Flask, Quart, and Starlette.
 An `uapi` app can be easily integrated into an existing project based on one of these frameworks, and a pure `uapi` project can be
 easily switched between them when needed.
