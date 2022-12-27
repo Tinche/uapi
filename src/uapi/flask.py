@@ -1,6 +1,6 @@
 from functools import partial
 from inspect import Signature, signature
-from typing import Any, Callable, ClassVar
+from typing import Any, ClassVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -26,6 +26,7 @@ from .requests import (
 )
 from .responses import dict_to_headers, identity, make_return_adapter
 from .status import BaseResponse, get_status_code
+from .types import PathParamParser
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -90,7 +91,7 @@ class FlaskApp(BaseApp):
     framework_incant: Incanter = Factory(
         lambda self: make_flask_incanter(self.converter), takes_self=True
     )
-    _path_param_parser: Callable[[str], tuple[str, list[str]]] = lambda p: (
+    _path_param_parser: ClassVar[PathParamParser] = lambda p: (
         strip_path_param_prefix(angle_to_curly(p)),
         parse_curly_path_params(p),
     )

@@ -29,6 +29,7 @@ from .requests import (
 )
 from .responses import dict_to_headers, identity, make_return_adapter
 from .status import BaseResponse, get_status_code
+from .types import PathParamParser
 
 C = TypeVar("C")
 
@@ -127,7 +128,7 @@ class DjangoApp(BaseApp):
     framework_incant: Incanter = Factory(
         lambda self: make_django_incanter(self.converter), takes_self=True
     )
-    _path_param_parser: Callable[[str], tuple[str, list[str]]] = lambda p: (
+    _path_param_parser: ClassVar[PathParamParser] = lambda p: (
         strip_path_param_prefix(angle_to_curly(p)),
         parse_curly_path_params(p),
     )

@@ -21,6 +21,7 @@ from .requests import (
 )
 from .responses import identity, make_return_adapter
 from .status import BaseResponse, Headers, get_status_code
+from .types import PathParamParser
 
 C = TypeVar("C")
 
@@ -118,7 +119,7 @@ class StarletteApp(BaseApp):
     framework_incant: Incanter = Factory(
         lambda self: make_starlette_incanter(self.converter), takes_self=True
     )
-    _path_param_parser: Callable[[str], tuple[str, list[str]]] = lambda p: (
+    _path_param_parser: ClassVar[PathParamParser] = lambda p: (
         p,
         parse_curly_path_params(p),
     )

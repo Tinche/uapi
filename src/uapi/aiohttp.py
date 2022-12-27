@@ -1,10 +1,11 @@
 from functools import partial
 from inspect import Parameter, Signature, signature
+from logging import Logger
 from typing import Any, Callable, ClassVar, TypeVar
 
 from aiohttp.web import Request as FrameworkRequest
 from aiohttp.web import Response as FrameworkResponse
-from aiohttp.web import RouteTableDef, _run_app
+from aiohttp.web import RouteTableDef, _run_app, access_logger
 from aiohttp.web_app import Application
 from attrs import Factory, define
 from cattrs import Converter
@@ -95,7 +96,7 @@ class AiohttpApp(BaseApp):
     framework_incant: Incanter = Factory(
         lambda self: make_aiohttp_incanter(self.converter), takes_self=True
     )
-    _path_param_parser: Callable[[str], tuple[str, list[str]]] = lambda p: (
+    _path_param_parser: ClassVar[Callable[[str], tuple[str, list[str]]]] = lambda p: (
         p,
         parse_curly_path_params(p),
     )
@@ -263,11 +264,25 @@ class AiohttpApp(BaseApp):
 
         return r
 
-    async def run(self, port: int = 8000):
+    async def run(
+        self,
+        port: int = 8000,
+        host: str | None = None,
+        handle_signals: bool = True,
+        shutdown_timeout: float = 60,
+        access_log: Logger = access_logger,
+    ):
         app = Application()
         app.add_routes(self.to_framework_routes())
 
-        await _run_app(app, port=port)
+        await _run_app(
+            app,
+            port=port,
+            host=host,
+            handle_signals=handle_signals,
+            shutdown_timeout=shutdown_timeout,
+            access_log=access_log,
+        )
 
 
 App = AiohttpApp
