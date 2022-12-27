@@ -270,7 +270,7 @@ class AiohttpApp(BaseApp):
         host: str | None = None,
         handle_signals: bool = True,
         shutdown_timeout: float = 60,
-        access_log: Logger = access_logger,
+        access_log: Logger | None = access_logger,
     ):
         app = Application()
         app.add_routes(self.to_framework_routes())
