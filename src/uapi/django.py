@@ -4,6 +4,7 @@ from typing import Any, Callable, ClassVar, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
+from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpRequest as FrameworkRequest
 from django.http import HttpResponse as FrameworkResponse
 from django.urls import URLPattern
@@ -171,7 +172,7 @@ class DjangoApp(BaseApp):
                     path_types = {p: sig.parameters[p].annotation for p in path_params}
 
                     def adapted(
-                        request: FrameworkRequest,
+                        request: WSGIRequest,
                         _incant=self.framework_incant.incant,
                         _fra=_framework_return_adapter,
                         _prepared=prepared,
@@ -197,7 +198,7 @@ class DjangoApp(BaseApp):
                                 )
                                 for p in _path_params
                             }
-                            return _incant(_prepared, _request=request, **path_args)
+                            return _incant(_prepared, request, **path_args)
                         except ResponseException as exc:
                             return _fra(exc.response)
 
@@ -211,7 +212,7 @@ class DjangoApp(BaseApp):
                     if ra == identity:
 
                         def adapted(
-                            request: FrameworkRequest,
+                            request: WSGIRequest,
                             _incant=self.framework_incant.incant,
                             _fra=_framework_return_adapter,
                             _prepared=prepared,
@@ -238,16 +239,14 @@ class DjangoApp(BaseApp):
                                 for p in _path_params
                             }
                             try:
-                                return _fra(
-                                    _incant(_prepared, _request=request, **path_args)
-                                )
+                                return _fra(_incant(_prepared, request, **path_args))
                             except ResponseException as exc:
                                 return _fra(exc.response)
 
                     else:
 
                         def adapted(  # type: ignore
-                            request: FrameworkRequest,
+                            request: WSGIRequest,
                             _incant=self.framework_incant.incant,
                             _ra=ra,
                             _fra=_framework_return_adapter,
@@ -276,11 +275,7 @@ class DjangoApp(BaseApp):
                             }
                             try:
                                 return _fra(
-                                    _ra(
-                                        _incant(
-                                            _prepared, _request=request, **path_args
-                                        )
-                                    )
+                                    _ra(_incant(_prepared, request, **path_args))
                                 )
                             except ResponseException as exc:
                                 return _fra(exc.response)

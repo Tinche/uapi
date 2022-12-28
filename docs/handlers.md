@@ -143,6 +143,84 @@ async def create_article(article: MyReqBody[Article]) -> None:
 Content type validation can be disabled by passing `None` to the `JsonBodyLoader`; the `content-type` header will be ignored.
 This in inadvisable unless you have no other choice.
 
+### Framework-specific Request Objects
+
+In case _uapi_ doesn't cover your exact needs, your handler can be given the request object provided by your underlying framework.
+Annotate a handler parameter with your framework's request type.
+
+These parameters cannot be inspected by _uapi_ so they won't show up in the OpenAPI schema.
+Additionally, they tie your handlers to a specific underlying framework making your handlers less portable.
+They can, however, help in incrementally porting to _uapi_.
+
+````{tab} Starlette
+
+```python
+from starlette.requests import Request
+
+@app.get("/")
+async def get_root(req: Request) -> None:
+    # Do something with `req`
+    return
+```
+
+````
+
+````{tab} Flask
+
+```python
+from flask import request
+
+@app.get("/")
+def get_root() -> None:
+    # Do something with `request`
+    return
+```
+
+Flask uses the usual ``flask.request`` threadlocal object for the request, so no handler parameter is necessary.
+
+````
+
+````{tab} Quart
+
+```python
+from quart import request
+
+@app.get("/")
+async def get_root() -> None:
+    # Do something with `request`
+    return
+```
+
+Quart uses the usual ``quart.request`` contextvar object for the request, so no handler parameter is necessary.
+
+````
+
+````{tab} Django
+
+```python
+from django.http import HttpRequest
+
+@app.get("/")
+def get_root(req: HttpRequest) -> None:
+    # Do something with `req`
+    return
+```
+
+````
+
+````{tab} Aiohttp
+
+```python
+from aiohttp.web import Request
+
+@app.get("/")
+async def get_root(req: Request) -> None:
+    # Do something with `req`
+    return
+```
+
+````
+
 ## Returning Data
 
 ### Nothing `(204 No Content)`
@@ -171,3 +249,71 @@ async def delete_article() -> NoContent:
     # Perform side-effects.
     return NoContent(headers={"key": "value"})
 ```
+
+### Framework-specific Response Objects
+
+If you need to return your framework's native response class, you can.
+
+These responses cannot be inspected by _uapi_ so they won't show up in the OpenAPI schema.
+Additionally, they tie your handlers to a specific underlying framework making your handlers less portable.
+They can, however, help in incrementally porting to _uapi_.
+
+````{tab} Starlette
+
+```python
+from starlette.responses import PlainTextResponse
+
+@app.get("/")
+async def get_root() -> PlainTextResponse:
+    return PlainTextResponse("content")
+```
+
+````
+
+````{tab} Flask
+
+```python
+from flask import Response
+
+@app.get("/")
+def get_root() -> Response:
+    return Response("content")
+```
+
+````
+
+````{tab} Quart
+
+```python
+from quart import Response
+
+@app.get("/")
+async def get_root() -> Response:
+    return Response("content")
+```
+
+````
+
+````{tab} Django
+
+```python
+from django.http import HttpResponse
+
+@app.get("/")
+def get_root() -> HttpResponse:
+    return HttpResponse("content")
+```
+
+````
+
+````{tab} Aiohttp
+
+```python
+from aiohttp.web import Response
+
+@app.get("/")
+async def get_root() -> Response:
+    return Response(body="content")
+```
+
+````

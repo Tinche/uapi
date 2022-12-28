@@ -8,15 +8,6 @@ async def test_hello(server):
         assert resp.status_code == 200
 
 
-async def test_no_body_native_response_post(server):
-    async with AsyncClient() as client:
-        resp = await client.post(
-            f"http://localhost:{server}/post/no-body-native-response"
-        )
-        assert resp.status_code == 201
-        assert resp.text == "post"
-
-
 async def test_no_body_no_response_post(server: int) -> None:
     async with AsyncClient() as client:
         resp = await client.post(f"http://localhost:{server}/post/no-body-no-response")

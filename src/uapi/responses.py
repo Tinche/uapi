@@ -33,7 +33,9 @@ def no_content(_, _nc: NoContent = NoContent()) -> NoContent:
 def make_return_adapter(
     return_type: Any, framework_response_cls: type, converter: Converter
 ) -> Optional[Callable[..., BaseResponse]]:
-    if return_type in (Signature.empty, framework_response_cls):
+    if return_type is Signature.empty or is_subclass(
+        return_type, framework_response_cls
+    ):
         # You're on your own, buddy.
         return None
     if return_type is None:

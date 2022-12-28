@@ -180,7 +180,7 @@ class StarletteApp(BaseApp):
                             )
                             for p in _path_params
                         }
-                        return await _incant(_prepared, _request=request, **path_args)
+                        return await _incant(_prepared, request, **path_args)
                     except ResponseException as exc:
                         return _fra(exc.response)
 
@@ -221,9 +221,7 @@ class StarletteApp(BaseApp):
                             for p in _path_params
                         }
                         try:
-                            return _fra(
-                                await _incant(_prepared, _request=request, **path_args)
-                            )
+                            return _fra(await _incant(_prepared, request, **path_args))
                         except ResponseException as exc:
                             return _fra(exc.response)
 
@@ -259,11 +257,7 @@ class StarletteApp(BaseApp):
                         }
                         try:
                             return _fra(
-                                _ra(
-                                    await _incant(
-                                        _prepared, _request=request, **path_args
-                                    )
-                                )
+                                _ra(await _incant(_prepared, request, **path_args))
                             )
                         except ResponseException as exc:
                             return _fra(exc.response)

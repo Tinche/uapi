@@ -1,5 +1,5 @@
 from aiohttp import web
-from aiohttp.web import Response
+from aiohttp.web import Request, Response
 
 from uapi import ResponseException
 from uapi.aiohttp import App
@@ -8,8 +8,20 @@ from uapi.status import NoContent
 from .apps import configure_base_async
 
 
+class RespSubclass(Response):
+    pass
+
+
 def make_app() -> App:
     app = App()
+
+    @app.get("/framework-request")
+    async def framework_request(req: Request) -> str:
+        return "framework_request" + req.headers["test"]
+
+    @app.post("/framework-resp-subclass")
+    async def framework_resp_subclass() -> RespSubclass:
+        return RespSubclass(body="framework_resp_subclass", status=201)
 
     async def path_param(path_id: int) -> Response:
         return Response(text=str(path_id + 1))

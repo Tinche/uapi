@@ -1,3 +1,4 @@
+from django.http import HttpRequest as Request
 from django.http import HttpResponse as Response
 
 from uapi import ResponseException
@@ -9,6 +10,20 @@ from ..apps import configure_base_sync
 app = App()
 
 configure_base_sync(app)
+
+
+class DjangoRespSubclass(Response):
+    pass
+
+
+@app.get("/framework-request")
+def framework_request(req: Request) -> str:
+    return "framework_request" + req.headers["test"]
+
+
+@app.post("/framework-resp-subclass")
+def framework_resp_subclass() -> DjangoRespSubclass:
+    return DjangoRespSubclass("framework_resp_subclass", status=201)
 
 
 def path(path_id: int) -> Response:

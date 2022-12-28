@@ -2,7 +2,8 @@ from asyncio import Event
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
-from starlette.responses import Response
+from starlette.requests import Request
+from starlette.responses import PlainTextResponse, Response
 
 from uapi import ResponseException
 from uapi.starlette import App
@@ -14,6 +15,14 @@ from .apps import configure_base_async
 def make_app() -> App:
     app = App()
     configure_base_async(app)
+
+    @app.get("/framework-request")
+    async def framework_request(req: Request) -> str:
+        return "framework_request" + req.headers["test"]
+
+    @app.post("/framework-resp-subclass")
+    async def framework_resp_subclass() -> PlainTextResponse:
+        return PlainTextResponse("framework_resp_subclass", status_code=201)
 
     async def path(path_id: int) -> Response:
         return Response(str(path_id + 1))

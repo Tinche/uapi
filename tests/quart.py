@@ -2,7 +2,7 @@ from asyncio import Event
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
-from quart import Response
+from quart import Response, request
 
 from uapi import ResponseException
 from uapi.quart import App
@@ -15,6 +15,14 @@ def make_app() -> App:
     app = App()
 
     configure_base_async(app)
+
+    @app.get("/framework-request")
+    async def framework_request() -> str:
+        return "framework_request" + request.headers["test"]
+
+    @app.post("/framework-resp-subclass")
+    async def framework_resp_subclass() -> Response:
+        return Response("framework_resp_subclass", status=201)
 
     async def path(path_id: int) -> Response:
         return Response(str(path_id + 1))

@@ -1,6 +1,6 @@
 from asyncio import Event
 
-from flask import Response
+from flask import Response, request
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 from hypercorn.middleware import AsyncioWSGIMiddleware
@@ -16,6 +16,14 @@ def make_app() -> App:
     app = App()
 
     configure_base_sync(app)
+
+    @app.get("/framework-request")
+    def framework_request() -> str:
+        return "framework_request" + request.headers["test"]
+
+    @app.post("/framework-resp-subclass")
+    def framework_resp_subclass() -> Response:
+        return Response("framework_resp_subclass", status=201)
 
     def path(path_id: int) -> Response:
         return Response(str(path_id + 1))
