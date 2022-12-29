@@ -68,3 +68,8 @@ class Forbidden(BaseResponse[Literal[403], R]):
 @define
 class NotFound(BaseResponse[Literal[404], R]):
     pass
+
+
+@define
+class InternalServerError(BaseResponse[Literal[500], R]):
+    pass
