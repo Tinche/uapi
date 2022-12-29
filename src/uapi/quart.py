@@ -105,7 +105,7 @@ class QuartApp(BaseApp):
     def to_framework_app(self, import_name: str) -> Quart:
         q = Quart(import_name)
 
-        for (method, path), (handler, name) in self.route_map.items():
+        for (method, path), (handler, name) in self._route_map.items():
             ra = make_return_adapter(
                 signature(handler, eval_str=True).return_annotation,
                 FrameworkResponse,

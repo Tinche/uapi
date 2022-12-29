@@ -25,7 +25,7 @@ def make_base_incanter() -> Incanter:
 class App:
     converter: Converter = Factory(make_converter)
     base_incant: Incanter = Factory(make_base_incanter)
-    route_map: dict[tuple[str, str], tuple[Callable, Optional[str]]] = Factory(dict)
+    _route_map: dict[tuple[str, str], tuple[Callable, Optional[str]]] = Factory(dict)
     _path_param_parser: ClassVar[PathParamParser] = lambda p: (p, [])
     _framework_req_cls: ClassVar[type] = NoneType
     _framework_resp_cls: ClassVar[type] = NoneType
@@ -39,7 +39,7 @@ class App:
     ):
         """Register routes. This is not a decorator."""
         for method in methods:
-            self.route_map[(method.upper(), path)] = (handler, name)
+            self._route_map[(method.upper(), path)] = (handler, name)
         return handler
 
     def get(self, path: str, name: Optional[str] = None):
@@ -69,16 +69,16 @@ class App:
         """Register all routes from a different app under an optional path prefix."""
         if not isinstance(self, type(app)):
             raise Exception("Incompatible apps.")
-        for (method, path), (handler, name) in app.route_map.items():
+        for (method, path), (handler, name) in app._route_map.items():
             if name_prefix is not None:
                 if name is None:
                     name = handler.__name__
                 name = f"{name_prefix}.{name}"
-            self.route_map[(method, (prefix or "") + path)] = (handler, name)
+            self._route_map[(method, (prefix or "") + path)] = (handler, name)
 
     def make_openapi_spec(self) -> OpenAPI:
         return make_openapi_spec(
-            self.route_map,
+            self._route_map,
             self.__class__._path_param_parser,
             framework_req_cls=self._framework_req_cls,
             framework_resp_cls=self._framework_resp_cls,

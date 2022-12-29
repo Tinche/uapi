@@ -140,7 +140,7 @@ class DjangoApp(BaseApp):
         res = []
 
         by_path_by_method: dict[str, dict[str, tuple[Callable, str | None]]] = {}
-        for (method, path), (handler, name) in self.route_map.items():
+        for (method, path), (handler, name) in self._route_map.items():
             by_path_by_method.setdefault(path, {})[method] = (handler, name)
 
         for path, methods_and_handlers in by_path_by_method.items():
