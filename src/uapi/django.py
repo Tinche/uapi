@@ -148,7 +148,7 @@ class DjangoApp(BaseApp):
             per_method_adapted = {}
             for method, (handler, name) in methods_and_handlers.items():
                 ra = make_return_adapter(
-                    signature(handler).return_annotation,
+                    signature(handler, eval_str=True).return_annotation,
                     FrameworkResponse,
                     self.converter,
                 )
