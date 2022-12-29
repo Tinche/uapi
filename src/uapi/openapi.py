@@ -148,7 +148,7 @@ def build_operation(
     request_body_required = False
     responses = {"200": Response(description="OK")}
     params = []
-    sig = signature(handler)
+    sig = signature(handler, eval_str=True)
     path_params = path_param_parser(path)[1]
     for path_param in path_params:
         if path_param not in sig.parameters:
@@ -293,7 +293,7 @@ def routes_to_paths(
 def gather_endpoint_components(
     handler: Callable, components: dict[type, str]
 ) -> dict[type, str]:
-    sig = signature(handler)
+    sig = signature(handler, eval_str=True)
     for arg in sig.parameters.values():
         if arg.annotation is not InspectParameter.empty:
             if (type_and_loader := maybe_req_body_attrs(arg)) is not None and (

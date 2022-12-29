@@ -130,7 +130,9 @@ class StarletteApp(BaseApp):
 
         for (method, path), (handler, name) in self.route_map.items():
             ra = make_return_adapter(
-                signature(handler).return_annotation, FrameworkResponse, self.converter
+                signature(handler, eval_str=True).return_annotation,
+                FrameworkResponse,
+                self.converter,
             )
             path_params = parse_curly_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
