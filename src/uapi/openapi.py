@@ -142,6 +142,7 @@ def build_operation(
     path: str,
     components: dict[type, str],
     path_param_parser: PathParamParser,
+    framework_req_cls: type | None,
     framework_resp_cls: type | None,
 ) -> OpenAPI.PathItem.Operation:
     request_bodies = {}
@@ -168,6 +169,11 @@ def build_operation(
             continue
         else:
             arg_type = arg_param.annotation
+            if arg_type is not InspectParameter.empty and is_subclass(
+                arg_type, framework_req_cls
+            ):
+                # We ignore params annotated as framework req classes.
+                continue
             if cookie_name := get_cookie_name(arg_type, arg):
                 params.append(
                     Parameter(
@@ -246,28 +252,54 @@ def build_pathitem(
     path_routes: dict[str, Callable],
     components,
     path_param_parser: PathParamParser,
+    framework_req_cls: type | None,
     framework_resp_cls: type | None,
 ) -> OpenAPI.PathItem:
     get = post = put = patch = delete = None
     if get_route := path_routes.get("GET"):
         get = build_operation(
-            get_route, path, components, path_param_parser, framework_resp_cls
+            get_route,
+            path,
+            components,
+            path_param_parser,
+            framework_req_cls,
+            framework_resp_cls,
         )
     if post_route := path_routes.get("POST"):
         post = build_operation(
-            post_route, path, components, path_param_parser, framework_resp_cls
+            post_route,
+            path,
+            components,
+            path_param_parser,
+            framework_req_cls,
+            framework_resp_cls,
         )
     if put_route := path_routes.get("PUT"):
         put = build_operation(
-            put_route, path, components, path_param_parser, framework_resp_cls
+            put_route,
+            path,
+            components,
+            path_param_parser,
+            framework_req_cls,
+            framework_resp_cls,
         )
     if patch_route := path_routes.get("PATCH"):
         patch = build_operation(
-            patch_route, path, components, path_param_parser, framework_resp_cls
+            patch_route,
+            path,
+            components,
+            path_param_parser,
+            framework_req_cls,
+            framework_resp_cls,
         )
     if delete_route := path_routes.get("DELETE"):
         delete = build_operation(
-            delete_route, path, components, path_param_parser, framework_resp_cls
+            delete_route,
+            path,
+            components,
+            path_param_parser,
+            framework_req_cls,
+            framework_resp_cls,
         )
     return OpenAPI.PathItem(get, post, put, patch, delete)
 
@@ -276,6 +308,7 @@ def routes_to_paths(
     routes: Routes,
     components: dict[type, dict[str, OpenAPI.PathItem]],
     path_param_parser: PathParamParser,
+    framework_req_cls: type | None = None,
     framework_resp_cls: type | None = None,
 ) -> dict[str, OpenAPI.PathItem]:
     res: dict[str, dict[str, Callable]] = defaultdict(dict)
@@ -285,7 +318,9 @@ def routes_to_paths(
         res[path] = res[path] | {method: handler}
 
     return {
-        k: build_pathitem(k, v, components, path_param_parser, framework_resp_cls)
+        k: build_pathitem(
+            k, v, components, path_param_parser, framework_req_cls, framework_resp_cls
+        )
         for k, v in res.items()
     }
 
@@ -339,13 +374,16 @@ def make_openapi_spec(
     path_param_parser: PathParamParser,
     title: str = "Server",
     version: str = "1.0",
+    framework_req_cls: type | None = None,
     framework_resp_cls: type | None = None,
 ) -> OpenAPI:
     c, components = components_to_openapi(routes)
     return OpenAPI(
         "3.0.3",
         OpenAPI.Info(title, version),
-        routes_to_paths(routes, components, path_param_parser, framework_resp_cls),
+        routes_to_paths(
+            routes, components, path_param_parser, framework_req_cls, framework_resp_cls
+        ),
         c,
     )
 

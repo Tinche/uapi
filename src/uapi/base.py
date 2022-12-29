@@ -27,6 +27,7 @@ class App:
     base_incant: Incanter = Factory(make_base_incanter)
     route_map: dict[tuple[str, str], tuple[Callable, Optional[str]]] = Factory(dict)
     _path_param_parser: ClassVar[PathParamParser] = lambda p: (p, [])
+    _framework_req_cls: ClassVar[type] = NoneType
     _framework_resp_cls: ClassVar[type] = NoneType
 
     def route(
@@ -79,6 +80,7 @@ class App:
         return make_openapi_spec(
             self.route_map,
             self.__class__._path_param_parser,
+            framework_req_cls=self._framework_req_cls,
             framework_resp_cls=self._framework_resp_cls,
         )
 

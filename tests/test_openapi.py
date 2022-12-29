@@ -314,3 +314,30 @@ def test_delete(app_factory) -> None:
     assert op.put is None
     assert op.delete is not None
     assert op.delete.responses == {"204": Response("No content", {})}
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_ignore_framework_request(app_factory) -> None:
+    """Framework request params are ignored."""
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
+
+    op = spec.paths["/framework-request"]
+    assert op is not None
+    assert op.get is not None
+    assert op.post is None
+    assert op.put is None
+    assert op.patch is None
+    assert op.delete is None
+
+    assert op.get.parameters == []

@@ -100,6 +100,7 @@ class AiohttpApp(BaseApp):
         p,
         parse_curly_path_params(p),
     )
+    _framework_req_cls: ClassVar[type] = FrameworkRequest
     _framework_resp_cls: ClassVar[type] = FrameworkResponse
 
     def __attrs_post_init__(self) -> None:
