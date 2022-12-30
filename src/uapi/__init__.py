@@ -1,16 +1,16 @@
-from attrs import frozen
-
 from .cookies import Cookie
-from .requests import ReqBody
+from .requests import Header, ReqBody
 from .responses import ResponseException
 from .status import Found, Headers, SeeOther
 
-__all__ = ["Cookie", "ReqBody", "ResponseException", "redirect", "redirect_to_get"]
-
-
-@frozen
-class Header:
-    name: str
+__all__ = [
+    "Cookie",
+    "Header",
+    "ReqBody",
+    "ResponseException",
+    "redirect",
+    "redirect_to_get",
+]
 
 
 def redirect(location: str, headers: Headers = {}) -> Found[None]:

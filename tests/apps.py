@@ -1,6 +1,6 @@
 from typing import Annotated, TypeAlias, TypeVar
 
-from uapi import Cookie, ReqBody, ResponseException
+from uapi import Cookie, Header, ReqBody, ResponseException
 from uapi.base import App
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.requests import JsonBodyLoader
@@ -84,6 +84,14 @@ def configure_base_async(app: App) -> None:
     @app.head("/head/exc")
     async def head_with_exc() -> str:
         raise ResponseException(Forbidden(None))
+
+    @app.put("/header")
+    async def header(test_header: Header[str]) -> str:
+        return test_header
+
+    @app.put("/header-default")
+    async def header_default(test_header: Header[str | None] = None) -> str:
+        return test_header or "default"
 
     @app.put("/custom-loader")
     async def custom_loader(body: CustomReqBody[NestedModel]) -> Ok[str]:
@@ -173,6 +181,14 @@ def configure_base_sync(app: App) -> None:
     @app.head("/head/exc")
     def head_with_exc() -> str:
         raise ResponseException(Forbidden(None))
+
+    @app.put("/header")
+    def header(test_header: Header[str]) -> str:
+        return test_header
+
+    @app.put("/header-default")
+    def header_default(test_header: Header[str | None] = None) -> str:
+        return test_header or "default"
 
     @app.put("/custom-loader")
     def custom_loader(body: CustomReqBody[NestedModel]) -> Ok[str]:

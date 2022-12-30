@@ -22,10 +22,13 @@ from .path import (
     strip_path_param_prefix,
 )
 from .requests import (
+    HeaderSpec,
     ReqBytes,
     attrs_body_factory,
     get_cookie_name,
+    get_header_type,
     get_req_body_attrs,
+    is_header,
     is_req_body_attrs,
 )
 from .responses import dict_to_headers, identity, make_return_adapter
@@ -33,22 +36,6 @@ from .status import BaseResponse, get_status_code
 from .types import PathParamParser
 
 C = TypeVar("C")
-
-
-def make_cookie_dependency(cookie_name: str, default=Signature.empty):
-    if default is Signature.empty:
-
-        def read_cookie(_request: FrameworkRequest) -> str:
-            return _request.COOKIES[cookie_name]
-
-        return read_cookie
-
-    else:
-
-        def read_cookie_opt(_request: FrameworkRequest) -> Any:
-            return _request.COOKIES.get(cookie_name, default)
-
-        return read_cookie_opt
 
 
 def make_django_incanter(converter: Converter) -> Incanter:
@@ -83,6 +70,14 @@ def make_django_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         lambda p: p.annotation in (Signature.empty, str), string_query_factory
     )
+
+    res.register_hook_factory(
+        is_header,
+        lambda p: make_header_dependency(
+            *get_header_type(p), p.name, converter, p.default
+        ),
+    )
+
     res.register_hook_factory(
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
@@ -96,20 +91,6 @@ def make_django_incanter(converter: Converter) -> Incanter:
         is_req_body_attrs, partial(attrs_body_factory, converter=converter)
     )
     return res
-
-
-def _framework_return_adapter(resp: BaseResponse):
-    if resp.headers:
-        res = FrameworkResponse(
-            resp.ret or b"",
-            status=get_status_code(resp.__class__),  # type: ignore
-            headers=dict_to_headers(resp.headers),
-        )
-        return res
-    else:
-        return FrameworkResponse(
-            resp.ret or b"", status=get_status_code(resp.__class__)  # type: ignore
-        )
 
 
 def _make_method_router(
@@ -309,3 +290,75 @@ class DjangoApp(BaseApp):
 
 
 App = DjangoApp
+
+
+def make_header_dependency(
+    type: type,
+    headerspec: HeaderSpec,
+    name: str,
+    converter: Converter,
+    default: Any = Signature.empty,
+):
+    if headerspec.name is None:
+        name = name.replace("_", "-")
+    else:
+        name = headerspec.name
+    if type is str:
+        if default is Signature.empty:
+
+            def read_header(_request: FrameworkRequest) -> str:
+                return _request.headers[name]
+
+            return read_header
+
+        else:
+
+            def read_opt_header(_request: FrameworkRequest) -> Any:
+                return _request.headers.get(name, default)
+
+            return read_opt_header
+    else:
+        handler = converter._structure_func.dispatch(type)
+        if default is Signature.empty:
+
+            def read_header(_request: FrameworkRequest) -> str:
+                return handler(_request.headers[name], type)
+
+            return read_header
+
+        else:
+
+            def read_opt_header(_request: FrameworkRequest) -> Any:
+                return handler(_request.headers.get(name, default), type)
+
+            return read_opt_header
+
+
+def make_cookie_dependency(cookie_name: str, default=Signature.empty):
+    if default is Signature.empty:
+
+        def read_cookie(_request: FrameworkRequest) -> str:
+            return _request.COOKIES[cookie_name]
+
+        return read_cookie
+
+    else:
+
+        def read_cookie_opt(_request: FrameworkRequest) -> Any:
+            return _request.COOKIES.get(cookie_name, default)
+
+        return read_cookie_opt
+
+
+def _framework_return_adapter(resp: BaseResponse):
+    if resp.headers:
+        res = FrameworkResponse(
+            resp.ret or b"",
+            status=get_status_code(resp.__class__),  # type: ignore
+            headers=dict_to_headers(resp.headers),
+        )
+        return res
+    else:
+        return FrameworkResponse(
+            resp.ret or b"", status=get_status_code(resp.__class__)  # type: ignore
+        )
