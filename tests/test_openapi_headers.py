@@ -2,9 +2,8 @@
 from typing import Callable
 
 import pytest
-from httpx import AsyncClient
 
-from uapi.openapi import OpenAPI, Parameter, Response, Schema, converter
+from uapi.openapi import OpenAPI, Parameter, Schema
 
 from .aiohttp import make_app as aiohttp_make_app
 from .django_uapi_app.views import App
