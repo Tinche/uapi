@@ -1,11 +1,12 @@
 from .cookies import Cookie
-from .requests import Header, ReqBody
+from .requests import Header, HeaderSpec, ReqBody
 from .responses import ResponseException
 from .status import Found, Headers, SeeOther
 
 __all__ = [
     "Cookie",
     "Header",
+    "HeaderSpec",
     "ReqBody",
     "ResponseException",
     "redirect",
