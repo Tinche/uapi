@@ -256,10 +256,10 @@ def make_header_dependency(
     converter: Converter,
     default: Any = Signature.empty,
 ):
-    if headerspec.name is None:
-        name = name.replace("_", "-")
-    else:
+    if isinstance(headerspec.name, str):
         name = headerspec.name
+    else:
+        name = headerspec.name(name)
     if type is str:
         if default is Signature.empty:
 

@@ -33,7 +33,7 @@ class JsonBodyLoader:
 class HeaderSpec:
     """Metadata for loading headers."""
 
-    name: str | None = None  # If None, use the arg name with underscores to dashes.
+    name: str | Callable[[str], str] = lambda n: n.replace("_", "-")
 
 
 ReqBody = Annotated[T, JsonBodyLoader()]

@@ -94,7 +94,7 @@ class App:
         self.route(path, openapi_handler)
 
     def serve_swaggerui(self, path: str = "/swaggerui"):
-        from .swaggerui import swaggerui
+        from .openapi_ui import swaggerui
 
         def swaggerui_handler() -> Ok[str]:
             return Ok(swaggerui, {"content-type": "text/html"})
@@ -102,7 +102,7 @@ class App:
         self.route(path, swaggerui_handler)
 
     def serve_redoc(self, path: str = "/redoc"):
-        from .swaggerui import redoc
+        from .openapi_ui import redoc
 
         def redoc_handler() -> Ok[str]:
             return Ok(redoc, {"content-type": "text/html"})
@@ -110,7 +110,7 @@ class App:
         self.route(path, redoc_handler)
 
     def serve_elements(self, path: str = "/elements", **kwargs: Any):
-        from .swaggerui import elements
+        from .openapi_ui import elements
 
         def handler() -> Ok[str]:
             return Ok(elements, {"content-type": "text/html"})

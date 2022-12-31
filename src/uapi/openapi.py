@@ -12,7 +12,7 @@ from cattrs import override
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
-from .requests import get_cookie_name, maybe_req_body_attrs
+from .requests import get_cookie_name, maybe_header_type, maybe_req_body_attrs
 from .responses import get_status_code_results
 from .status import BaseResponse
 from .types import PathParamParser, Routes, is_subclass
@@ -174,7 +174,25 @@ def build_operation(
             ):
                 # We ignore params annotated as framework req classes.
                 continue
-            if cookie_name := get_cookie_name(arg_type, arg):
+            if arg_type is not InspectParameter.empty and (
+                type_and_header := maybe_header_type(arg_param)
+            ):
+                header_type, header_spec = type_and_header
+                if isinstance(header_spec.name, str):
+                    header_name = header_spec.name
+                else:
+                    header_name = header_spec.name(arg)
+                params.append(
+                    Parameter(
+                        header_name,
+                        Parameter.Kind.HEADER,
+                        arg_param.default is InspectParameter.empty,
+                        PYTHON_PRIMITIVES_TO_OPENAPI.get(
+                            header_type, PYTHON_PRIMITIVES_TO_OPENAPI[str]
+                        ),
+                    )
+                )
+            elif cookie_name := get_cookie_name(arg_type, arg):
                 params.append(
                     Parameter(
                         cookie_name,
