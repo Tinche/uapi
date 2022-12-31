@@ -143,6 +143,67 @@ async def create_article(article: MyReqBody[Article]) -> None:
 Content type validation can be disabled by passing `None` to the `JsonBodyLoader`; the `content-type` header will be ignored.
 This in inadvisable unless you have no other choice.
 
+### Headers
+
+HTTP headers are injected into your handlers when one or more of your handler parameters are annotated using `uapi.Header[T]`.
+
+```{tip}
+Technically, HTTP requests may contain several headers of the same name.
+All underlying frameworks return the *first* value encountered.
+```
+
+```python
+from uapi import Header
+
+
+@app.post("/login")
+async def login(session_token: Header[str]) -> None:
+    # `session_token` is a `str`
+    ...
+
+```
+
+By default, the name of the header is the name of the handler parameter with underscores replaced by dashes.
+(So, in the above example, the expected header name is `session-token`.)
+
+If the header parameter has no default and the header is not present in the request, the resulting scenario
+is left to the underlying framework. The current options are:
+
+- Quart: a response with status `400` is returned
+- All others: a response with status `500` is returned
+
+`uapi.Header[T]` is equivalent to `Annotated[T, uapi.HeaderSpec]`, and header behavior can be customized
+by providing your own instance of {py:class}`uapi.requests.HeaderSpec`.
+
+For example, the header name can be customized on a case-by-case basis like this:
+
+```python
+from typing import Annotated
+from uapi import HeaderSpec
+
+
+@app.post("/login")
+async def login(session_token: Annotated[str, HeaderSpec("my_header")]) -> None:
+    # `session_token` is a `str`
+    ...
+
+```
+
+Headers may have defaults which will be used if the header is not present in the request.
+Also, headers with defaults will be rendered as `required=False` in the OpenAPI schema.
+
+```python
+@app.post("/login")
+async def login(session_token: Header[str | None] = None) -> None:
+    # `session_token` is a `str | None`
+    ...
+
+```
+
+Header types may be strings or anything else. Strings are provided directly by
+the underlying frameworks, any other type is produced by structuring the string value
+into that type using the App _cattrs_ `Converter`.
+
 ### Framework-specific Request Objects
 
 In case _uapi_ doesn't cover your exact needs, your handler can be given the request object provided by your underlying framework.

@@ -29,8 +29,16 @@ class JsonBodyLoader:
     ] = lambda _, __: BadRequest("invalid payload")
 
 
+@frozen
+class HeaderSpec:
+    """Metadata for loading headers."""
+
+    name: str | Callable[[str], str] = lambda n: n.replace("_", "-")
+
+
 ReqBody = Annotated[T, JsonBodyLoader()]
 ReqBytes = NewType("ReqBytes", bytes)
+Header = Annotated[T, HeaderSpec()]
 
 
 def get_cookie_name(t, arg_name: str) -> Optional[str]:
@@ -41,6 +49,31 @@ def get_cookie_name(t, arg_name: str) -> Optional[str]:
             if arg.__class__ is Cookie:
                 return arg or arg_name
     return None
+
+
+def maybe_header_type(p: Parameter) -> tuple[type, HeaderSpec] | None:
+    """Get the Annotated HeaderSpec, if present."""
+    t = p.annotation
+    if is_annotated(t):
+        args = get_args(t)
+        if args:
+            for arg in args[1:]:
+                if isinstance(arg, HeaderSpec):
+                    return args[0], arg
+    return None
+
+
+def get_header_type(p: Parameter) -> tuple[type, HeaderSpec]:
+    """Similar to `maybe_req_body_attrs`, except raises."""
+    res = maybe_header_type(p)
+    if res is None:
+        # Shouldn't happen.
+        raise Exception("No header info found")
+    return res
+
+
+def is_header(p: Parameter) -> bool:
+    return maybe_header_type(p) is not None
 
 
 def attrs_body_factory(

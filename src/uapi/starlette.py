@@ -13,10 +13,13 @@ from . import ResponseException
 from .base import App as BaseApp
 from .path import parse_curly_path_params
 from .requests import (
+    HeaderSpec,
     ReqBytes,
     attrs_body_factory,
     get_cookie_name,
+    get_header_type,
     get_req_body_attrs,
+    is_header,
     is_req_body_attrs,
 )
 from .responses import identity, make_return_adapter
@@ -24,33 +27,6 @@ from .status import BaseResponse, Headers, get_status_code
 from .types import PathParamParser
 
 C = TypeVar("C")
-
-
-def make_cookie_dependency(cookie_name: str, default=Signature.empty):
-    if default is Signature.empty:
-
-        def read_cookie(_request: FrameworkRequest) -> str:
-            return _request.cookies[cookie_name]
-
-        return read_cookie
-
-    else:
-
-        def read_cookie_opt(_request: FrameworkRequest) -> Any:
-            return _request.cookies.get(cookie_name, default)
-
-        return read_cookie_opt
-
-
-def extract_cookies(headers: Headers) -> tuple[dict[str, str], list[str]]:
-    h = {}
-    cookies = []
-    for k, v in headers.items():
-        if k[:9] == "__cookie_":
-            cookies.append(v)
-        else:
-            h[k] = v
-    return h, cookies
 
 
 def make_starlette_incanter(converter: Converter) -> Incanter:
@@ -86,6 +62,12 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
         lambda p: p.annotation in (Signature.empty, str), string_query_factory
     )
     res.register_hook_factory(
+        is_header,
+        lambda p: make_header_dependency(
+            *get_header_type(p), p.name, converter, p.default
+        ),
+    )
+    res.register_hook_factory(
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
@@ -99,19 +81,6 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
         is_req_body_attrs, partial(attrs_body_factory, converter=converter)
     )
     return res
-
-
-def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:
-    if resp.headers:
-        headers, cookies = extract_cookies(resp.headers)
-        res = FrameworkResponse(
-            resp.ret or b"", get_status_code(resp.__class__), headers  # type: ignore
-        )
-        for cookie in cookies:
-            res.raw_headers.append((b"set-cookie", cookie.encode("latin1")))
-        return res
-    else:
-        return FrameworkResponse(resp.ret or b"", get_status_code(resp.__class__))  # type: ignore
 
 
 @define
@@ -278,3 +247,85 @@ class StarletteApp(BaseApp):
 
 
 App = StarletteApp
+
+
+def make_header_dependency(
+    type: type,
+    headerspec: HeaderSpec,
+    name: str,
+    converter: Converter,
+    default: Any = Signature.empty,
+):
+    if isinstance(headerspec.name, str):
+        name = headerspec.name
+    else:
+        name = headerspec.name(name)
+    if type is str:
+        if default is Signature.empty:
+
+            def read_header(_request: FrameworkRequest) -> str:
+                return _request.headers[name]
+
+            return read_header
+
+        else:
+
+            def read_opt_header(_request: FrameworkRequest) -> Any:
+                return _request.headers.get(name, default)
+
+            return read_opt_header
+    else:
+        handler = converter._structure_func.dispatch(type)
+        if default is Signature.empty:
+
+            def read_header(_request: FrameworkRequest) -> str:
+                return handler(_request.headers[name], type)
+
+            return read_header
+
+        else:
+
+            def read_opt_header(_request: FrameworkRequest) -> Any:
+                return handler(_request.headers.get(name, default), type)
+
+            return read_opt_header
+
+
+def make_cookie_dependency(cookie_name: str, default=Signature.empty):
+    if default is Signature.empty:
+
+        def read_cookie(_request: FrameworkRequest) -> str:
+            return _request.cookies[cookie_name]
+
+        return read_cookie
+
+    else:
+
+        def read_cookie_opt(_request: FrameworkRequest) -> Any:
+            return _request.cookies.get(cookie_name, default)
+
+        return read_cookie_opt
+
+
+def extract_cookies(headers: Headers) -> tuple[dict[str, str], list[str]]:
+    h = {}
+    cookies = []
+    for k, v in headers.items():
+        if k[:9] == "__cookie_":
+            cookies.append(v)
+        else:
+            h[k] = v
+    return h, cookies
+
+
+def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:
+    if resp.headers:
+        headers, cookies = extract_cookies(resp.headers)
+        res = FrameworkResponse(
+            resp.ret or b"", get_status_code(resp.__class__), headers  # type: ignore
+        )
+        for cookie in cookies:
+            res.raw_headers.append((b"set-cookie", cookie.encode("latin1")))
+        return res
+    else:
+        return FrameworkResponse(resp.ret or b"", get_status_code(resp.__class__))  # type: ignore

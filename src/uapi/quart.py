@@ -19,10 +19,13 @@ from .path import (
     strip_path_param_prefix,
 )
 from .requests import (
+    HeaderSpec,
     ReqBytes,
     attrs_body_factory,
     get_cookie_name,
+    get_header_type,
     get_req_body_attrs,
+    is_header,
     is_req_body_attrs,
 )
 from .responses import dict_to_headers, identity, make_return_adapter
@@ -30,22 +33,6 @@ from .status import BaseResponse, get_status_code
 from .types import PathParamParser
 
 C = TypeVar("C")
-
-
-def make_cookie_dependency(cookie_name: str, default=Signature.empty):
-    if default is Signature.empty:
-
-        def read_cookie() -> str:
-            return request.cookies[cookie_name]
-
-        return read_cookie
-
-    else:
-
-        def read_cookie_opt() -> Any:
-            return request.cookies.get(cookie_name, default)
-
-        return read_cookie_opt
 
 
 def make_quart_incanter(converter: Converter) -> Incanter:
@@ -68,6 +55,12 @@ def make_quart_incanter(converter: Converter) -> Incanter:
         else request.args.get(p.name, p.default),
     )
     res.register_hook_factory(
+        is_header,
+        lambda p: make_header_dependency(
+            *get_header_type(p), p.name, converter, p.default
+        ),
+    )
+    res.register_hook_factory(
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
@@ -81,14 +74,6 @@ def make_quart_incanter(converter: Converter) -> Incanter:
         is_req_body_attrs, partial(attrs_body_factory, converter=converter)
     )
     return res
-
-
-def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:
-    return FrameworkResponse(
-        resp.ret or b"",
-        get_status_code(resp.__class__),  # type: ignore
-        Headers(dict_to_headers(resp.headers)) if resp.headers else None,
-    )
 
 
 @define
@@ -221,3 +206,69 @@ class QuartApp(BaseApp):
 
 
 App = QuartApp
+
+
+def make_header_dependency(
+    type: type,
+    headerspec: HeaderSpec,
+    name: str,
+    converter: Converter,
+    default: Any = Signature.empty,
+):
+    if isinstance(headerspec.name, str):
+        name = headerspec.name
+    else:
+        name = headerspec.name(name)
+    if type is str:
+        if default is Signature.empty:
+
+            def read_header() -> str:
+                return request.headers[name]
+
+            return read_header
+
+        else:
+
+            def read_opt_header() -> Any:
+                return request.headers.get(name, default)
+
+            return read_opt_header
+    else:
+        handler = converter._structure_func.dispatch(type)
+        if default is Signature.empty:
+
+            def read_header() -> str:
+                return handler(request.headers[name], type)
+
+            return read_header
+
+        else:
+
+            def read_opt_header() -> Any:
+                return handler(request.headers.get(name, default), type)
+
+            return read_opt_header
+
+
+def make_cookie_dependency(cookie_name: str, default=Signature.empty):
+    if default is Signature.empty:
+
+        def read_cookie() -> str:
+            return request.cookies[cookie_name]
+
+        return read_cookie
+
+    else:
+
+        def read_cookie_opt() -> Any:
+            return request.cookies.get(cookie_name, default)
+
+        return read_cookie_opt
+
+
+def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:
+    return FrameworkResponse(
+        resp.ret or b"",
+        get_status_code(resp.__class__),  # type: ignore
+        Headers(dict_to_headers(resp.headers)) if resp.headers else None,
+    )
