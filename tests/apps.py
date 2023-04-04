@@ -107,7 +107,7 @@ def configure_base_async(app: App) -> None:
     @app.post("/custom-loader-error")
     async def custom_loader_error(
         body: Annotated[
-            NestedModel, JsonBodyLoader(error_handler=lambda e, _: Forbidden(str(e))),
+            NestedModel, JsonBodyLoader(error_handler=lambda e, _: Forbidden(str(e)))
         ]
     ) -> Ok[str]:
         """Custom validation error."""
@@ -204,7 +204,7 @@ def configure_base_sync(app: App) -> None:
     @app.post("/custom-loader-error")
     def custom_loader_error(
         body: Annotated[
-            NestedModel, JsonBodyLoader(error_handler=lambda e, _: Forbidden(str(e))),
+            NestedModel, JsonBodyLoader(error_handler=lambda e, _: Forbidden(str(e)))
         ]
     ) -> Ok[str]:
         """Custom validation error."""

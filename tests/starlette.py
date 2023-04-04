@@ -61,7 +61,6 @@ def make_app() -> App:
 
 
 async def run_server(port: int, shutdown_event: Event, openapi: bool = False):
-
     config = Config()
     config.bind = [f"localhost:{port}"]
 
@@ -73,7 +72,6 @@ async def run_server(port: int, shutdown_event: Event, openapi: bool = False):
 
 
 async def run_on_starlette(app: App, port: int, shutdown_event: Event):
-
     config = Config()
     config.bind = [f"localhost:{port}"]
 
