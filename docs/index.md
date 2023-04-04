@@ -7,6 +7,7 @@
 
 self
 handlers.md
+changelog.md
 indices.md
 ```
 

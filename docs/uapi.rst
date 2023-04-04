@@ -8,8 +8,8 @@ Subpackages
    :maxdepth: 4
 
    uapi.login
+   uapi.openapi_ui
    uapi.sessions
-   uapi.swaggerui
 
 Submodules
 ----------

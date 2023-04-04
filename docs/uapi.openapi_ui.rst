@@ -1,10 +1,10 @@
-uapi.swaggerui package
-======================
+uapi.openapi\_ui package
+========================
 
 Module contents
 ---------------
 
-.. automodule:: uapi.swaggerui
+.. automodule:: uapi.openapi_ui
    :members:
    :undoc-members:
    :show-inheritance:
