@@ -341,3 +341,33 @@ def test_ignore_framework_request(app_factory) -> None:
     assert op.delete is None
 
     assert op.get.parameters == []
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_get_injection(app_factory) -> None:
+    app: App = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
+
+    op = spec.paths["/injection"]
+    assert op is not None
+    assert op.get is not None
+    assert op.get.parameters == [
+        Parameter(
+            name="header-for-injection",
+            kind=Parameter.Kind.HEADER,
+            required=True,
+            schema=Schema(Schema.Type.STRING),
+        )
+    ]
+    assert len(op.get.responses) == 1
+    assert op.get.responses["200"]
