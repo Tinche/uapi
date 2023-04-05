@@ -20,6 +20,7 @@ The **third number** is for emergencies when we need to start branches for older
 
 - Stringified annotations for return types are now handled properly.
 - Framework-specific request objects are ignored for OpenAPI.
+- Fix OpenAPI generation so items produced by the dependency injection system are properly generated.
 
 ## [v22.1.0](https://github.com/tinche/uapi/compare/63cd8336f229f3a007f8fce7e9791b22abaf75d9...v22.1.0) - 2022-12-07
 

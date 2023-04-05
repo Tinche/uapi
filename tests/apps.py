@@ -118,6 +118,16 @@ def configure_base_async(app: App) -> None:
     app.route_app(make_generic_subapp())
     app.route_app(make_generic_subapp(), "/subapp", "subapp")
 
+    # A bit of dependency injection.
+    def injected_id(header_for_injection: Header[str]) -> str:
+        return f"injected:{header_for_injection}"
+
+    app.base_incant.register_by_name(injected_id)
+
+    @app.get("/injection")
+    async def injection(injected_id: str) -> str:
+        return injected_id
+
 
 def configure_base_sync(app: App) -> None:
     @app.get("/")
@@ -214,3 +224,13 @@ def configure_base_sync(app: App) -> None:
 
     app.route_app(make_generic_subapp())
     app.route_app(make_generic_subapp(), "/subapp", "subapp")
+
+    # A bit of dependency injection.
+    def injected_id(header_for_injection: Header[str]) -> str:
+        return f"injected:{header_for_injection}"
+
+    app.base_incant.register_by_name(injected_id)
+
+    @app.get("/injection")
+    def injection(injected_id: str) -> str:
+        return injected_id

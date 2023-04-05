@@ -77,8 +77,13 @@ class App:
             self._route_map[(method, (prefix or "") + path)] = (handler, name)
 
     def make_openapi_spec(self) -> OpenAPI:
+        # We need to prepare the handlers to get the correct signature.
+        route_map = {
+            k: (self.base_incant.prepare(v[0]), v[1])
+            for k, v in self._route_map.items()
+        }
         return make_openapi_spec(
-            self._route_map,
+            route_map,
             self.__class__._path_param_parser,
             framework_req_cls=self._framework_req_cls,
             framework_resp_cls=self._framework_resp_cls,
