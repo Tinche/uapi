@@ -371,3 +371,21 @@ def test_get_injection(app_factory) -> None:
     ]
     assert len(op.get.responses) == 1
     assert op.get.responses["200"]
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_excluded(app_factory) -> None:
+    app: App = app_factory()
+    spec: OpenAPI = app.make_openapi_spec(exclude={"excluded"})
+
+    assert "/excluded" not in spec.paths

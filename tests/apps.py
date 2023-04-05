@@ -113,6 +113,11 @@ def configure_base_async(app: App) -> None:
         """Custom validation error."""
         return Ok("")
 
+    @app.get("/excluded")
+    async def excluded() -> str:
+        """This should be excluded from OpenAPI."""
+        return ""
+
     # Subapps.
 
     app.route_app(make_generic_subapp())
@@ -219,6 +224,11 @@ def configure_base_sync(app: App) -> None:
     ) -> Ok[str]:
         """Custom validation error."""
         return Ok("")
+
+    @app.get("/excluded")
+    def excluded() -> str:
+        """This should be excluded from OpenAPI."""
+        return ""
 
     # Subapps.
 

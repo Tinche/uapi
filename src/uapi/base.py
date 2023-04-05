@@ -38,6 +38,8 @@ class App:
         methods: Sequence[str] = ["GET"],
     ):
         """Register routes. This is not a decorator."""
+        if name is None:
+            name = handler.__name__
         for method in methods:
             self._route_map[(method.upper(), path)] = (handler, name)
         return handler
@@ -76,11 +78,17 @@ class App:
                 name = f"{name_prefix}.{name}"
             self._route_map[(method, (prefix or "") + path)] = (handler, name)
 
-    def make_openapi_spec(self) -> OpenAPI:
+    def make_openapi_spec(self, exclude: set[str] = set()) -> OpenAPI:
+        """
+        Create the OpenAPI spec for the registered routes.
+
+        :param exlude: A set of route names to exclude from the spec.
+        """
         # We need to prepare the handlers to get the correct signature.
         route_map = {
             k: (self.base_incant.prepare(v[0]), v[1])
             for k, v in self._route_map.items()
+            if v[1] not in exclude
         }
         return make_openapi_spec(
             route_map,
@@ -89,8 +97,13 @@ class App:
             framework_resp_cls=self._framework_resp_cls,
         )
 
-    def serve_openapi(self, path: str = "/openapi.json"):
-        openapi = self.make_openapi_spec()
+    def serve_openapi(self, path: str = "/openapi.json", exclude: set[str] = set()):
+        """
+        Create the OpenAPI spec and start serving it at the given path.
+
+        :param exlude: A set of route names to exclude from the spec.
+        """
+        openapi = self.make_openapi_spec(exclude=exclude)
         payload = dumps(openapi_converter.unstructure(openapi))
 
         def openapi_handler() -> Ok[bytes]:

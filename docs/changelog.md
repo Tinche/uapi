@@ -15,6 +15,7 @@ The **third number** is for emergencies when we need to start branches for older
 ### Changed
 
 - Add the initial header implementation.
+- Endpoints can be excluded from OpenAPI generation by passing them to `app.make_openapi_spec(exclude=...)` or `app.serve_openapi(exclude=...)`.
 
 ### Fixed
 
