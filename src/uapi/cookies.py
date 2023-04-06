@@ -12,11 +12,11 @@ SameSite = Literal["strict", "lax", "none"]
 
 @frozen
 class CookieSettings:
-    max_age: Optional[int] = None  # Seconds
+    max_age: int | None = None  # Seconds
     http_only: bool = True
     secure: bool = True
-    path: Optional[str] = None
-    domain: Optional[str] = None
+    path: str | None = None
+    domain: str | None = None
     same_site: SameSite = "lax"
 
 

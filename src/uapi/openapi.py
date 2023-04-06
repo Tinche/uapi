@@ -5,7 +5,7 @@ from enum import Enum, unique
 from inspect import Parameter as InspectParameter
 from inspect import signature
 from types import NoneType
-from typing import Callable, Literal, Mapping
+from typing import Callable, Literal, Mapping, TypeAlias
 
 from attrs import Factory, fields, frozen, has
 from cattrs import override
@@ -94,6 +94,17 @@ class RequestBody:
 
 
 @frozen
+class ApiKeySecurityScheme:
+    name: str
+    in_: Literal["query", "header", "cookie"]
+    description: str | None = None
+    type: Literal["apiKey"] = "apiKey"
+
+
+SecurityRequirement: TypeAlias = dict[str, list[str]]
+
+
+@frozen
 class OpenAPI:
     @frozen
     class Info:
@@ -103,6 +114,7 @@ class OpenAPI:
     @frozen
     class Components:
         schemas: dict[str, AnySchema | Reference]
+        securitySchemes: Mapping[str, ApiKeySecurityScheme] = Factory(dict)
 
     @frozen
     class PathItem:
@@ -111,6 +123,7 @@ class OpenAPI:
             responses: dict[MediaTypeName, Response]
             parameters: list[Parameter] = Factory(list)
             requestBody: RequestBody | None = None
+            security: list[SecurityRequirement] = Factory(list)
 
         get: Operation | None = None
         post: Operation | None = None
@@ -144,11 +157,12 @@ def build_operation(
     path_param_parser: PathParamParser,
     framework_req_cls: type | None,
     framework_resp_cls: type | None,
+    security_schemas: Mapping[str, ApiKeySecurityScheme],
 ) -> OpenAPI.PathItem.Operation:
     request_bodies = {}
     request_body_required = False
     responses = {"200": Response(description="OK")}
-    params = []
+    params: list[Parameter] = []
     sig = signature(handler, eval_str=True)
     path_params = path_param_parser(path)[1]
     for path_param in path_params:
@@ -262,16 +276,26 @@ def build_operation(
     req_body = None
     if request_bodies:
         req_body = RequestBody(request_bodies, required=request_body_required)
-    return OpenAPI.PathItem.Operation(responses, params, req_body)
+
+    security: list[SecurityRequirement] = []
+    for sec_name, sec_scheme in security_schemas.items():
+        if sec_scheme.in_ == "cookie" and any(
+            p.kind is Parameter.Kind.COOKIE and p.name == sec_scheme.name
+            for p in params
+        ):
+            security.append({sec_name: []})
+
+    return OpenAPI.PathItem.Operation(responses, params, req_body, security)
 
 
 def build_pathitem(
     path: str,
     path_routes: dict[str, Callable],
-    components,
+    components: dict[type, str],
     path_param_parser: PathParamParser,
     framework_req_cls: type | None,
     framework_resp_cls: type | None,
+    security_schemas: Mapping[str, ApiKeySecurityScheme],
 ) -> OpenAPI.PathItem:
     get = post = put = patch = delete = None
     if get_route := path_routes.get("GET"):
@@ -282,6 +306,7 @@ def build_pathitem(
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
+            security_schemas,
         )
     if post_route := path_routes.get("POST"):
         post = build_operation(
@@ -291,6 +316,7 @@ def build_pathitem(
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
+            security_schemas,
         )
     if put_route := path_routes.get("PUT"):
         put = build_operation(
@@ -300,6 +326,7 @@ def build_pathitem(
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
+            security_schemas,
         )
     if patch_route := path_routes.get("PATCH"):
         patch = build_operation(
@@ -309,6 +336,7 @@ def build_pathitem(
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
+            security_schemas,
         )
     if delete_route := path_routes.get("DELETE"):
         delete = build_operation(
@@ -318,16 +346,18 @@ def build_pathitem(
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
+            security_schemas,
         )
     return OpenAPI.PathItem(get, post, put, patch, delete)
 
 
 def routes_to_paths(
     routes: Routes,
-    components: dict[type, dict[str, OpenAPI.PathItem]],
+    components: dict[type, str],
     path_param_parser: PathParamParser,
-    framework_req_cls: type | None = None,
-    framework_resp_cls: type | None = None,
+    framework_req_cls: type | None,
+    framework_resp_cls: type | None,
+    security_schemas: Mapping[str, ApiKeySecurityScheme],
 ) -> dict[str, OpenAPI.PathItem]:
     res: dict[str, dict[str, Callable]] = defaultdict(dict)
 
@@ -337,7 +367,13 @@ def routes_to_paths(
 
     return {
         k: build_pathitem(
-            k, v, components, path_param_parser, framework_req_cls, framework_resp_cls
+            k,
+            v,
+            components,
+            path_param_parser,
+            framework_req_cls,
+            framework_resp_cls,
+            security_schemas,
         )
         for k, v in res.items()
     }
@@ -370,7 +406,9 @@ def gather_endpoint_components(
     return components
 
 
-def components_to_openapi(routes: Routes) -> tuple[OpenAPI.Components, dict]:
+def components_to_openapi(
+    routes: Routes, security_schemes: dict[str, ApiKeySecurityScheme] = {}
+) -> tuple[OpenAPI.Components, dict[type, str]]:
     """Build the components part.
 
     Components are complex structures, like classes, as opposed to primitives like ints.
@@ -384,7 +422,7 @@ def components_to_openapi(routes: Routes) -> tuple[OpenAPI.Components, dict]:
     for component in components:
         build_attrs_schema(component, components, res)
 
-    return OpenAPI.Components(res), components
+    return OpenAPI.Components(res, security_schemes), components
 
 
 def make_openapi_spec(
@@ -394,13 +432,21 @@ def make_openapi_spec(
     version: str = "1.0",
     framework_req_cls: type | None = None,
     framework_resp_cls: type | None = None,
+    security_schemes: list[ApiKeySecurityScheme] = [],
 ) -> OpenAPI:
-    c, components = components_to_openapi(routes)
+    c, components = components_to_openapi(
+        routes, {f"{scheme.in_}/{scheme.name}": scheme for scheme in security_schemes}
+    )
     return OpenAPI(
         "3.0.3",
         OpenAPI.Info(title, version),
         routes_to_paths(
-            routes, components, path_param_parser, framework_req_cls, framework_resp_cls
+            routes,
+            components,
+            path_param_parser,
+            framework_req_cls,
+            framework_resp_cls,
+            c.securitySchemes,
         ),
         c,
     )
@@ -468,6 +514,15 @@ converter.register_structure_hook(
 converter.register_structure_hook(
     bool | InlineType,
     lambda v, _: v if isinstance(v, bool) else converter.structure(v, InlineType),
+)
+converter.register_unstructure_hook(
+    ApiKeySecurityScheme,
+    make_dict_unstructure_fn(
+        ApiKeySecurityScheme,
+        converter,
+        in_=override(rename="in"),
+        type=override(omit_if_default=False),
+    ),
 )
 
 converter.register_unstructure_hook(

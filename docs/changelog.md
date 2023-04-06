@@ -16,6 +16,7 @@ The **third number** is for emergencies when we need to start branches for older
 
 - Add the initial header implementation.
 - Endpoints can be excluded from OpenAPI generation by passing them to `app.make_openapi_spec(exclude=...)` or `app.serve_openapi(exclude=...)`.
+- Initial implementation of OpenAPI security schemas, supporting the `apikey` type in Redis session backend.
 
 ### Fixed
 

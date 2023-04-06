@@ -9,6 +9,7 @@ from httpx import AsyncClient
 from tests.aiohttp import run_on_aiohttp
 from uapi.aiohttp import App as AiohttpApp
 from uapi.cookies import CookieSettings
+from uapi.openapi import ApiKeySecurityScheme
 from uapi.sessions.redis import AsyncSession, configure_async_sessions
 from uapi.status import Created, NoContent
 
@@ -43,6 +44,7 @@ async def redis_session_app(unused_tcp_port_factory: Callable[..., int]):
     unused_tcp_port = unused_tcp_port_factory()
     app = AiohttpApp()
     await configure_redis_session_app(app)
+    app.serve_openapi()
     t = create_task(run_on_aiohttp(app, unused_tcp_port))
     yield unused_tcp_port
     t.cancel()
@@ -84,7 +86,7 @@ async def test_login_logout(redis_session_app: int):
         assert resp.text == "naughty!"
 
 
-async def test_session_expiry(redis_session_app: int):
+async def test_session_expiry(redis_session_app: int) -> None:
     """Test path parameter handling."""
     username = "MyCoolUsername"
     async with AsyncClient() as client:
@@ -104,3 +106,20 @@ async def test_session_expiry(redis_session_app: int):
 
         resp = await client.get(f"http://localhost:{redis_session_app}/")
         assert resp.text == "naughty!"
+
+
+async def test_openapi_security() -> None:
+    app = AiohttpApp()
+    await configure_redis_session_app(app)
+
+    openapi = app.make_openapi_spec()
+
+    assert openapi.components.securitySchemes[
+        "cookie/session_id"
+    ] == ApiKeySecurityScheme("session_id", "cookie")
+
+    assert openapi.paths["/"].get
+    assert openapi.paths["/"].get.security == [{"cookie/session_id": []}]
+
+    assert openapi.paths["/logout"].post
+    assert openapi.paths["/logout"].post.security == [{"cookie/session_id": []}]
