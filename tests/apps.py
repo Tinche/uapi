@@ -232,7 +232,7 @@ def configure_base_sync(app: App) -> None:
         return Ok("")
 
     @app.get("/simple-model-2")
-    async def simple_model_2() -> SimpleModel2:
+    def simple_model_2() -> SimpleModel2:
         """OpenAPI should handle the same model name in different modules."""
         return SimpleModel2(1)
 
