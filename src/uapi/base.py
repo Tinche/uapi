@@ -8,7 +8,7 @@ from cattrs.preconf.orjson import make_converter
 from incant import Incanter
 from orjson import dumps
 
-from .openapi import OpenAPI
+from .openapi import ApiKeySecurityScheme, OpenAPI
 from .openapi import converter as openapi_converter
 from .openapi import make_openapi_spec
 from .status import Ok
@@ -22,10 +22,16 @@ def make_base_incanter() -> Incanter:
 
 
 @define
+class OpenAPISecuritySpec:
+    security_scheme: ApiKeySecurityScheme
+
+
+@define
 class App:
     converter: Converter = Factory(make_converter)
     base_incant: Incanter = Factory(make_base_incanter)
-    _route_map: dict[tuple[str, str], tuple[Callable, Optional[str]]] = Factory(dict)
+    _route_map: dict[tuple[str, str], tuple[Callable, str | None]] = Factory(dict)
+    _openapi_security: list[OpenAPISecuritySpec] = Factory(list)
     _path_param_parser: ClassVar[PathParamParser] = lambda p: (p, [])
     _framework_req_cls: ClassVar[type] = NoneType
     _framework_resp_cls: ClassVar[type] = NoneType
@@ -78,7 +84,9 @@ class App:
                 name = f"{name_prefix}.{name}"
             self._route_map[(method, (prefix or "") + path)] = (handler, name)
 
-    def make_openapi_spec(self, exclude: set[str] = set()) -> OpenAPI:
+    def make_openapi_spec(
+        self, title: str = "Server", version: str = "1.0", exclude: set[str] = set()
+    ) -> OpenAPI:
         """
         Create the OpenAPI spec for the registered routes.
 
@@ -93,17 +101,25 @@ class App:
         return make_openapi_spec(
             route_map,
             self.__class__._path_param_parser,
-            framework_req_cls=self._framework_req_cls,
-            framework_resp_cls=self._framework_resp_cls,
+            title,
+            version,
+            self._framework_req_cls,
+            self._framework_resp_cls,
+            [s.security_scheme for s in self._openapi_security],
         )
 
-    def serve_openapi(self, path: str = "/openapi.json", exclude: set[str] = set()):
+    def serve_openapi(
+        self,
+        title: str = "Server",
+        path: str = "/openapi.json",
+        exclude: set[str] = set(),
+    ):
         """
         Create the OpenAPI spec and start serving it at the given path.
 
         :param exlude: A set of route names to exclude from the spec.
         """
-        openapi = self.make_openapi_spec(exclude=exclude)
+        openapi = self.make_openapi_spec(title, exclude=exclude)
         payload = dumps(openapi_converter.unstructure(openapi))
 
         def openapi_handler() -> Ok[bytes]:

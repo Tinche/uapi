@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING, Annotated, Optional, TypeVar
 from attrs import frozen
 
 from .. import Cookie, Headers
-from ..base import App
+from ..base import App, OpenAPISecuritySpec
 from ..cookies import CookieSettings, set_cookie
+from ..openapi import ApiKeySecurityScheme
 
 if TYPE_CHECKING:
     from aioredis import Redis
@@ -126,6 +127,10 @@ def configure_async_sessions(
     app.base_incant.register_hook(
         lambda p: p.name == session_arg_param_name and p.annotation is AsyncSession,
         session_factory,
+    )
+
+    app._openapi_security.append(
+        OpenAPISecuritySpec(ApiKeySecurityScheme(cookie_name, "cookie"))
     )
 
     return AsyncRedisSessionStore(
