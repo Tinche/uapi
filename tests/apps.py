@@ -7,6 +7,7 @@ from uapi.requests import JsonBodyLoader
 from uapi.status import Created, Forbidden, NoContent, Ok
 
 from .models import NestedModel, SimpleModel
+from .models_2 import SimpleModel as SimpleModel2
 
 T = TypeVar("T")
 CustomReqBody: TypeAlias = Annotated[T, JsonBodyLoader("application/vnd.uapi.v1+json")]
@@ -112,6 +113,11 @@ def configure_base_async(app: App) -> None:
     ) -> Ok[str]:
         """Custom validation error."""
         return Ok("")
+
+    @app.get("/simple-model-2")
+    async def simple_model_2() -> SimpleModel2:
+        """OpenAPI should handle the same model name in different modules."""
+        return SimpleModel2(1)
 
     @app.get("/excluded")
     async def excluded() -> str:
@@ -224,6 +230,11 @@ def configure_base_sync(app: App) -> None:
     ) -> Ok[str]:
         """Custom validation error."""
         return Ok("")
+
+    @app.get("/simple-model-2")
+    def simple_model_2() -> SimpleModel2:
+        """OpenAPI should handle the same model name in different modules."""
+        return SimpleModel2(1)
 
     @app.get("/excluded")
     def excluded() -> str:
