@@ -362,7 +362,7 @@ def gather_endpoint_components(
         for _, r in get_status_code_results(ret_type):
             if has(r) and not issubclass(r, BaseResponse) and r not in components:
                 name = r.__name__
-                counter = 0
+                counter = 2
                 while name in components.values():
                     name = f"{r.__name__}{counter}"
                     counter += 1
@@ -382,7 +382,7 @@ def components_to_openapi(routes: Routes) -> tuple[OpenAPI.Components, dict]:
 
     res: dict[str, AnySchema | Reference] = {}
     for component in components:
-        build_attrs_schema(component, res)
+        build_attrs_schema(component, components, res)
 
     return OpenAPI.Components(res), components
 
@@ -406,24 +406,27 @@ def make_openapi_spec(
     )
 
 
-def build_attrs_schema(type: type, res: dict[str, AnySchema | Reference]):
+def build_attrs_schema(
+    type: type, names: dict[type, str], res: dict[str, AnySchema | Reference]
+) -> None:
     properties = {}
+    name = names[type]
     for a in fields(type):
         if a.type is None:
             continue
         if a.type in PYTHON_PRIMITIVES_TO_OPENAPI:
             schema: AnySchema | Reference = PYTHON_PRIMITIVES_TO_OPENAPI[a.type]
         elif has(a.type):
-            ref = f"#/components/schemas/{a.type.__name__}"
+            ref = f"#/components/schemas/{names[a.type]}"
             if ref not in res:
-                build_attrs_schema(a.type, res)
+                build_attrs_schema(a.type, names, res)
             schema = Reference(ref)
         elif getattr(a.type, "__origin__", None) is list:
             arg = a.type.__args__[0]
             if has(arg):
-                ref = f"#/components/schemas/{arg.__name__}"
+                ref = f"#/components/schemas/{names[arg]}"
                 if ref not in res:
-                    build_attrs_schema(arg, res)
+                    build_attrs_schema(arg, names, res)
                 schema = ArraySchema(Reference(ref))
         elif getattr(a.type, "__origin__", None) is dict:
             val_arg = a.type.__args__[1]
@@ -437,7 +440,7 @@ def build_attrs_schema(type: type, res: dict[str, AnySchema | Reference]):
             continue
         properties[a.name] = schema
 
-    res[type.__name__] = Schema(type=Schema.Type.OBJECT, properties=properties)
+    res[name] = Schema(type=Schema.Type.OBJECT, properties=properties)
 
 
 def structure_schemas(val, _):

@@ -266,3 +266,31 @@ def test_custom_loader(app_factory: Callable[[], App]) -> None:
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },
     )
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_models_same_name(app_factory) -> None:
+    app: App = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
+
+    assert spec.components.schemas["SimpleModel"] == Schema(
+        Schema.Type.OBJECT,
+        {
+            "an_int": Schema(type=Schema.Type.INTEGER),
+            "a_string": Schema(Schema.Type.STRING),
+            "a_float": Schema(Schema.Type.NUMBER, format="double"),
+        },
+    )
+    assert spec.components.schemas["SimpleModel2"] == Schema(
+        Schema.Type.OBJECT, {"a_different_int": Schema(type=Schema.Type.INTEGER)}
+    )
