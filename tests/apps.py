@@ -3,7 +3,7 @@ from typing import Annotated, TypeAlias, TypeVar
 from uapi import Cookie, Header, ReqBody, ResponseException
 from uapi.base import App
 from uapi.cookies import CookieSettings, set_cookie
-from uapi.requests import JsonBodyLoader
+from uapi.requests import HeaderSpec, JsonBodyLoader
 from uapi.status import Created, Forbidden, NoContent, Ok
 
 from .models import NestedModel, ResponseModel, SimpleModel
@@ -93,6 +93,12 @@ def configure_base_async(app: App) -> None:
     @app.put("/header-default")
     async def header_default(test_header: Header[str | None] = None) -> str:
         return test_header or "default"
+
+    @app.get("/header-renamed")
+    async def header_renamed(
+        test_header: Annotated[str, HeaderSpec("test_header")]
+    ) -> str:
+        return test_header
 
     @app.put("/custom-loader")
     async def custom_loader(body: CustomReqBody[NestedModel]) -> Ok[str]:
@@ -214,6 +220,10 @@ def configure_base_sync(app: App) -> None:
     @app.put("/header-default")
     def header_default(test_header: Header[str | None] = None) -> str:
         return test_header or "default"
+
+    @app.get("/header-renamed")
+    def header_renamed(test_header: Annotated[str, HeaderSpec("test_header")]) -> str:
+        return test_header
 
     @app.put("/custom-loader")
     def custom_loader(body: CustomReqBody[NestedModel]) -> Ok[str]:

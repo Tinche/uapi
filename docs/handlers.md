@@ -190,7 +190,7 @@ async def login(session_token: Annotated[str, HeaderSpec("my_header")]) -> None:
 ```
 
 Headers may have defaults which will be used if the header is not present in the request.
-Also, headers with defaults will be rendered as `required=False` in the OpenAPI schema.
+Headers with defaults will be rendered as `required=False` in the OpenAPI schema.
 
 ```python
 @app.post("/login")
