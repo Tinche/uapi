@@ -396,4 +396,16 @@ async def get_root() -> Response:
 Handlers can return an instance of an _attrs_ class.
 The return value with be deserialized into JSON using the App _cattrs_ converter, which can be customized as per the usual _cattrs_ ways.
 
-The status code will be set to `200 OK`, and the content type to `application/json`.
+The status code will be set to `200 OK`, and the content type to `application/json`. The class will be added to the OpenAPI schema.
+
+```python
+from attrs import define
+
+@define
+class Article:
+    title: str
+
+@app.get("/article")
+async def get_article() -> Article:
+    ...
+```
