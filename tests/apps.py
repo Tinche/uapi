@@ -6,7 +6,7 @@ from uapi.cookies import CookieSettings, set_cookie
 from uapi.requests import JsonBodyLoader
 from uapi.status import Created, Forbidden, NoContent, Ok
 
-from .models import NestedModel, SimpleModel
+from .models import NestedModel, ResponseModel, SimpleModel
 from .models_2 import SimpleModel as SimpleModel2
 
 T = TypeVar("T")
@@ -118,6 +118,10 @@ def configure_base_async(app: App) -> None:
     async def simple_model_2() -> SimpleModel2:
         """OpenAPI should handle the same model name in different modules."""
         return SimpleModel2(1)
+
+    @app.get("/response-model")
+    async def response_model() -> ResponseModel:
+        return ResponseModel([])
 
     @app.get("/excluded")
     async def excluded() -> str:
@@ -235,6 +239,10 @@ def configure_base_sync(app: App) -> None:
     def simple_model_2() -> SimpleModel2:
         """OpenAPI should handle the same model name in different modules."""
         return SimpleModel2(1)
+
+    @app.get("/response-model")
+    def response_model() -> ResponseModel:
+        return ResponseModel([])
 
     @app.get("/excluded")
     def excluded() -> str:
