@@ -6,6 +6,7 @@ async def test_index(server):
         resp = await client.get(f"http://localhost:{server}")
         assert resp.status_code == 200
         assert resp.text == "Hello, world"
+        assert resp.headers["content-type"] == "text/plain"
 
 
 async def test_path_parameter(server):
@@ -62,6 +63,7 @@ async def test_query_bytes(server):
     async with AsyncClient() as client:
         resp = await client.get(f"http://localhost:{server}/query-bytes")
         assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/octet-stream"
         assert resp.read() == b"2"
 
 
