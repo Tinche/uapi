@@ -1,7 +1,7 @@
 from contextlib import suppress
 from inspect import Signature
 from types import MappingProxyType, NoneType
-from typing import Any, Callable, Mapping, Optional, get_args
+from typing import Any, Callable, Mapping, get_args
 
 from attrs import define, has
 from cattrs import Converter
@@ -32,7 +32,7 @@ def no_content(_, _nc: NoContent = NoContent()) -> NoContent:
 
 def make_return_adapter(
     return_type: Any, framework_response_cls: type, converter: Converter
-) -> Optional[Callable[..., BaseResponse]]:
+) -> Callable[..., BaseResponse] | None:
     if return_type is Signature.empty or is_subclass(
         return_type, framework_response_cls
     ):
@@ -57,6 +57,15 @@ def make_return_adapter(
     ):
         return lambda r: return_type(
             dumps(converter.unstructure(r.ret, unstructure_as=inner)),
+            r.headers | {"content-type": "application/json"},
+        )
+    if is_union_type(return_type) and all(
+        is_subclass(getattr(a, "__origin__", None), BaseResponse)
+        and has(get_args(a)[0])
+        for a in get_args(return_type)
+    ):
+        return lambda r: r.__class__(
+            dumps(converter.unstructure(r.ret)),
             r.headers | {"content-type": "application/json"},
         )
     return identity

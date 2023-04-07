@@ -178,6 +178,7 @@ def test_post_model(app_factory) -> None:
     ids=["aiohttp", "flask", "quart", "starlette", "django"],
 )
 def test_patch_union(app_factory) -> None:
+    """Unions of attrs classes."""
     app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 

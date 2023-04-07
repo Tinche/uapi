@@ -390,3 +390,10 @@ async def get_root() -> Response:
 ```
 
 ````
+
+### _attrs_ Classes
+
+Handlers can return an instance of an _attrs_ class.
+The return value with be deserialized into JSON using the App _cattrs_ converter, which can be customized as per the usual _cattrs_ ways.
+
+The status code will be set to `200 OK`, and the content type to `application/json`.

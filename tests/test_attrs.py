@@ -65,3 +65,20 @@ async def test_model_custom_error(server: int) -> None:
         )
         assert resp.status_code == 403
         assert resp.text == "While structuring NestedModel (1 sub-exception)"
+
+
+async def test_attrs_union(server: int) -> None:
+    """Unions of attrs classes work."""
+    async with AsyncClient() as client:
+        resp = await client.patch(f"http://localhost:{server}/patch/attrs")
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "a_dict": {},
+            "a_list": [],
+            "simple_model": {"a_float": 1.0, "a_string": "1", "an_int": 1},
+        }
+        resp = await client.patch(
+            f"http://localhost:{server}/patch/attrs", params={"test": "1"}
+        )
+        assert resp.status_code == 201
+        assert resp.json() == {"a_float": 1.0, "a_string": "1", "an_int": 1}
