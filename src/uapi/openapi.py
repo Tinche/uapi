@@ -253,6 +253,15 @@ def build_operation(
                         )
                     },
                 )
+            elif result_type is bytes:
+                responses[str(status_code)] = Response(
+                    "OK",
+                    {
+                        "application/octet-stream": MediaType(
+                            PYTHON_PRIMITIVES_TO_OPENAPI[result_type]
+                        )
+                    },
+                )
             elif result_type in (None, NoneType):
                 responses[str(status_code)] = Response("No content")
             elif has(result_type):

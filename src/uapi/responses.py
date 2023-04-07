@@ -40,7 +40,9 @@ def make_return_adapter(
         return None
     if return_type is None:
         return no_content
-    if return_type in (str, bytes):
+    if return_type is bytes:
+        return lambda r: Ok(r, {"content-type": "application/octet-stream"})
+    if return_type is str:
         return lambda r: Ok(r)
     with suppress(Exception):
         if issubclass(return_type, BaseResponse):

@@ -18,6 +18,7 @@ The **third number** is for emergencies when we need to start branches for older
 - Endpoints can be excluded from OpenAPI generation by passing them to `app.make_openapi_spec(exclude=...)` or `app.serve_openapi(exclude=...)`.
 - Initial implementation of OpenAPI security schemas, supporting the `apikey` type in Redis session backend.
 - Update the Elements OpenAPI UI to better handle cookies.
+- Flesh out the documentation for response types.
 
 ### Fixed
 

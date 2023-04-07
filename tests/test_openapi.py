@@ -67,8 +67,14 @@ def test_get_path_param(app_factory) -> None:
 
 @pytest.mark.parametrize(
     "app_factory",
-    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
-    ids=["aiohttp", "flask", "quart", "starlette"],
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
 )
 def test_get_query_int(app_factory) -> None:
     app = app_factory()
@@ -91,8 +97,14 @@ def test_get_query_int(app_factory) -> None:
 
 @pytest.mark.parametrize(
     "app_factory",
-    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
-    ids=["aiohttp", "flask", "quart", "starlette"],
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
 )
 def test_get_query_default(app_factory) -> None:
     app = app_factory()
@@ -176,7 +188,7 @@ def test_get_bytes(app_factory) -> None:
     assert op.get.parameters == []
     assert len(op.get.responses) == 1
     assert op.get.responses["200"]
-    assert op.get.responses["200"].content["application/json"].schema == Schema(
+    assert op.get.responses["200"].content["application/octet-stream"].schema == Schema(
         Schema.Type.STRING, format="binary"
     )
 

@@ -311,6 +311,18 @@ async def delete_article() -> NoContent:
     return NoContent(headers={"key": "value"})
 ```
 
+### Strings and Bytes `(200 OK)`
+
+If your handler returns a string or bytes, the response will be returned directly alongside the `200 OK` status code.
+
+```python
+@app.get("/article/image")
+async def get_article_image() -> bytes:
+    ...
+```
+
+For strings, the `content-type` header is set to `text/plain`, and for bytes to `application/octet-stream`.
+
 ### Framework-specific Response Objects
 
 If you need to return your framework's native response class, you can.
