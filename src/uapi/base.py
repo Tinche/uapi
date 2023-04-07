@@ -1,6 +1,6 @@
 from functools import partial
 from types import NoneType
-from typing import Any, Callable, ClassVar, Optional, Sequence
+from typing import Callable, ClassVar, Optional, Sequence
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -143,10 +143,14 @@ class App:
 
         self.route(path, redoc_handler)
 
-    def serve_elements(self, path: str = "/elements", **kwargs: Any):
-        from .openapi_ui import elements
+    def serve_elements(
+        self, path: str = "/elements", openapi_path: str = "/openapi.json"
+    ):
+        from .openapi_ui import elements as elements_html
 
-        def handler() -> Ok[str]:
-            return Ok(elements, {"content-type": "text/html"})
+        fixed_path = elements_html.replace("$OPENAPIURL", openapi_path)
 
-        self.route(path, handler)
+        def elements() -> Ok[str]:
+            return Ok(fixed_path, {"content-type": "text/html"})
+
+        self.route(path, elements)
