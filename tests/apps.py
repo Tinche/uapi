@@ -77,8 +77,10 @@ def configure_base_async(app: App) -> None:
     async def patch_with_response_cookies() -> Ok[None]:
         return Ok(None, set_cookie("cookie", "my_cookie", CookieSettings(max_age=1)))
 
-    async def patch_attrs_union() -> NestedModel | Created[SimpleModel]:
-        return NestedModel()
+    async def patch_attrs_union(
+        test: str = "",
+    ) -> Ok[NestedModel] | Created[SimpleModel]:
+        return Ok(NestedModel()) if test != "1" else Created(SimpleModel(1))
 
     app.route("/patch/attrs", patch_attrs_union, methods=["patch"])
 
@@ -204,8 +206,8 @@ def configure_base_sync(app: App) -> None:
     def patch_with_response_cookies() -> Ok[None]:
         return Ok(None, set_cookie("cookie", "my_cookie", CookieSettings(max_age=1)))
 
-    def patch_attrs_union() -> NestedModel | Created[SimpleModel]:
-        return NestedModel()
+    def patch_attrs_union(test: str = "") -> Ok[NestedModel] | Created[SimpleModel]:
+        return Ok(NestedModel()) if test != "1" else Created(SimpleModel(1))
 
     app.route("/patch/attrs", patch_attrs_union, methods=["patch"])
 
