@@ -294,3 +294,28 @@ def test_models_same_name(app_factory) -> None:
     assert spec.components.schemas["SimpleModel2"] == Schema(
         Schema.Type.OBJECT, {"a_different_int": Schema(type=Schema.Type.INTEGER)}
     )
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_response_models(app_factory) -> None:
+    """Response models should be properly added to the spec."""
+    app: App = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
+
+    assert spec.components.schemas["ResponseModel"] == Schema(
+        Schema.Type.OBJECT,
+        {"a_list": ArraySchema(Reference("#/components/schemas/ResponseList"))},
+    )
+    assert spec.components.schemas["ResponseList"] == Schema(
+        Schema.Type.OBJECT, {"a": Schema(type=Schema.Type.STRING)}
+    )

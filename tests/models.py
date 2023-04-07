@@ -17,3 +17,13 @@ class NestedModel:
     simple_model: SimpleModel = SimpleModel()
     a_dict: dict[str, str] = {}
     a_list: list[SimpleModel] = Factory(list)
+
+
+@define
+class ResponseList:
+    a: str
+
+
+@define
+class ResponseModel:
+    a_list: list[ResponseList]

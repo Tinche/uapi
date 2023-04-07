@@ -379,6 +379,28 @@ def routes_to_paths(
     }
 
 
+def _gather_attrs_components(
+    type: type, components: dict[type, str]
+) -> dict[type, str]:
+    """DFS for attrs components."""
+    if type in components:
+        return components
+    name = type.__name__
+    counter = 2
+    while name in components.values():
+        name = f"{type.__name__}{counter}"
+        counter += 1
+    components[type] = name
+    for a in fields(type):
+        if has(a.type):
+            _gather_attrs_components(a.type, components)
+        elif getattr(a.type, "__origin__", None) is list:
+            arg = a.type.__args__[0]
+            if has(arg):
+                _gather_attrs_components(arg, components)
+    return components
+
+
 def gather_endpoint_components(
     handler: Callable, components: dict[type, str]
 ) -> dict[type, str]:
@@ -397,12 +419,7 @@ def gather_endpoint_components(
     if (ret_type := sig.return_annotation) is not InspectParameter.empty:
         for _, r in get_status_code_results(ret_type):
             if has(r) and not issubclass(r, BaseResponse) and r not in components:
-                name = r.__name__
-                counter = 2
-                while name in components.values():
-                    name = f"{r.__name__}{counter}"
-                    counter += 1
-                components[r] = name
+                _gather_attrs_components(r, components)
     return components
 
 
