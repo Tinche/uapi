@@ -43,7 +43,7 @@ def make_return_adapter(
     if return_type is bytes:
         return lambda r: Ok(r, {"content-type": "application/octet-stream"})
     if return_type is str:
-        return lambda r: Ok(r)
+        return lambda r: Ok(r, {"content-type": "text/plain"})
     with suppress(Exception):
         if issubclass(return_type, BaseResponse):
             return identity

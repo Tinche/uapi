@@ -63,6 +63,7 @@ def test_get_path_param(app_factory) -> None:
     ]
     assert len(op.get.responses) == 1
     assert op.get.responses["200"]
+    assert op.get.responses["200"].content == {}
 
 
 @pytest.mark.parametrize(
