@@ -82,7 +82,7 @@ def configure_base_async(app: App) -> None:
     ) -> Ok[NestedModel] | Created[SimpleModel]:
         return Ok(NestedModel()) if test != "1" else Created(SimpleModel(1))
 
-    app.route("/patch/attrs", patch_attrs_union, methods=["patch"])
+    app.route("/patch/attrs", patch_attrs_union, methods=["PATCH"])
 
     @app.head("/head/exc")
     async def head_with_exc() -> str:
@@ -217,7 +217,7 @@ def configure_base_sync(app: App) -> None:
     def patch_attrs_union(test: str = "") -> Ok[NestedModel] | Created[SimpleModel]:
         return Ok(NestedModel()) if test != "1" else Created(SimpleModel(1))
 
-    app.route("/patch/attrs", patch_attrs_union, methods=["patch"])
+    app.route("/patch/attrs", patch_attrs_union, methods=["PATCH"])
 
     @app.head("/head/exc")
     def head_with_exc() -> str:

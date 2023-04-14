@@ -12,7 +12,7 @@ from .openapi import ApiKeySecurityScheme, OpenAPI
 from .openapi import converter as openapi_converter
 from .openapi import make_openapi_spec
 from .status import Ok
-from .types import PathParamParser
+from .types import Method, PathParamParser
 
 
 def make_base_incanter() -> Incanter:
@@ -41,7 +41,7 @@ class App:
         path: str,
         handler,
         name: Optional[str] = None,
-        methods: Sequence[str] = ["GET"],
+        methods: Sequence[Method] = ["GET"],
     ):
         """Register routes. This is not a decorator."""
         if name is None:

@@ -401,6 +401,8 @@ def _gather_attrs_components(
         counter += 1
     components[type] = name
     for a in fields(type):
+        if a.type is None:
+            continue
         if has(a.type):
             _gather_attrs_components(a.type, components)
         elif getattr(a.type, "__origin__", None) is list:
