@@ -38,8 +38,8 @@ class Created(BaseResponse[Literal[201], R]):
 
 @frozen
 class NoContent(BaseResponse[Literal[204], None]):
-    ret: None = None
     headers: Headers = MappingProxyType({})
+    ret: None = None
 
     @classmethod
     def status_code(cls) -> int:

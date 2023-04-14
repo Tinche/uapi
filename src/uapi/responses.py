@@ -65,8 +65,8 @@ def make_return_adapter(
         for a in get_args(return_type)
     ):
         return lambda r: r.__class__(
-            dumps(converter.unstructure(r.ret)),
-            r.headers | {"content-type": "application/json"},
+            ret=dumps(converter.unstructure(r.ret)),
+            headers=r.headers | {"content-type": "application/json"},
         )
     return identity
 
