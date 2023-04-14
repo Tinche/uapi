@@ -38,6 +38,7 @@ class Created(BaseResponse[Literal[201], R]):
 
 @frozen
 class NoContent(BaseResponse[Literal[204], None]):
+    headers: Headers = MappingProxyType({})
     ret: None = None
 
     @classmethod
