@@ -84,8 +84,8 @@ async def test_attrs_union(server: int) -> None:
         assert resp.json() == {"a_float": 1.0, "a_string": "1", "an_int": 1}
 
 
-async def test_attrs_union_none(server: int) -> None:
-    """Unions of attrs classes and None work."""
+async def test_attrs_union_nocontent(server: int) -> None:
+    """Unions of attrs classes and NoContent work."""
     async with AsyncClient() as client:
         resp = await client.get(f"http://localhost:{server}/response-union-nocontent")
         assert resp.status_code == 200
@@ -94,4 +94,17 @@ async def test_attrs_union_none(server: int) -> None:
             f"http://localhost:{server}/response-union-nocontent", params={"page": "1"}
         )
         assert resp.status_code == 204
+        assert resp.read() == b""
+
+
+async def test_attrs_union_none(server: int) -> None:
+    """Unions of attrs classes and None work."""
+    async with AsyncClient() as client:
+        resp = await client.get(f"http://localhost:{server}/response-union-none")
+        assert resp.status_code == 200
+        assert resp.json() == {"a_float": 1.0, "a_string": "1", "an_int": 1}
+        resp = await client.get(
+            f"http://localhost:{server}/response-union-none", params={"page": "1"}
+        )
+        assert resp.status_code == 403
         assert resp.read() == b""
