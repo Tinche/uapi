@@ -409,3 +409,15 @@ class Article:
 async def get_article() -> Article:
     ...
 ```
+
+### Returning Multiple Status Codes
+
+If your handler can return multiple status codes, use a union of _uapi_ response types.
+
+All responses defined this way will be rendered in the OpenAPI schema.
+
+```python
+@app.get("/profile")
+async def user_profile() -> Ok[Profile] | NoContent:
+    ...
+```

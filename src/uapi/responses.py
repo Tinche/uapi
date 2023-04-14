@@ -60,8 +60,8 @@ def make_return_adapter(
             r.headers | {"content-type": "application/json"},
         )
     if is_union_type(return_type) and all(
-        is_subclass(getattr(a, "__origin__", None), BaseResponse)
-        and has(get_args(a)[0])
+        is_subclass(getattr(a, "__origin__", a), BaseResponse)
+        and (a is NoContent or has(get_args(a)[0]))
         for a in get_args(return_type)
     ):
         return lambda r: r.__class__(
