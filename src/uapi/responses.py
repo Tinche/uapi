@@ -61,11 +61,11 @@ def make_return_adapter(
         )
     if is_union_type(return_type) and all(
         is_subclass(getattr(a, "__origin__", a), BaseResponse)
-        and (a is NoContent or has(get_args(a)[0]))
+        and (a is NoContent or has(get_args(a)[0]) or get_args(a)[0] is NoneType)
         for a in get_args(return_type)
     ):
         return lambda r: r.__class__(
-            ret=dumps(converter.unstructure(r.ret)),
+            ret=dumps(converter.unstructure(r.ret)) if r.ret is not None else None,
             headers=r.headers | {"content-type": "application/json"},
         )
     return identity

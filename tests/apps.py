@@ -135,6 +135,10 @@ def configure_base_async(app: App) -> None:
     def response_union_nocontent(page: int = 0) -> Ok[SimpleModel] | NoContent:
         return Ok(SimpleModel()) if not page else NoContent()
 
+    @app.get("/response-union-none")
+    async def response_union_none(page: int = 0) -> Ok[SimpleModel] | Forbidden[None]:
+        return Ok(SimpleModel()) if not page else Forbidden(None)
+
     @app.get("/excluded")
     async def excluded() -> str:
         """This should be excluded from OpenAPI."""
@@ -263,6 +267,10 @@ def configure_base_sync(app: App) -> None:
     @app.get("/response-union-nocontent")
     def response_union_nocontent(page: int = 0) -> Ok[SimpleModel] | NoContent:
         return Ok(SimpleModel()) if not page else NoContent()
+
+    @app.get("/response-union-none")
+    def response_union_none(page: int = 0) -> Ok[SimpleModel] | Forbidden[None]:
+        return Ok(SimpleModel()) if not page else Forbidden(None)
 
     @app.get("/excluded")
     def excluded() -> str:

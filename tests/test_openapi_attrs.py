@@ -320,3 +320,42 @@ def test_response_models(app_factory) -> None:
     assert spec.components.schemas["ResponseList"] == Schema(
         Schema.Type.OBJECT, {"a": Schema(type=Schema.Type.STRING)}
     )
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_response_union_none(app_factory) -> None:
+    """Response models of unions containing an inner None should be properly added to the spec."""
+    app: App = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
+
+    op = spec.paths["/response-union-none"]
+    assert op is not None
+    assert op.get is not None
+    assert op.post is None
+    assert op.put is None
+    assert op.patch is None
+
+    assert op.get.responses["200"]
+    assert op.get.responses["200"].content["application/json"].schema == Reference(
+        "#/components/schemas/SimpleModel"
+    )
+    assert op.get.responses["403"]
+
+    assert spec.components.schemas["SimpleModel"] == Schema(
+        Schema.Type.OBJECT,
+        properties={
+            "an_int": Schema(Schema.Type.INTEGER),
+            "a_string": Schema(Schema.Type.STRING),
+            "a_float": Schema(Schema.Type.NUMBER, format="double"),
+        },
+    )
