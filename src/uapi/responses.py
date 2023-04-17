@@ -47,17 +47,20 @@ def make_return_adapter(
     with suppress(Exception):
         if issubclass(return_type, BaseResponse):
             return identity
-    if has(return_type):
-        return lambda r: Ok(
-            dumps(converter.unstructure(r, unstructure_as=return_type)),
-            {"content-type": "application/json"},
-        )
     if is_subclass(getattr(return_type, "__origin__", None), BaseResponse) and has(
         inner := return_type.__args__[0]
     ):
         return lambda r: return_type(
             dumps(converter.unstructure(r.ret, unstructure_as=inner)),
             r.headers | {"content-type": "application/json"},
+        )
+    # attrs classes (but not ours)
+    if has(return_type) and not is_subclass(
+        getattr(return_type, "__origin__", None), BaseResponse
+    ):
+        return lambda r: Ok(
+            dumps(converter.unstructure(r, unstructure_as=return_type)),
+            {"content-type": "application/json"},
         )
     if is_union_type(return_type) and all(
         is_subclass(getattr(a, "__origin__", a), BaseResponse)
