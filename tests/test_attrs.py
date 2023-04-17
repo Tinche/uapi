@@ -6,7 +6,7 @@ from httpx import AsyncClient
 from tests.models import NestedModel
 
 
-async def test_model(server):
+async def test_model(server) -> None:
     model = NestedModel()
     unstructured = unstructure(model)
     async with AsyncClient() as client:

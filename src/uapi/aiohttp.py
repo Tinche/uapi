@@ -172,7 +172,7 @@ class AiohttpApp(BaseApp):
 
                 if ra == identity:
 
-                    async def adapted(  # type: ignore
+                    async def adapted(
                         request: FrameworkRequest,
                         _incant=self.framework_incant.aincant,
                         _fra=_framework_return_adapter,
