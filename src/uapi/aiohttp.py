@@ -178,6 +178,7 @@ class AiohttpApp(BaseApp):
                         _fra=_framework_return_adapter,
                         _prepared=prepared,
                         _path_params=path_params,
+                        _path_types=path_types,
                         _req_ct=req_ct,
                     ) -> FrameworkResponse:
                         if (
@@ -193,7 +194,7 @@ class AiohttpApp(BaseApp):
                                 self.converter.structure(
                                     request.match_info[p], path_type
                                 )
-                                if (path_type := path_types[p])
+                                if (path_type := _path_types[p])
                                 not in (str, Signature.empty)
                                 else request.match_info[p]
                             )
