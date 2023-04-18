@@ -116,4 +116,7 @@ async def test_generic_model(server) -> None:
             f"http://localhost:{server}/generic-model", json={"a": 1}
         )
         assert resp.status_code == 200
-        assert resp.json() == {"a": {"an_int": 1, "a_string": "1", "a_float": 1.0}}
+        assert resp.json() == {
+            "a": {"an_int": 1, "a_string": "1", "a_float": 1.0},
+            "b": [],
+        }

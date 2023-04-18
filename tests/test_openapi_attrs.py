@@ -440,11 +440,18 @@ def test_generic_model(app_factory) -> None:
     )
 
     assert spec.components.schemas["GenericModel[int]"] == Schema(
-        Schema.Type.OBJECT, properties={"a": Schema(Schema.Type.INTEGER)}
+        Schema.Type.OBJECT,
+        properties={
+            "a": Schema(Schema.Type.INTEGER),
+            "b": ArraySchema(InlineType(Schema.Type.INTEGER)),
+        },
     )
     assert spec.components.schemas["GenericModel[SimpleModel]"] == Schema(
         Schema.Type.OBJECT,
-        properties={"a": Reference("#/components/schemas/SimpleModel")},
+        properties={
+            "a": Reference("#/components/schemas/SimpleModel"),
+            "b": ArraySchema(Reference("#/components/schemas/SimpleModel")),
+        },
     )
     assert spec.components.schemas["SimpleModel"] == Schema(
         Schema.Type.OBJECT,
