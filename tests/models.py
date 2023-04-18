@@ -1,3 +1,5 @@
+from typing import Literal
+
 from attrs import Factory, define
 
 
@@ -27,3 +29,8 @@ class ResponseList:
 @define
 class ResponseModel:
     a_list: list[ResponseList]
+
+
+@define
+class ModelWithLiteral:
+    a: Literal["a", "b", "c"] = "a"
