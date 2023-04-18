@@ -399,3 +399,58 @@ def test_model_with_literal(app_factory) -> None:
         Schema.Type.OBJECT,
         properties={"a": Schema(Schema.Type.STRING, enum=["a", "b", "c"])},
     )
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_generic_model(app_factory) -> None:
+    """Models with Literal types are properly added to the spec."""
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
+
+    op = spec.paths["/generic-model"]
+    assert op is not None
+    assert op.get is None
+    assert op.post is not None
+    assert op.put is None
+    assert op.delete is None
+    assert op.patch is None
+
+    assert op.post.parameters == []
+    assert op.post.requestBody == RequestBody(
+        {
+            "application/json": MediaType(
+                Reference("#/components/schemas/GenericModel[int]")
+            )
+        },
+        required=True,
+    )
+
+    assert op.post.responses["200"].content["application/json"].schema == Reference(
+        "#/components/schemas/GenericModel[SimpleModel]"
+    )
+
+    assert spec.components.schemas["GenericModel[int]"] == Schema(
+        Schema.Type.OBJECT, properties={"a": Schema(Schema.Type.INTEGER)}
+    )
+    assert spec.components.schemas["GenericModel[SimpleModel]"] == Schema(
+        Schema.Type.OBJECT,
+        properties={"a": Reference("#/components/schemas/SimpleModel")},
+    )
+    assert spec.components.schemas["SimpleModel"] == Schema(
+        Schema.Type.OBJECT,
+        properties={
+            "an_int": Schema(Schema.Type.INTEGER),
+            "a_string": Schema(Schema.Type.STRING),
+            "a_float": Schema(Schema.Type.NUMBER, format="double"),
+        },
+    )

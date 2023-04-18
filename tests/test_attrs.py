@@ -108,3 +108,12 @@ async def test_attrs_union_none(server: int) -> None:
         )
         assert resp.status_code == 403
         assert resp.read() == b""
+
+
+async def test_generic_model(server) -> None:
+    async with AsyncClient() as client:
+        resp = await client.post(
+            f"http://localhost:{server}/generic-model", json={"a": 1}
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"a": {"an_int": 1, "a_string": "1", "a_float": 1.0}}

@@ -9,7 +9,7 @@ from typing import Callable, Literal, Mapping, TypeAlias
 
 from attrs import Factory, fields, frozen, has
 from cattrs import override
-from cattrs._compat import is_literal
+from cattrs._compat import is_generic, is_literal
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
@@ -396,7 +396,7 @@ def _gather_attrs_components(
     """DFS for attrs components."""
     if type in components:
         return components
-    name = type.__name__
+    name = type.__name__ if not is_generic(type) else _make_generic_name(type)
     counter = 2
     while name in components.values():
         name = f"{type.__name__}{counter}"
@@ -414,6 +414,11 @@ def _gather_attrs_components(
     return components
 
 
+def _make_generic_name(type: type) -> str:
+    """Used for generic attrs classes (Generic[int] instead of just Generic)."""
+    return type.__name__ + "[" + ", ".join(t.__name__ for t in type.__args__) + "]"
+
+
 def gather_endpoint_components(
     handler: Callable, components: dict[type, str]
 ) -> dict[type, str]:
@@ -423,7 +428,10 @@ def gather_endpoint_components(
             if (type_and_loader := maybe_req_body_attrs(arg)) is not None and (
                 arg_type := type_and_loader[0]
             ) not in components:
-                name = arg_type.__name__
+                if is_generic(arg_type):
+                    name = _make_generic_name(arg_type)
+                else:
+                    name = arg_type.__name__
                 counter = 0
                 while name in components.values():
                     name = f"{arg_type.__name__}{counter}"
@@ -431,7 +439,7 @@ def gather_endpoint_components(
                 components[arg_type] = name
     if (ret_type := sig.return_annotation) is not InspectParameter.empty:
         for _, r in get_status_code_results(ret_type):
-            if has(r) and not issubclass(r, BaseResponse) and r not in components:
+            if has(r) and not is_subclass(r, BaseResponse) and r not in components:
                 _gather_attrs_components(r, components)
     return components
 
@@ -450,7 +458,7 @@ def components_to_openapi(
 
     res: dict[str, AnySchema | Reference] = {}
     for component in components:
-        build_attrs_schema(component, components, res)
+        _build_attrs_schema(component, components, res)
 
     return OpenAPI.Components(res, security_schemes), components
 
@@ -482,38 +490,55 @@ def make_openapi_spec(
     )
 
 
-def build_attrs_schema(
+def _make_generic_mapping(type: type) -> dict:
+    """A mapping of TypeVars to their actual bound types."""
+    res = {}
+
+    for arg, param in zip(type.__args__, type.__origin__.__parameters__):
+        res[param] = arg
+
+    return res
+
+
+def _build_attrs_schema(
     type: type, names: dict[type, str], res: dict[str, AnySchema | Reference]
 ) -> None:
     properties = {}
     name = names[type]
+    mapping = _make_generic_mapping(type) if is_generic(type) else {}
     for a in fields(type):
         if a.type is None:
             continue
-        if a.type in PYTHON_PRIMITIVES_TO_OPENAPI:
-            schema: AnySchema | Reference = PYTHON_PRIMITIVES_TO_OPENAPI[a.type]
-        elif has(a.type):
-            ref = f"#/components/schemas/{names[a.type]}"
+
+        a_type = a.type
+
+        if a_type in mapping:
+            a_type = mapping[a_type]
+
+        if a_type in PYTHON_PRIMITIVES_TO_OPENAPI:
+            schema: AnySchema | Reference = PYTHON_PRIMITIVES_TO_OPENAPI[a_type]
+        elif has(a_type):
+            ref = f"#/components/schemas/{names[a_type]}"
             if ref not in res:
-                build_attrs_schema(a.type, names, res)
+                _build_attrs_schema(a_type, names, res)
             schema = Reference(ref)
-        elif getattr(a.type, "__origin__", None) is list:
-            arg = a.type.__args__[0]
+        elif getattr(a_type, "__origin__", None) is list:
+            arg = a_type.__args__[0]
             if has(arg):
                 ref = f"#/components/schemas/{names[arg]}"
                 if ref not in res:
-                    build_attrs_schema(arg, names, res)
+                    _build_attrs_schema(arg, names, res)
                 schema = ArraySchema(Reference(ref))
-        elif getattr(a.type, "__origin__", None) is dict:
-            val_arg = a.type.__args__[1]
+        elif getattr(a_type, "__origin__", None) is dict:
+            val_arg = a_type.__args__[1]
             schema = Schema(
                 Schema.Type.OBJECT,
                 additionalProperties=InlineType(
                     PYTHON_PRIMITIVES_TO_OPENAPI[val_arg].type
                 ),
             )
-        elif is_literal(a.type):
-            schema = Schema(Schema.Type.STRING, enum=list(a.type.__args__))
+        elif is_literal(a_type):
+            schema = Schema(Schema.Type.STRING, enum=list(a_type.__args__))
         else:
             continue
         properties[a.name] = schema
