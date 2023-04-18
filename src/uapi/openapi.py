@@ -416,7 +416,7 @@ def _gather_attrs_components(
 
 def _make_generic_name(type: type) -> str:
     """Used for generic attrs classes (Generic[int] instead of just Generic)."""
-    return type.__name__ + "[" + ", ".join(t.__name__ for t in type.__args__) + "]"
+    return type.__name__ + "[" + ", ".join(t.__name__ for t in type.__args__) + "]"  # type: ignore
 
 
 def gather_endpoint_components(
@@ -494,7 +494,7 @@ def _make_generic_mapping(type: type) -> dict:
     """A mapping of TypeVars to their actual bound types."""
     res = {}
 
-    for arg, param in zip(type.__args__, type.__origin__.__parameters__):
+    for arg, param in zip(type.__args__, type.__origin__.__parameters__):  # type: ignore
         res[param] = arg
 
     return res
