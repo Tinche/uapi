@@ -9,6 +9,7 @@ from typing import Callable, Literal, Mapping, TypeAlias
 
 from attrs import Factory, fields, frozen, has
 from cattrs import override
+from cattrs._compat import is_literal
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
@@ -49,6 +50,7 @@ class Schema:
     properties: dict[str, AnySchema | Reference] | None = None
     format: str | None = None
     additionalProperties: bool | InlineType = False
+    enum: list[str] | None = None
 
 
 @frozen
@@ -510,6 +512,8 @@ def build_attrs_schema(
                     PYTHON_PRIMITIVES_TO_OPENAPI[val_arg].type
                 ),
             )
+        elif is_literal(a.type):
+            schema = Schema(Schema.Type.STRING, enum=list(a.type.__args__))
         else:
             continue
         properties[a.name] = schema

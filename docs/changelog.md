@@ -19,6 +19,7 @@ The **third number** is for emergencies when we need to start branches for older
 - Initial implementation of OpenAPI security schemas, supporting the `apikey` type in Redis session backend.
 - Update the Elements OpenAPI UI to better handle cookies.
 - Flesh out the documentation for response types.
+- Add OpenAPI support for string literal fields.
 
 ### Fixed
 

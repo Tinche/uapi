@@ -359,3 +359,43 @@ def test_response_union_none(app_factory) -> None:
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },
     )
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_model_with_literal(app_factory) -> None:
+    """Models with Literal types are properly added to the spec."""
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
+
+    op = spec.paths["/literal-model"]
+    assert op is not None
+    assert op.get is not None
+    assert op.post is None
+    assert op.put is None
+    assert op.delete is None
+    assert op.patch is None
+
+    assert op.get.parameters == []
+    assert op.get.requestBody == RequestBody(
+        {
+            "application/json": MediaType(
+                Reference("#/components/schemas/ModelWithLiteral")
+            )
+        },
+        required=True,
+    )
+
+    assert spec.components.schemas["ModelWithLiteral"] == Schema(
+        Schema.Type.OBJECT,
+        properties={"a": Schema(Schema.Type.STRING, enum=["a", "b", "c"])},
+    )
