@@ -42,3 +42,4 @@ T = TypeVar("T")
 @define
 class GenericModel(Generic[T]):
     a: T
+    b: list[T] = Factory(list)
