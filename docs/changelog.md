@@ -20,6 +20,7 @@ The **third number** is for emergencies when we need to start branches for older
 - Update the Elements OpenAPI UI to better handle cookies.
 - Flesh out the documentation for response types.
 - Add OpenAPI support for string literal fields.
+- Add OpenAPI support for generic _attrs_ classes.
 
 ### Fixed
 

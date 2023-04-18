@@ -6,7 +6,13 @@ from uapi.cookies import CookieSettings, set_cookie
 from uapi.requests import HeaderSpec, JsonBodyLoader
 from uapi.status import Created, Forbidden, NoContent, Ok
 
-from .models import ModelWithLiteral, NestedModel, ResponseModel, SimpleModel
+from .models import (
+    GenericModel,
+    ModelWithLiteral,
+    NestedModel,
+    ResponseModel,
+    SimpleModel,
+)
 from .models_2 import SimpleModel as SimpleModel2
 
 T = TypeVar("T")
@@ -131,6 +137,11 @@ def configure_base_async(app: App) -> None:
     async def literal_model(m: ReqBody[ModelWithLiteral]) -> None:
         """OpenAPI should handle a model with a literal field."""
         return None
+
+    @app.post("/generic-model")
+    async def generic_model(m: ReqBody[GenericModel[int]]) -> GenericModel[SimpleModel]:
+        """OpenAPI should handle generic models."""
+        return GenericModel(SimpleModel(1))
 
     @app.get("/response-model")
     async def response_model() -> ResponseModel:
@@ -269,6 +280,11 @@ def configure_base_sync(app: App) -> None:
     def literal_model(m: ReqBody[ModelWithLiteral]) -> None:
         """OpenAPI should handle a model with a literal field."""
         return None
+
+    @app.post("/generic-model")
+    def generic_model(m: ReqBody[GenericModel[int]]) -> GenericModel[SimpleModel]:
+        """OpenAPI should handle generic models."""
+        return GenericModel(SimpleModel(1))
 
     @app.get("/response-model")
     def response_model() -> ResponseModel:
