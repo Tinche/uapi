@@ -443,7 +443,7 @@ def test_generic_model(app_factory) -> None:
         Schema.Type.OBJECT,
         properties={
             "a": Schema(Schema.Type.INTEGER),
-            "b": ArraySchema(Schema(Schema.Type.INTEGER)),
+            "b": ArraySchema(InlineType(Schema.Type.INTEGER)),
         },
     )
     assert spec.components.schemas["GenericModel[SimpleModel]"] == Schema(

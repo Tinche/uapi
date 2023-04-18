@@ -55,7 +55,7 @@ class Schema:
 
 @frozen
 class ArraySchema:
-    items: InlineType | Reference | Schema
+    items: InlineType | Reference
     type: Literal[Schema.Type.ARRAY] = Schema.Type.ARRAY
 
 
@@ -532,7 +532,7 @@ def _build_attrs_schema(
                     _build_attrs_schema(arg, names, res)
                 schema = ArraySchema(Reference(ref))
             elif arg in PYTHON_PRIMITIVES_TO_OPENAPI:
-                schema = ArraySchema(PYTHON_PRIMITIVES_TO_OPENAPI[arg])
+                schema = ArraySchema(InlineType(PYTHON_PRIMITIVES_TO_OPENAPI[arg].type))
         elif getattr(a_type, "__origin__", None) is dict:
             val_arg = a_type.__args__[1]
             schema = Schema(
