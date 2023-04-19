@@ -10,6 +10,8 @@ from .models import (
     GenericModel,
     ModelWithLiteral,
     NestedModel,
+    ResponseGenericModel,
+    ResponseGenericModelInner,
     ResponseModel,
     SimpleModel,
 )
@@ -146,6 +148,12 @@ def configure_base_async(app: App) -> None:
     @app.get("/response-model")
     async def response_model() -> ResponseModel:
         return ResponseModel([])
+
+    @app.get("/response-generic-model")
+    async def response_generic_model() -> ResponseGenericModel[
+        ResponseGenericModelInner
+    ]:
+        return ResponseGenericModel(ResponseGenericModelInner(1))
 
     @app.get("/response-union-nocontent")
     def response_union_nocontent(page: int = 0) -> Ok[SimpleModel] | NoContent:
@@ -289,6 +297,10 @@ def configure_base_sync(app: App) -> None:
     @app.get("/response-model")
     def response_model() -> ResponseModel:
         return ResponseModel([])
+
+    @app.get("/response-generic-model")
+    def response_generic_model() -> ResponseGenericModel[ResponseGenericModelInner]:
+        return ResponseGenericModel(ResponseGenericModelInner(1))
 
     @app.get("/response-union-nocontent")
     def response_union_nocontent(page: int = 0) -> Ok[SimpleModel] | NoContent:

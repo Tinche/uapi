@@ -43,3 +43,15 @@ T = TypeVar("T")
 class GenericModel(Generic[T]):
     a: T
     b: list[T] = Factory(list)
+
+
+@define
+class ResponseGenericModel(Generic[T]):
+    """Used in a response to test collection."""
+
+    a: T
+
+
+@define
+class ResponseGenericModelInner:
+    a: int
