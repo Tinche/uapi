@@ -491,12 +491,23 @@ def test_generic_response_model(app_factory) -> None:
     assert op.get.requestBody is None
 
     assert op.get.responses["200"].content["application/json"].schema == Reference(
-        "#/components/schemas/ResponseGenericModel[ResponseGenericModelInner]"
+        "#/components/schemas/ResponseGenericModel[ResponseGenericModelInner, ResponseGenericModelListInner]"
     )
 
     assert spec.components.schemas[
-        "ResponseGenericModel[ResponseGenericModelInner]"
+        "ResponseGenericModel[ResponseGenericModelInner, ResponseGenericModelListInner]"
     ] == Schema(
         Schema.Type.OBJECT,
-        properties={"a": Reference("#/components/schemas/ResponseGenericModelInner")},
+        properties={
+            "a": Reference("#/components/schemas/ResponseGenericModelInner"),
+            "b": ArraySchema(
+                Reference("#/components/schemas/ResponseGenericModelListInner")
+            ),
+        },
+    )
+    assert spec.components.schemas["ResponseGenericModelInner"] == Schema(
+        Schema.Type.OBJECT, properties={"a": Schema(Schema.Type.INTEGER)}
+    )
+    assert spec.components.schemas["ResponseGenericModelListInner"] == Schema(
+        Schema.Type.OBJECT, properties={"a": Schema(Schema.Type.INTEGER)}
     )

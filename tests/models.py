@@ -37,6 +37,7 @@ class ModelWithLiteral:
 
 
 T = TypeVar("T")
+U = TypeVar("U")
 
 
 @define
@@ -46,12 +47,18 @@ class GenericModel(Generic[T]):
 
 
 @define
-class ResponseGenericModel(Generic[T]):
+class ResponseGenericModel(Generic[T, U]):
     """Used in a response to test collection."""
 
     a: T
+    b: list[U] = Factory(list)
 
 
 @define
 class ResponseGenericModelInner:
+    a: int
+
+
+@define
+class ResponseGenericModelListInner:
     a: int

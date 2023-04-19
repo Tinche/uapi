@@ -12,6 +12,7 @@ from .models import (
     NestedModel,
     ResponseGenericModel,
     ResponseGenericModelInner,
+    ResponseGenericModelListInner,
     ResponseModel,
     SimpleModel,
 )
@@ -151,7 +152,7 @@ def configure_base_async(app: App) -> None:
 
     @app.get("/response-generic-model")
     async def response_generic_model() -> ResponseGenericModel[
-        ResponseGenericModelInner
+        ResponseGenericModelInner, ResponseGenericModelListInner
     ]:
         return ResponseGenericModel(ResponseGenericModelInner(1))
 
@@ -299,7 +300,9 @@ def configure_base_sync(app: App) -> None:
         return ResponseModel([])
 
     @app.get("/response-generic-model")
-    def response_generic_model() -> ResponseGenericModel[ResponseGenericModelInner]:
+    def response_generic_model() -> (
+        ResponseGenericModel[ResponseGenericModelInner, ResponseGenericModelListInner]
+    ):
         return ResponseGenericModel(ResponseGenericModelInner(1))
 
     @app.get("/response-union-nocontent")
