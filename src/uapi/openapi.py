@@ -402,14 +402,17 @@ def _gather_attrs_components(
         name = f"{type.__name__}{counter}"
         counter += 1
     components[type] = name
+    mapping = _make_generic_mapping(type) if is_generic(type) else {}
     for a in fields(type):
         if a.type is None:
             continue
-        if has(a.type):
-            _gather_attrs_components(a.type, components)
-        elif getattr(a.type, "__origin__", None) is list:
-            arg = a.type.__args__[0]
+        a_type = mapping.get(a.type, a.type)
+        if has(a_type):
+            _gather_attrs_components(a_type, components)
+        elif getattr(a_type, "__origin__", None) is list:
+            arg = a_type.__args__[0]
             if has(arg):
+                arg = mapping.get(arg, arg)
                 _gather_attrs_components(arg, components)
     return components
 

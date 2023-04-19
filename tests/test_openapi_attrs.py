@@ -461,3 +461,42 @@ def test_generic_model(app_factory) -> None:
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },
     )
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_generic_response_model(app_factory) -> None:
+    """Models from responses are collected properly."""
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
+
+    op = spec.paths["/response-generic-model"]
+    assert op is not None
+    assert op.get is not None
+    assert op.post is None
+    assert op.put is None
+    assert op.delete is None
+    assert op.patch is None
+
+    assert op.get.parameters == []
+    assert op.get.requestBody is None
+
+    assert op.get.responses["200"].content["application/json"].schema == Reference(
+        "#/components/schemas/ResponseGenericModel[ResponseGenericModelInner]"
+    )
+
+    assert spec.components.schemas[
+        "ResponseGenericModel[ResponseGenericModelInner]"
+    ] == Schema(
+        Schema.Type.OBJECT,
+        properties={"a": Reference("#/components/schemas/ResponseGenericModelInner")},
+    )
