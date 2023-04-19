@@ -411,8 +411,8 @@ def _gather_attrs_components(
             _gather_attrs_components(a_type, components)
         elif getattr(a_type, "__origin__", None) is list:
             arg = a_type.__args__[0]
+            arg = mapping.get(arg, arg)
             if has(arg):
-                arg = mapping.get(arg, arg)
                 _gather_attrs_components(arg, components)
     return components
 
