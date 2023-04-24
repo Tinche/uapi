@@ -16,14 +16,14 @@ from cattrs.preconf.json import make_converter
 from .requests import get_cookie_name, maybe_header_type, maybe_req_body_attrs
 from .responses import get_status_code_results
 from .status import BaseResponse
-from .types import Method, PathParamParser, Routes, is_subclass
+from .types import Method, PathParamParser, RouteName, Routes, RouteTags, is_subclass
 
 converter = make_converter(omit_if_default=True)
 
 # MediaTypeNames are like `application/json`.
 MediaTypeName = str
 
-SummaryTransformer = Callable[[Callable, str], str | None]
+SummaryTransformer: TypeAlias = Callable[[Callable, str], str | None]
 
 
 def default_summary_transformer(handler: Callable, name: str) -> str:
@@ -133,6 +133,7 @@ class OpenAPI:
             requestBody: RequestBody | None = None
             security: list[SecurityRequirement] = Factory(list)
             summary: str | None = None
+            tags: list[str] = Factory(list)
 
         get: Operation | None = None
         post: Operation | None = None
@@ -169,6 +170,7 @@ def build_operation(
     framework_resp_cls: type | None,
     security_schemas: Mapping[str, ApiKeySecurityScheme],
     summary_transformer: SummaryTransformer,
+    tags: list[str],
 ) -> OpenAPI.PathItem.Operation:
     request_bodies = {}
     request_body_required = False
@@ -306,13 +308,13 @@ def build_operation(
             security.append({sec_name: []})
 
     return OpenAPI.PathItem.Operation(
-        responses, params, req_body, security, summary_transformer(handler, name)
+        responses, params, req_body, security, summary_transformer(handler, name), tags
     )
 
 
 def build_pathitem(
     path: str,
-    path_routes: dict[Method, tuple[Callable, str]],
+    path_routes: dict[Method, tuple[Callable, RouteName, RouteTags]],
     components: dict[type, str],
     path_param_parser: PathParamParser,
     framework_req_cls: type | None,
@@ -332,6 +334,7 @@ def build_pathitem(
             framework_resp_cls,
             security_schemas,
             summary_transformer,
+            list(get_route[2]),
         )
     if post_route := path_routes.get("POST"):
         post = build_operation(
@@ -344,6 +347,7 @@ def build_pathitem(
             framework_resp_cls,
             security_schemas,
             summary_transformer,
+            list(post_route[2]),
         )
     if put_route := path_routes.get("PUT"):
         put = build_operation(
@@ -356,6 +360,7 @@ def build_pathitem(
             framework_resp_cls,
             security_schemas,
             summary_transformer,
+            list(put_route[2]),
         )
     if patch_route := path_routes.get("PATCH"):
         patch = build_operation(
@@ -368,6 +373,7 @@ def build_pathitem(
             framework_resp_cls,
             security_schemas,
             summary_transformer,
+            list(patch_route[2]),
         )
     if delete_route := path_routes.get("DELETE"):
         delete = build_operation(
@@ -380,6 +386,7 @@ def build_pathitem(
             framework_resp_cls,
             security_schemas,
             summary_transformer,
+            list(delete_route[2]),
         )
     return OpenAPI.PathItem(get, post, put, patch, delete)
 
@@ -393,11 +400,13 @@ def routes_to_paths(
     security_schemas: Mapping[str, ApiKeySecurityScheme],
     summary_transformer: SummaryTransformer,
 ) -> dict[str, OpenAPI.PathItem]:
-    res: dict[str, dict[Method, tuple[Callable, str]]] = defaultdict(dict)
+    res: dict[str, dict[Method, tuple[Callable, RouteName, RouteTags]]] = defaultdict(
+        dict
+    )
 
-    for (method, path), (handler, name) in routes.items():
+    for (method, path), (handler, name, tags) in routes.items():
         path = path_param_parser(path)[0]
-        res[path] = res[path] | {method: (handler, name)}
+        res[path] = res[path] | {method: (handler, name, tags)}
 
     return {
         k: build_pathitem(
@@ -480,7 +489,7 @@ def components_to_openapi(
     """
     # First pass, we build the component registry.
     components: dict[type, str] = {}
-    for handler, _ in routes.values():
+    for handler, _, _ in routes.values():
         gather_endpoint_components(handler, components)
 
     res: dict[str, AnySchema | Reference] = {}

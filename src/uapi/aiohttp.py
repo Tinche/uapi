@@ -103,7 +103,7 @@ class AiohttpApp(BaseApp):
     def to_framework_routes(self) -> RouteTableDef:
         r = RouteTableDef()
 
-        for (method, path), (handler, name) in self._route_map.items():
+        for (method, path), (handler, name, _) in self._route_map.items():
             ra = make_return_adapter(
                 signature(handler, eval_str=True).return_annotation,
                 FrameworkResponse,
