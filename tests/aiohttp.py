@@ -34,19 +34,19 @@ def make_app() -> App:
     async def unannotated_exception() -> Response:
         raise ResponseException(NoContent())
 
-    @app.get("/query/unannotated")
+    @app.get("/query/unannotated", tags=["query"])
     async def query_unannotated(query) -> Response:
         return Response(text=query + "suffix")
 
-    @app.get("/query/string")
+    @app.get("/query/string", tags=["query"])
     async def query_string(query: str) -> Response:
         return Response(text=query + "suffix")
 
-    @app.get("/query")
+    @app.get("/query", tags=["query"])
     async def query_param(page: int) -> Response:
         return Response(text=str(page + 1))
 
-    @app.get("/query-default")
+    @app.get("/query-default", tags=["query"])
     async def query_default(page: int = 0) -> Response:
         return Response(text=str(page + 1))
 

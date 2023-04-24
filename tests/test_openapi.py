@@ -412,3 +412,35 @@ def test_excluded(app_factory) -> None:
     spec: OpenAPI = app.make_openapi_spec(exclude={"excluded"})
 
     assert "/excluded" not in spec.paths
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_tags(app_factory) -> None:
+    app: App = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
+
+    tagged_routes = [
+        ("/query-bytes", "get"),
+        ("/query/unannotated", "get"),
+        ("/query/string", "get"),
+        ("/query", "get"),
+        ("/query-default", "get"),
+    ]
+
+    for path, path_item in spec.paths.items():
+        for method in ("get", "post", "put", "delete", "patch"):
+            if getattr(path_item, method) is not None:
+                if (path, method) in tagged_routes:
+                    assert ["query"] == getattr(path_item, method).tags
+                else:
+                    assert not getattr(path_item, method).tags

@@ -33,7 +33,7 @@ from .requests import (
 )
 from .responses import dict_to_headers, identity, make_return_adapter
 from .status import BaseResponse, get_status_code
-from .types import Method, PathParamParser
+from .types import Method, PathParamParser, RouteName, RouteTags
 
 C = TypeVar("C")
 
@@ -120,15 +120,17 @@ class DjangoApp(BaseApp):
     def to_urlpatterns(self) -> list[URLPattern]:
         res = []
 
-        by_path_by_method: dict[str, dict[Method, tuple[Callable, str]]] = {}
-        for (method, path), (handler, name) in self._route_map.items():
-            by_path_by_method.setdefault(path, {})[method] = (handler, name)
+        by_path_by_method: dict[
+            str, dict[Method, tuple[Callable, RouteName, RouteTags]]
+        ] = {}
+        for (method, path), v in self._route_map.items():
+            by_path_by_method.setdefault(path, {})[method] = v
 
         for path, methods_and_handlers in by_path_by_method.items():
             # Django does not strip the prefix slash, so we do it for it.
             path = path.removeprefix("/")
             per_method_adapted = {}
-            for method, (handler, name) in methods_and_handlers.items():
+            for method, (handler, name, _) in methods_and_handlers.items():
                 ra = make_return_adapter(
                     signature(handler, eval_str=True).return_annotation,
                     FrameworkResponse,

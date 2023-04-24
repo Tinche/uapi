@@ -38,7 +38,7 @@ def configure_base_async(app: App) -> None:
     async def hello() -> str:
         return "Hello, world"
 
-    @app.get("/query-bytes")
+    @app.get("/query-bytes", tags=["query"])
     async def query_bytes() -> bytes:
         return b"2"
 
@@ -191,7 +191,7 @@ def configure_base_sync(app: App) -> None:
     def hello() -> str:
         return "Hello, world"
 
-    @app.get("/query-bytes")
+    @app.get("/query-bytes", tags=["query"])
     def query_bytes() -> bytes:
         return b"2"
 
