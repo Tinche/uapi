@@ -26,6 +26,7 @@ async def test_get_index(server_with_openapi: int) -> None:
     op = spec.paths["/"]
     assert op is not None
     assert op.get is not None
+    assert op.get.summary == "Hello"
     assert op.get.parameters == []
     assert len(op.get.responses) == 1
     assert op.get.responses["200"]
@@ -33,6 +34,9 @@ async def test_get_index(server_with_openapi: int) -> None:
     assert (
         op.get.responses["200"].content["text/plain"].schema.type == Schema.Type.STRING
     )
+
+    assert op.post is not None
+    assert op.post.summary == "Hello-Post"
 
 
 @pytest.mark.parametrize(
@@ -152,8 +156,14 @@ def test_get_query_unannotated(app_factory) -> None:
 
 @pytest.mark.parametrize(
     "app_factory",
-    [aiohttp_make_app, flask_make_app, quart_make_app, starlette_make_app],
-    ids=["aiohttp", "flask", "quart", "starlette"],
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
 )
 def test_get_query_string(app_factory) -> None:
     app = app_factory()

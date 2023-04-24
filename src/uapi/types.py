@@ -1,11 +1,11 @@
-from typing import Callable, Literal, Optional, TypeAlias, TypeVar
+from typing import Callable, Literal, TypeAlias, TypeVar
 
 R = TypeVar("R")
 CB = Callable[..., R]
 
-Routes: TypeAlias = dict[tuple[str, str], tuple[Callable, Optional[str]]]
-PathParamParser: TypeAlias = Callable[[str], tuple[str, list[str]]]
 Method: TypeAlias = Literal["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+Routes: TypeAlias = dict[tuple[Method, str], tuple[Callable, str]]
+PathParamParser: TypeAlias = Callable[[str], tuple[str, list[str]]]
 
 
 def is_subclass(cls, subclass) -> bool:
