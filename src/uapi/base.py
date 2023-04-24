@@ -1,6 +1,6 @@
 from functools import partial
 from types import NoneType
-from typing import Callable, ClassVar, Optional, Sequence
+from typing import Callable, ClassVar, Sequence
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -8,9 +8,9 @@ from cattrs.preconf.orjson import make_converter
 from incant import Incanter
 from orjson import dumps
 
-from .openapi import ApiKeySecurityScheme, OpenAPI
+from .openapi import ApiKeySecurityScheme, OpenAPI, SummaryTransformer
 from .openapi import converter as openapi_converter
-from .openapi import make_openapi_spec
+from .openapi import default_summary_transformer, make_openapi_spec
 from .status import Ok
 from .types import Method, PathParamParser
 
@@ -30,7 +30,7 @@ class OpenAPISecuritySpec:
 class App:
     converter: Converter = Factory(make_converter)
     base_incant: Incanter = Factory(make_base_incanter)
-    _route_map: dict[tuple[str, str], tuple[Callable, str | None]] = Factory(dict)
+    _route_map: dict[tuple[Method, str], tuple[Callable, str]] = Factory(dict)
     _openapi_security: list[OpenAPISecuritySpec] = Factory(list)
     _path_param_parser: ClassVar[PathParamParser] = lambda p: (p, [])
     _framework_req_cls: ClassVar[type] = NoneType
@@ -40,35 +40,35 @@ class App:
         self,
         path: str,
         handler,
-        name: Optional[str] = None,
+        name: str | None = None,
         methods: Sequence[Method] = ["GET"],
     ):
         """Register routes. This is not a decorator."""
         if name is None:
             name = handler.__name__
         for method in methods:
-            self._route_map[(method.upper(), path)] = (handler, name)
+            self._route_map[(method, path)] = (handler, name)
         return handler
 
-    def get(self, path: str, name: Optional[str] = None):
+    def get(self, path: str, name: str | None = None):
         return partial(self.route, path, name=name, methods=["GET"])
 
-    def post(self, path: str, name: Optional[str] = None):
+    def post(self, path: str, name: str | None = None):
         return partial(self.route, path, name=name, methods=["POST"])
 
-    def put(self, path: str, name: Optional[str] = None):
+    def put(self, path: str, name: str | None = None):
         return partial(self.route, path, name=name, methods=["PUT"])
 
-    def patch(self, path: str, name: Optional[str] = None):
+    def patch(self, path: str, name: str | None = None):
         return partial(self.route, path, name=name, methods=["PATCH"])
 
-    def delete(self, path: str, name: Optional[str] = None):
+    def delete(self, path: str, name: str | None = None):
         return partial(self.route, path, name=name, methods=["DELETE"])
 
-    def head(self, path: str, name: Optional[str] = None):
+    def head(self, path: str, name: str | None = None):
         return partial(self.route, path, name=name, methods=["HEAD"])
 
-    def options(self, path: str, name: Optional[str] = None):
+    def options(self, path: str, name: str | None = None):
         return partial(self.route, path, name=name, methods=["OPTIONS"])
 
     def route_app(
@@ -85,12 +85,18 @@ class App:
             self._route_map[(method, (prefix or "") + path)] = (handler, name)
 
     def make_openapi_spec(
-        self, title: str = "Server", version: str = "1.0", exclude: set[str] = set()
+        self,
+        title: str = "Server",
+        version: str = "1.0",
+        exclude: set[str] = set(),
+        summary_transformer: SummaryTransformer = default_summary_transformer,
     ) -> OpenAPI:
         """
         Create the OpenAPI spec for the registered routes.
 
-        :param exlude: A set of route names to exclude from the spec.
+        :param exclude: A set of route names to exclude from the spec.
+        :param summary_transformer: A function to map handlers and
+            route names to OpenAPI PathItem summary strings.
         """
         # We need to prepare the handlers to get the correct signature.
         route_map = {
@@ -106,6 +112,7 @@ class App:
             self._framework_req_cls,
             self._framework_resp_cls,
             [s.security_scheme for s in self._openapi_security],
+            summary_transformer,
         )
 
     def serve_openapi(
@@ -113,13 +120,18 @@ class App:
         title: str = "Server",
         path: str = "/openapi.json",
         exclude: set[str] = set(),
+        summary_transformer: SummaryTransformer = default_summary_transformer,
     ):
         """
         Create the OpenAPI spec and start serving it at the given path.
 
-        :param exlude: A set of route names to exclude from the spec.
+        :param exclude: A set of route names to exclude from the spec.
+        :param summary_transformer: A function to map handlers and
+            route names to OpenAPI PathItem summary strings.
         """
-        openapi = self.make_openapi_spec(title, exclude=exclude)
+        openapi = self.make_openapi_spec(
+            title, exclude=exclude, summary_transformer=summary_transformer
+        )
         payload = dumps(openapi_converter.unstructure(openapi))
 
         def openapi_handler() -> Ok[bytes]:

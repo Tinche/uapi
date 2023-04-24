@@ -7,6 +7,7 @@
 
 self
 handlers.md
+openapi.md
 changelog.md
 indices.md
 ```
@@ -21,7 +22,7 @@ Using _uapi_ enables you to:
 - generate and use **OpenAPI** descriptions of your endpoints.
 - optionally **type-check** your handlers with [Mypy](https://mypy.readthedocs.io/en/stable/).
 - write and use **powerful middleware**.
-- **integrate** with existing apps based on [Django](https://docs.djangoproject.com/en/stable/), [FastAPI](https://fastapi.tiangolo.com/), [Starlette](https://www.starlette.io/), [Flask](https://flask.palletsprojects.com/en/latest/), [Quart](https://pgjones.gitlab.io/quart/) or [Aiohttp](https://docs.aiohttp.org/en/stable/).
+- **integrate** with existing apps based on [Django](https://docs.djangoproject.com/en/stable/), [Starlette](https://www.starlette.io/), [Flask](https://flask.palletsprojects.com/en/latest/), [Quart](https://pgjones.gitlab.io/quart/) or [Aiohttp](https://docs.aiohttp.org/en/stable/).
 
 # Installation
 

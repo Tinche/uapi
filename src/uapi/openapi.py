@@ -16,12 +16,18 @@ from cattrs.preconf.json import make_converter
 from .requests import get_cookie_name, maybe_header_type, maybe_req_body_attrs
 from .responses import get_status_code_results
 from .status import BaseResponse
-from .types import PathParamParser, Routes, is_subclass
+from .types import Method, PathParamParser, Routes, is_subclass
 
 converter = make_converter(omit_if_default=True)
 
 # MediaTypeNames are like `application/json`.
 MediaTypeName = str
+
+SummaryTransformer = Callable[[Callable, str], str | None]
+
+
+def default_summary_transformer(handler: Callable, name: str) -> str:
+    return name.replace("_", " ").title()
 
 
 @frozen
@@ -126,6 +132,7 @@ class OpenAPI:
             parameters: list[Parameter] = Factory(list)
             requestBody: RequestBody | None = None
             security: list[SecurityRequirement] = Factory(list)
+            summary: str | None = None
 
         get: Operation | None = None
         post: Operation | None = None
@@ -154,12 +161,14 @@ PYTHON_PRIMITIVES_TO_OPENAPI = {
 
 def build_operation(
     handler: Callable,
+    name: str,
     path: str,
     components: dict[type, str],
     path_param_parser: PathParamParser,
     framework_req_cls: type | None,
     framework_resp_cls: type | None,
     security_schemas: Mapping[str, ApiKeySecurityScheme],
+    summary_transformer: SummaryTransformer,
 ) -> OpenAPI.PathItem.Operation:
     request_bodies = {}
     request_body_required = False
@@ -296,68 +305,81 @@ def build_operation(
         ):
             security.append({sec_name: []})
 
-    return OpenAPI.PathItem.Operation(responses, params, req_body, security)
+    return OpenAPI.PathItem.Operation(
+        responses, params, req_body, security, summary_transformer(handler, name)
+    )
 
 
 def build_pathitem(
     path: str,
-    path_routes: dict[str, Callable],
+    path_routes: dict[Method, tuple[Callable, str]],
     components: dict[type, str],
     path_param_parser: PathParamParser,
     framework_req_cls: type | None,
     framework_resp_cls: type | None,
     security_schemas: Mapping[str, ApiKeySecurityScheme],
+    summary_transformer: SummaryTransformer,
 ) -> OpenAPI.PathItem:
     get = post = put = patch = delete = None
     if get_route := path_routes.get("GET"):
         get = build_operation(
-            get_route,
+            get_route[0],
+            get_route[1],
             path,
             components,
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
             security_schemas,
+            summary_transformer,
         )
     if post_route := path_routes.get("POST"):
         post = build_operation(
-            post_route,
+            post_route[0],
+            post_route[1],
             path,
             components,
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
             security_schemas,
+            summary_transformer,
         )
     if put_route := path_routes.get("PUT"):
         put = build_operation(
-            put_route,
+            put_route[0],
+            put_route[1],
             path,
             components,
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
             security_schemas,
+            summary_transformer,
         )
     if patch_route := path_routes.get("PATCH"):
         patch = build_operation(
-            patch_route,
+            patch_route[0],
+            patch_route[1],
             path,
             components,
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
             security_schemas,
+            summary_transformer,
         )
     if delete_route := path_routes.get("DELETE"):
         delete = build_operation(
-            delete_route,
+            delete_route[0],
+            delete_route[1],
             path,
             components,
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
             security_schemas,
+            summary_transformer,
         )
     return OpenAPI.PathItem(get, post, put, patch, delete)
 
@@ -369,12 +391,13 @@ def routes_to_paths(
     framework_req_cls: type | None,
     framework_resp_cls: type | None,
     security_schemas: Mapping[str, ApiKeySecurityScheme],
+    summary_transformer: SummaryTransformer,
 ) -> dict[str, OpenAPI.PathItem]:
-    res: dict[str, dict[str, Callable]] = defaultdict(dict)
+    res: dict[str, dict[Method, tuple[Callable, str]]] = defaultdict(dict)
 
-    for (method, path), (handler, _) in routes.items():
+    for (method, path), (handler, name) in routes.items():
         path = path_param_parser(path)[0]
-        res[path] = res[path] | {method: handler}
+        res[path] = res[path] | {method: (handler, name)}
 
     return {
         k: build_pathitem(
@@ -385,6 +408,7 @@ def routes_to_paths(
             framework_req_cls,
             framework_resp_cls,
             security_schemas,
+            summary_transformer,
         )
         for k, v in res.items()
     }
@@ -474,6 +498,7 @@ def make_openapi_spec(
     framework_req_cls: type | None = None,
     framework_resp_cls: type | None = None,
     security_schemes: list[ApiKeySecurityScheme] = [],
+    summary_transformer: SummaryTransformer = default_summary_transformer,
 ) -> OpenAPI:
     c, components = components_to_openapi(
         routes, {f"{scheme.in_}/{scheme.name}": scheme for scheme in security_schemes}
@@ -488,6 +513,7 @@ def make_openapi_spec(
             framework_req_cls,
             framework_resp_cls,
             c.securitySchemes,
+            summary_transformer,
         ),
         c,
     )

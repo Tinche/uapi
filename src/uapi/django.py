@@ -33,7 +33,7 @@ from .requests import (
 )
 from .responses import dict_to_headers, identity, make_return_adapter
 from .status import BaseResponse, get_status_code
-from .types import PathParamParser
+from .types import Method, PathParamParser
 
 C = TypeVar("C")
 
@@ -94,7 +94,7 @@ def make_django_incanter(converter: Converter) -> Incanter:
 
 
 def _make_method_router(
-    methods_to_handlers: dict[str, Callable]
+    methods_to_handlers: dict[Method, Callable]
 ) -> Callable[[FrameworkRequest], FrameworkResponse]:
     def method_router(request: FrameworkRequest) -> FrameworkResponse:
         if request.method in methods_to_handlers:
@@ -120,7 +120,7 @@ class DjangoApp(BaseApp):
     def to_urlpatterns(self) -> list[URLPattern]:
         res = []
 
-        by_path_by_method: dict[str, dict[str, tuple[Callable, str | None]]] = {}
+        by_path_by_method: dict[str, dict[Method, tuple[Callable, str]]] = {}
         for (method, path), (handler, name) in self._route_map.items():
             by_path_by_method.setdefault(path, {})[method] = (handler, name)
 
