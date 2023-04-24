@@ -146,6 +146,7 @@ class App:
         self.route(path, openapi_handler)
 
     def serve_swaggerui(self, path: str = "/swaggerui"):
+        """Start serving the Swagger UI at the given path."""
         from .openapi_ui import swaggerui
 
         def swaggerui_handler() -> Ok[str]:
@@ -154,6 +155,7 @@ class App:
         self.route(path, swaggerui_handler)
 
     def serve_redoc(self, path: str = "/redoc"):
+        """Start serving the ReDoc UI at the given path."""
         from .openapi_ui import redoc
 
         def redoc_handler() -> Ok[str]:
@@ -164,6 +166,7 @@ class App:
     def serve_elements(
         self, path: str = "/elements", openapi_path: str = "/openapi.json"
     ):
+        """Start serving the OpenAPI Elements UI at the given path."""
         from .openapi_ui import elements as elements_html
 
         fixed_path = elements_html.replace("$OPENAPIURL", openapi_path)
