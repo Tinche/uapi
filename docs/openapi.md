@@ -26,6 +26,14 @@ app.serve_elements()
 
 The documentation viewer will be available at its default URL.
 
+```{seealso}
+{py:meth}`App.serve_swaggerui() <uapi.base.App.serve_swaggerui>`
+
+{py:meth}`App.serve_redoc() <uapi.base.App.serve_redoc>`
+
+{py:meth}`App.serve_elements() <uapi.base.App.serve_elements>`
+```
+
 ## Endpoint Tags
 
 OpenAPI supports grouping endpoints by tags.
