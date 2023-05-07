@@ -15,6 +15,8 @@ from .models import (
     ResponseGenericModelListInner,
     ResponseModel,
     SimpleModel,
+    SumTypesRequestModel,
+    SumTypesResponseModel,
 )
 from .models_2 import SimpleModel as SimpleModel2
 
@@ -164,6 +166,12 @@ def configure_base_async(app: App) -> None:
     async def response_union_none(page: int = 0) -> Ok[SimpleModel] | Forbidden[None]:
         return Ok(SimpleModel()) if not page else Forbidden(None)
 
+    @app.get("/sum-types-model")
+    async def sum_types_model(
+        payload: ReqBody[SumTypesRequestModel],
+    ) -> SumTypesResponseModel:
+        return SumTypesResponseModel(None)
+
     @app.get("/excluded")
     async def excluded() -> str:
         """This should be excluded from OpenAPI."""
@@ -312,6 +320,12 @@ def configure_base_sync(app: App) -> None:
     @app.get("/response-union-none")
     def response_union_none(page: int = 0) -> Ok[SimpleModel] | Forbidden[None]:
         return Ok(SimpleModel()) if not page else Forbidden(None)
+
+    @app.get("/sum-types-model")
+    def sum_types_model(
+        payload: ReqBody[SumTypesRequestModel],
+    ) -> SumTypesResponseModel:
+        return SumTypesResponseModel(None)
 
     @app.get("/excluded")
     def excluded() -> str:
