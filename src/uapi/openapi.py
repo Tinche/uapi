@@ -72,7 +72,7 @@ class OneOfSchema:
 
 @frozen
 class MediaType:
-    schema: Reference | Schema | OneOfSchema
+    schema: Schema | OneOfSchema | Reference
 
 
 @frozen
@@ -611,6 +611,8 @@ def _build_attrs_schema(
 def structure_schemas(val, _):
     if "$ref" in val:
         return converter.structure(val, Reference)
+    if "oneOf" in val:
+        return converter.structure(val, OneOfSchema)
 
     type = Schema.Type(val["type"])
     if type is Schema.Type.ARRAY:
@@ -622,7 +624,9 @@ def structure_inlinetype_ref(val, _):
     return converter.structure(val, InlineType if "type" in val else Reference)
 
 
-converter.register_structure_hook(Schema | ArraySchema | Reference, structure_schemas)
+converter.register_structure_hook(
+    Schema | ArraySchema | OneOfSchema | Reference, structure_schemas
+)
 converter.register_structure_hook(InlineType | Reference, structure_inlinetype_ref)
 converter.register_structure_hook(
     Parameter, make_dict_structure_fn(Parameter, converter, kind=override(rename="in"))
