@@ -8,6 +8,7 @@ from uapi.openapi import (
     ArraySchema,
     InlineType,
     MediaType,
+    OneOfSchema,
     OpenAPI,
     Reference,
     RequestBody,
@@ -509,5 +510,69 @@ def test_generic_response_model(app_factory) -> None:
         Schema.Type.OBJECT, properties={"a": Schema(Schema.Type.INTEGER)}
     )
     assert spec.components.schemas["ResponseGenericModelListInner"] == Schema(
+        Schema.Type.OBJECT, properties={"a": Schema(Schema.Type.INTEGER)}
+    )
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_sum_types_model(app_factory) -> None:
+    """Sum types are handled properly."""
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
+
+    op = spec.paths["/sum-types-model"]
+    assert op is not None
+    assert op.get is not None
+    assert op.post is None
+    assert op.put is None
+    assert op.delete is None
+    assert op.patch is None
+
+    assert op.get.parameters == []
+    assert op.get.requestBody is not None
+    assert op.get.requestBody.content["application/json"] == MediaType(
+        Reference("#/components/schemas/SumTypesRequestModel")
+    )
+
+    assert op.get.responses["200"].content["application/json"].schema == Reference(
+        "#/components/schemas/SumTypesResponseModel"
+    )
+
+    assert spec.components.schemas["SumTypesRequestModel"] == Schema(
+        Schema.Type.OBJECT,
+        properties={
+            "inner": OneOfSchema(
+                [
+                    Reference("#/components/schemas/SumTypesRequestInner"),
+                    InlineType(Schema.Type.NULL),
+                ]
+            )
+        },
+    )
+    assert spec.components.schemas["SumTypesRequestInner"] == Schema(
+        Schema.Type.OBJECT, properties={"a": Schema(Schema.Type.INTEGER)}
+    )
+    assert spec.components.schemas["SumTypesResponseModel"] == Schema(
+        Schema.Type.OBJECT,
+        properties={
+            "inner": OneOfSchema(
+                [
+                    Reference("#/components/schemas/SumTypesResponseInner"),
+                    InlineType(Schema.Type.NULL),
+                ]
+            )
+        },
+    )
+    assert spec.components.schemas["SumTypesResponseInner"] == Schema(
         Schema.Type.OBJECT, properties={"a": Schema(Schema.Type.INTEGER)}
     )

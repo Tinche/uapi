@@ -62,3 +62,21 @@ class ResponseGenericModelInner:
 @define
 class ResponseGenericModelListInner:
     a: int
+
+
+@define
+class SumTypesRequestModel:
+    @define
+    class SumTypesRequestInner:
+        a: int
+
+    inner: SumTypesRequestInner | None
+
+
+@define
+class SumTypesResponseModel:
+    @define
+    class SumTypesResponseInner:
+        a: int
+
+    inner: SumTypesResponseInner | None

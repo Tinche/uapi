@@ -21,6 +21,7 @@ The **third number** is for emergencies when we need to start branches for older
 - Flesh out the documentation for response types.
 - Add OpenAPI support for string literal fields.
 - Add OpenAPI support for generic _attrs_ classes.
+- Add OpenAPI support for unions of a single _attrs_ class and `None` (optionals).
 
 ### Fixed
 

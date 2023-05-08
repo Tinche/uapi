@@ -9,7 +9,7 @@ from typing import Callable, Literal, Mapping, TypeAlias
 
 from attrs import Factory, fields, frozen, has
 from cattrs import override
-from cattrs._compat import is_generic, is_literal
+from cattrs._compat import is_generic, is_literal, is_union_type
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
@@ -66,8 +66,13 @@ class ArraySchema:
 
 
 @frozen
+class OneOfSchema:
+    oneOf: list[Reference | InlineType]
+
+
+@frozen
 class MediaType:
-    schema: Reference | Schema
+    schema: Schema | OneOfSchema | Reference
 
 
 @frozen
@@ -88,10 +93,10 @@ class Parameter:
     name: str
     kind: Kind
     required: bool = False
-    schema: Schema | Reference | None = None
+    schema: Schema | Reference | OneOfSchema | None = None
 
 
-AnySchema = Schema | ArraySchema
+AnySchema = Schema | ArraySchema | OneOfSchema
 
 
 @frozen
@@ -447,6 +452,10 @@ def _gather_attrs_components(
             arg = mapping.get(arg, arg)
             if has(arg):
                 _gather_attrs_components(arg, components)
+        elif is_union_type(a_type):
+            for arg in a_type.__args__:
+                if has(arg):
+                    _gather_attrs_components(arg, components)
     return components
 
 
@@ -472,7 +481,7 @@ def gather_endpoint_components(
                 while name in components.values():
                     name = f"{arg_type.__name__}{counter}"
                     counter += 1
-                components[arg_type] = name
+                _gather_attrs_components(arg_type, components)
     if (ret_type := sig.return_annotation) is not InspectParameter.empty:
         for _, r in get_status_code_results(ret_type):
             if has(r) and not is_subclass(r, BaseResponse) and r not in components:
@@ -581,6 +590,17 @@ def _build_attrs_schema(
             )
         elif is_literal(a_type):
             schema = Schema(Schema.Type.STRING, enum=list(a_type.__args__))
+        elif is_union_type(a_type):
+            refs: list[Reference | InlineType] = []
+            for arg in a_type.__args__:
+                if has(arg):
+                    ref = f"#/components/schemas/{names[arg]}"
+                    if ref not in res:
+                        _build_attrs_schema(arg, names, res)
+                    refs.append(Reference(ref))
+                elif arg is NoneType:
+                    refs.append(InlineType(Schema.Type.NULL))
+            schema = OneOfSchema(refs)
         else:
             continue
         properties[a.name] = schema
@@ -591,6 +611,8 @@ def _build_attrs_schema(
 def structure_schemas(val, _):
     if "$ref" in val:
         return converter.structure(val, Reference)
+    if "oneOf" in val:
+        return converter.structure(val, OneOfSchema)
 
     type = Schema.Type(val["type"])
     if type is Schema.Type.ARRAY:
@@ -602,7 +624,9 @@ def structure_inlinetype_ref(val, _):
     return converter.structure(val, InlineType if "type" in val else Reference)
 
 
-converter.register_structure_hook(Schema | ArraySchema | Reference, structure_schemas)
+converter.register_structure_hook(
+    Schema | ArraySchema | OneOfSchema | Reference, structure_schemas
+)
 converter.register_structure_hook(InlineType | Reference, structure_inlinetype_ref)
 converter.register_structure_hook(
     Parameter, make_dict_structure_fn(Parameter, converter, kind=override(rename="in"))
