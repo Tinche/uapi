@@ -609,7 +609,6 @@ def _build_attrs_schema(
         if a.default is NOTHING:
             required.append(a.name)
 
-    print(required)
     res[name] = Schema(
         type=Schema.Type.OBJECT, properties=properties, required=required
     )
