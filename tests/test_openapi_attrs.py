@@ -294,7 +294,9 @@ def test_models_same_name(app_factory) -> None:
         },
     )
     assert spec.components.schemas["SimpleModel2"] == Schema(
-        Schema.Type.OBJECT, {"a_different_int": Schema(type=Schema.Type.INTEGER)}
+        Schema.Type.OBJECT,
+        {"a_different_int": Schema(type=Schema.Type.INTEGER)},
+        required=["a_different_int"],
     )
 
 
@@ -317,9 +319,10 @@ def test_response_models(app_factory) -> None:
     assert spec.components.schemas["ResponseModel"] == Schema(
         Schema.Type.OBJECT,
         {"a_list": ArraySchema(Reference("#/components/schemas/ResponseList"))},
+        required=["a_list"],
     )
     assert spec.components.schemas["ResponseList"] == Schema(
-        Schema.Type.OBJECT, {"a": Schema(type=Schema.Type.STRING)}
+        Schema.Type.OBJECT, {"a": Schema(type=Schema.Type.STRING)}, required=["a"]
     )
 
 
@@ -446,6 +449,7 @@ def test_generic_model(app_factory) -> None:
             "a": Schema(Schema.Type.INTEGER),
             "b": ArraySchema(InlineType(Schema.Type.INTEGER)),
         },
+        required=["a"],
     )
     assert spec.components.schemas["GenericModel[SimpleModel]"] == Schema(
         Schema.Type.OBJECT,
@@ -453,6 +457,7 @@ def test_generic_model(app_factory) -> None:
             "a": Reference("#/components/schemas/SimpleModel"),
             "b": ArraySchema(Reference("#/components/schemas/SimpleModel")),
         },
+        required=["a"],
     )
     assert spec.components.schemas["SimpleModel"] == Schema(
         Schema.Type.OBJECT,
@@ -505,12 +510,17 @@ def test_generic_response_model(app_factory) -> None:
                 Reference("#/components/schemas/ResponseGenericModelListInner")
             ),
         },
+        required=["a"],
     )
     assert spec.components.schemas["ResponseGenericModelInner"] == Schema(
-        Schema.Type.OBJECT, properties={"a": Schema(Schema.Type.INTEGER)}
+        Schema.Type.OBJECT,
+        properties={"a": Schema(Schema.Type.INTEGER)},
+        required=["a"],
     )
     assert spec.components.schemas["ResponseGenericModelListInner"] == Schema(
-        Schema.Type.OBJECT, properties={"a": Schema(Schema.Type.INTEGER)}
+        Schema.Type.OBJECT,
+        properties={"a": Schema(Schema.Type.INTEGER)},
+        required=["a"],
     )
 
 
@@ -558,9 +568,12 @@ def test_sum_types_model(app_factory) -> None:
                 ]
             )
         },
+        required=["inner"],
     )
     assert spec.components.schemas["SumTypesRequestInner"] == Schema(
-        Schema.Type.OBJECT, properties={"a": Schema(Schema.Type.INTEGER)}
+        Schema.Type.OBJECT,
+        properties={"a": Schema(Schema.Type.INTEGER)},
+        required=["a"],
     )
     assert spec.components.schemas["SumTypesResponseModel"] == Schema(
         Schema.Type.OBJECT,
@@ -572,7 +585,10 @@ def test_sum_types_model(app_factory) -> None:
                 ]
             )
         },
+        required=["inner"],
     )
     assert spec.components.schemas["SumTypesResponseInner"] == Schema(
-        Schema.Type.OBJECT, properties={"a": Schema(Schema.Type.INTEGER)}
+        Schema.Type.OBJECT,
+        properties={"a": Schema(Schema.Type.INTEGER)},
+        required=["a"],
     )
