@@ -7,7 +7,7 @@ from inspect import signature
 from types import NoneType
 from typing import Callable, Literal, Mapping, TypeAlias
 
-from attrs import Factory, fields, frozen, has
+from attrs import NOTHING, Factory, fields, frozen, has
 from cattrs import override
 from cattrs._compat import is_generic, is_literal, is_union_type
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
@@ -57,6 +57,7 @@ class Schema:
     format: str | None = None
     additionalProperties: bool | InlineType = False
     enum: list[str] | None = None
+    required: list[str] = Factory(list)
 
 
 @frozen
@@ -553,6 +554,7 @@ def _build_attrs_schema(
     properties = {}
     name = names[type]
     mapping = _make_generic_mapping(type) if is_generic(type) else {}
+    required = []
     for a in fields(type):
         if a.type is None:
             continue
@@ -604,8 +606,13 @@ def _build_attrs_schema(
         else:
             continue
         properties[a.name] = schema
+        if a.default is NOTHING:
+            required.append(a.name)
 
-    res[name] = Schema(type=Schema.Type.OBJECT, properties=properties)
+    print(required)
+    res[name] = Schema(
+        type=Schema.Type.OBJECT, properties=properties, required=required
+    )
 
 
 def structure_schemas(val, _):
