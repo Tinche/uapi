@@ -1,7 +1,7 @@
 .PHONY: test
 
 test:
-	pytest tests -x --ff
+	pdm run pytest tests -x --ff
 
 lint:
-	flake8 src/ tests/ && black --check -q src/ tests/ && isort -cq src/ tests/ && mypy src/ tests/
+	pdm run flake8 src/ tests/ && pdm run black --check -q src/ tests/ && pdm run isort -cq src/ tests/ && pdm run mypy src/ tests/

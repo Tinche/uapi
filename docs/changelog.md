@@ -24,6 +24,7 @@ The **third number** is for emergencies when we need to start branches for older
 - Add OpenAPI support for unions of a single _attrs_ class and `None` (optionals).
 - Properly set the OpenAPI `required` attribute for _attrs_ fields without defaults.
 - Add OpenAPI support for primitive types in unions.
+- _uapi_ now uses [PDM](https://pdm.fming.dev/latest/).
 
 ### Fixed
 
