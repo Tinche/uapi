@@ -13,7 +13,11 @@ from .starlette import run_server as starlette_run_server
 
 @pytest.fixture(scope="session")
 def event_loop():
-    return new_event_loop()
+    loop = new_event_loop()
+    try:
+        yield loop
+    finally:
+        loop.close()
 
 
 @pytest.fixture(

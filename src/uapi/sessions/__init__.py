@@ -60,6 +60,6 @@ def configure_secure_sessions(
         res._serialize = _serialize
         return res
 
-    app.base_incant.register_hook(
+    app.incant.register_hook(
         lambda p: p.name == "session" and p.annotation is Session, get_session
     )

@@ -57,17 +57,17 @@ def configure_async_login(
     ) -> AsyncLoginSession[T]:
         return AsyncLoginSession(current_user_id, session)
 
-    app.base_incant.register_hook(
+    app.incant.register_hook(
         lambda p: p.name == "current_user_id"
         and p.annotation is user_id_cls
         and p.default is Signature.empty,
         user_id_factory,
     )
-    app.base_incant.register_hook(
+    app.incant.register_hook(
         lambda p: p.name == "current_user_id" and p.annotation is Optional[user_id_cls],
         optional_user_id_factory,
     )
-    app.base_incant.register_hook(
+    app.incant.register_hook(
         lambda p: p.name == "login_session"
         and p.annotation == AsyncLoginSession[user_id_cls],  # type: ignore
         async_login_session_factory,

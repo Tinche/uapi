@@ -99,7 +99,7 @@ class QuartApp(BaseApp):
             path_params = parse_angle_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
 
-            base_handler = self.base_incant.prepare(handler, is_async=True)
+            base_handler = self.incant.prepare(handler, is_async=True)
             # Detect required content-types here, based on the registered
             # request loaders.
             base_sig = signature(base_handler)
@@ -135,7 +135,7 @@ class QuartApp(BaseApp):
                 adapted = o0()
 
             else:
-                base_handler = self.base_incant.prepare(handler, is_async=True)
+                base_handler = self.incant.prepare(handler, is_async=True)
                 prepared = self.framework_incant.prepare(
                     base_handler, hooks, is_async=True
                 )

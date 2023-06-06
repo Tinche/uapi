@@ -124,7 +124,7 @@ def configure_async_sessions(
         res._key_prefix = redis_key_prefix
         return res
 
-    app.base_incant.register_hook(
+    app.incant.register_hook(
         lambda p: p.name == session_arg_param_name and p.annotation is AsyncSession,
         session_factory,
     )

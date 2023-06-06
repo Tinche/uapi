@@ -138,7 +138,7 @@ class DjangoApp(BaseApp):
                 )
                 path_params = parse_angle_path_params(path)
                 hooks = [Hook.for_name(p, None) for p in path_params]
-                base_handler = self.base_incant.prepare(handler, is_async=False)
+                base_handler = self.incant.prepare(handler, is_async=False)
                 # Detect required content-types here, based on the registered
                 # request loaders.
                 base_sig = signature(base_handler)

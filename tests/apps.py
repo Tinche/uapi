@@ -186,7 +186,7 @@ def configure_base_async(app: App) -> None:
     def injected_id(header_for_injection: Header[str]) -> str:
         return f"injected:{header_for_injection}"
 
-    app.base_incant.register_by_name(injected_id)
+    app.incant.register_by_name(injected_id)
 
     @app.get("/injection")
     async def injection(injected_id: str) -> str:
@@ -341,7 +341,7 @@ def configure_base_sync(app: App) -> None:
     def injected_id(header_for_injection: Header[str]) -> str:
         return f"injected:{header_for_injection}"
 
-    app.base_incant.register_by_name(injected_id)
+    app.incant.register_by_name(injected_id)
 
     @app.get("/injection")
     def injection(injected_id: str) -> str:
