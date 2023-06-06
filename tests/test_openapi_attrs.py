@@ -566,9 +566,15 @@ def test_sum_types_model(app_factory) -> None:
                     Reference("#/components/schemas/SumTypesRequestInner"),
                     InlineType(Schema.Type.NULL),
                 ]
-            )
+            ),
+            "opt_string": OneOfSchema(
+                [InlineType(Schema.Type.STRING), InlineType(Schema.Type.NULL)]
+            ),
+            "opt_def_string": OneOfSchema(
+                [InlineType(Schema.Type.STRING), InlineType(Schema.Type.NULL)]
+            ),
         },
-        required=["inner"],
+        required=["inner", "opt_string"],
     )
     assert spec.components.schemas["SumTypesRequestInner"] == Schema(
         Schema.Type.OBJECT,

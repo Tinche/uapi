@@ -71,6 +71,8 @@ class SumTypesRequestModel:
         a: int
 
     inner: SumTypesRequestInner | None
+    opt_string: str | None
+    opt_def_string: str | None = None
 
 
 @define
