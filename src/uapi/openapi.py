@@ -602,6 +602,8 @@ def _build_attrs_schema(
                     refs.append(Reference(ref))
                 elif arg is NoneType:
                     refs.append(InlineType(Schema.Type.NULL))
+                elif arg in PYTHON_PRIMITIVES_TO_OPENAPI:
+                    refs.append(InlineType(PYTHON_PRIMITIVES_TO_OPENAPI[arg].type))
             schema = OneOfSchema(refs)
         else:
             continue
