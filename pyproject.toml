@@ -20,7 +20,7 @@ lint = [
     "isort",
     "mypy==1.2.0",
 ]
-dev = [
+test = [
     "coverage",
     "pytest-asyncio",
     "httpx",
@@ -33,6 +33,8 @@ dev = [
     "aioredis==1.3.1",
     "uvicorn==0.20.0",
     "orjson",
+]
+docs = [
     "sphinx==5.2.3",
     "furo==2022.9.29",
     "myst_parser==0.18.1",
