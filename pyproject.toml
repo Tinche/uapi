@@ -15,10 +15,10 @@ license = {file = "LICENSE"}
 
 [tool.pdm.dev-dependencies]
 lint = [
-    "black==23.3.0",
+    "black",
     "flake8",
     "isort",
-    "mypy==1.2.0",
+    "mypy",
 ]
 test = [
     "coverage",
@@ -29,16 +29,16 @@ test = [
     "quart",
     "starlette",
     "django",
-    "hypercorn==0.14.3",
+    "hypercorn",
     "aioredis==1.3.1",
-    "uvicorn==0.20.0",
+    "uvicorn",
     "orjson",
 ]
 docs = [
-    "sphinx==5.2.3",
-    "furo==2022.9.29",
-    "myst_parser==0.18.1",
-    "sphinx_inline_tabs==2022.1.2b11"
+    "sphinx",
+    "furo",
+    "myst_parser",
+    "sphinx_inline_tabs"
 ]
 
 [tool.isort]
