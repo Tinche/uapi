@@ -598,3 +598,47 @@ def test_sum_types_model(app_factory) -> None:
         properties={"a": Schema(Schema.Type.INTEGER)},
         required=["a"],
     )
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_dictionary_models(app_factory) -> None:
+    """Dictionary models are handled properly."""
+    app = app_factory()
+    spec: OpenAPI = app.make_openapi_spec()
+
+    op = spec.paths["/dictionary-models"]
+    assert op is not None
+    assert op.get is None
+    assert op.post is not None
+    assert op.put is None
+    assert op.delete is None
+    assert op.patch is None
+
+    assert op.post.requestBody.content["application/json"].schema == Schema(
+        Schema.Type.OBJECT,
+        additionalProperties=Reference(ref="#/components/schemas/SimpleModel"),
+    )
+    assert op.post.responses["200"].content["application/json"].schema == Reference(
+        ref="#/components/schemas/ModelWithDict"
+    )
+
+    assert spec.components.schemas["ModelWithDict"] == Schema(
+        Schema.Type.OBJECT,
+        properties={
+            "dict_field": Schema(
+                Schema.Type.OBJECT,
+                additionalProperties=Reference(ref="#/components/schemas/SimpleModel"),
+            )
+        },
+        required=["dict_field"],
+    )

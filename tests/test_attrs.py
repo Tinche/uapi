@@ -120,3 +120,17 @@ async def test_generic_model(server) -> None:
             "a": {"an_int": 1, "a_string": "1", "a_float": 1.0},
             "b": [],
         }
+
+
+async def test_dictionary_models(server) -> None:
+    async with AsyncClient() as client:
+        resp = await client.post(
+            f"http://localhost:{server}/dictionary-models", json={"a": {}, "b": {}}
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "dict_field": {
+                "a": {"an_int": 1, "a_string": "1", "a_float": 1.0},
+                "b": {"an_int": 1, "a_string": "1", "a_float": 1.0},
+            }
+        }

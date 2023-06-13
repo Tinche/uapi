@@ -82,3 +82,8 @@ class SumTypesResponseModel:
         a: int
 
     inner: SumTypesResponseInner | None
+
+
+@define
+class ModelWithDict:
+    dict_field: dict[str, SimpleModel]
