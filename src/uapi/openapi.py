@@ -55,7 +55,7 @@ class Schema:
     type: Type
     properties: dict[str, AnySchema | Reference] | None = None
     format: str | None = None
-    additionalProperties: bool | InlineType = False
+    additionalProperties: bool | InlineType | Reference = False
     enum: list[str] | None = None
     required: list[str] = Factory(list)
 
@@ -672,8 +672,14 @@ converter.register_structure_hook(
     Reference, make_dict_structure_fn(Reference, converter, ref=override(rename="$ref"))
 )
 converter.register_structure_hook(
-    bool | InlineType,
-    lambda v, _: v if isinstance(v, bool) else converter.structure(v, InlineType),
+    bool | InlineType | Reference,
+    lambda v, _: v
+    if isinstance(v, bool)
+    else (
+        converter.structure(v, Reference)
+        if "$ref" in v
+        else converter.structure(v, InlineType)
+    ),
 )
 converter.register_unstructure_hook(
     ApiKeySecurityScheme,
