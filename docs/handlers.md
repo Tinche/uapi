@@ -2,7 +2,38 @@
 
 Handlers are your functions and coroutines that _uapi_ calls to process incoming requests.
 
+Handlers are registered to apps using {py:meth}`App.route() <uapi.base.App.route>`, or helper decorators like {py:meth}`App.get() <uapi.base.App.get>` and {py:meth}`App.post() <uapi.base.App.post>`.
+
+```python
+@app.get("/")
+async def index() -> None:
+    return
+
+# Alternatively,
+app.route("/", index, methods=["GET"])
+```
+
 We **strongly recommend** not using async handlers with Flask or Django unless you know what you're doing, even though (technically) all supported frameworks support both sync and async handlers.
+
+## Handler Names
+
+Each handler is registered under a certain _name_.
+The name is a simple string identifying the handler, and defaults to the name of the handler function or coroutine.
+Names are propagated to the underlying frameworks, where they have framework-specific purposes.
+
+Names are also used in the generated OpenAPI schema:
+
+- to generate the operation summary
+- as the `operationId` Operation property property
+
+Names should be unique across handlers and methods, so if you want to register the same handler for two methods you will need to specify one of the names manually.
+
+```python
+@app.get("/")
+@app.post("/", name="post-multipurpose-handler")
+async def multipurpose_handler() -> None:
+    return
+```
 
 ## Receiving Data
 

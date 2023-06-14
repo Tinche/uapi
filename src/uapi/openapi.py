@@ -140,6 +140,7 @@ class OpenAPI:
             security: list[SecurityRequirement] = Factory(list)
             summary: str | None = None
             tags: list[str] = Factory(list)
+            operationId: str | None = None
 
         get: Operation | None = None
         post: Operation | None = None
@@ -329,7 +330,13 @@ def build_operation(
             security.append({sec_name: []})
 
     return OpenAPI.PathItem.Operation(
-        responses, params, req_body, security, summary_transformer(handler, name), tags
+        responses,
+        params,
+        req_body,
+        security,
+        summary_transformer(handler, name),
+        tags,
+        name,
     )
 
 
