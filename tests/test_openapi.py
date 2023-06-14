@@ -27,6 +27,7 @@ async def test_get_index(server_with_openapi: int) -> None:
     assert op is not None
     assert op.get is not None
     assert op.get.summary == "Hello"
+    assert op.get.operationId == "hello"
     assert op.get.parameters == []
     assert len(op.get.responses) == 1
     assert op.get.responses["200"]
@@ -37,6 +38,7 @@ async def test_get_index(server_with_openapi: int) -> None:
 
     assert op.post is not None
     assert op.post.summary == "Hello-Post"
+    assert op.post.operationId == "hello-post"
 
 
 @pytest.mark.parametrize(

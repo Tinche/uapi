@@ -26,6 +26,7 @@ The **third number** is for emergencies when we need to start branches for older
 - Add OpenAPI support for primitive types in unions.
 - _uapi_ now uses [PDM](https://pdm.fming.dev/latest/).
 - Dictionary request bodies and _attrs_ classes with dictionary fields are now supported.
+- OpenAPI `operationId` properties for operations are now generated from handler names.
 
 ### Fixed
 
