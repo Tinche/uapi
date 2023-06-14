@@ -5,7 +5,7 @@ from enum import Enum, unique
 from inspect import Parameter as InspectParameter
 from inspect import signature
 from types import NoneType
-from typing import Callable, Literal, Mapping, TypeAlias
+from typing import Callable, Final, Literal, Mapping, TypeAlias
 
 from attrs import NOTHING, Factory, fields, frozen, has
 from cattrs import override
@@ -55,7 +55,7 @@ class Schema:
     type: Type
     properties: dict[str, AnySchema | Reference] | None = None
     format: str | None = None
-    additionalProperties: bool | InlineType | Reference = False
+    additionalProperties: bool | Schema | Reference = False
     enum: list[str] | None = None
     required: list[str] = Factory(list)
 
@@ -157,7 +157,7 @@ class OpenAPI:
     components: Components
 
 
-PYTHON_PRIMITIVES_TO_OPENAPI = {
+PYTHON_PRIMITIVES_TO_OPENAPI: Final = {
     str: Schema(Schema.Type.STRING),
     int: Schema(Schema.Type.INTEGER),
     bool: Schema(Schema.Type.BOOLEAN),
@@ -246,13 +246,13 @@ def build_operation(
                     )
                 else:
                     # It's a dict.
-                    v_type = req_type.__args__[1]
-                    if has(v_type):
-                        add_prop = Reference(
-                            f"#/components/schemas/{components[v_type]}"
-                        )
-                    else:
-                        add_prop = PYTHON_PRIMITIVES_TO_OPENAPI[v_type]
+                    v_type = req_type.__args__[1]  # type: ignore[attr-defined]
+
+                    add_prop: Reference | Schema = (
+                        Reference(f"#/components/schemas/{components[v_type]}")
+                        if has(v_type)
+                        else PYTHON_PRIMITIVES_TO_OPENAPI[v_type]
+                    )
 
                     request_bodies[loader.content_type or "*/*"] = MediaType(
                         Schema(Schema.Type.OBJECT, additionalProperties=add_prop)
@@ -505,7 +505,7 @@ def gather_endpoint_components(
                     _gather_attrs_components(arg_type, components)
                 else:
                     # It's a dict.
-                    val_arg = arg_type.__args__[1]
+                    val_arg = arg_type.__args__[1]  # type: ignore[attr-defined]
                     if has(val_arg):
                         _gather_attrs_components(val_arg, components)
     if (ret_type := sig.return_annotation) is not InspectParameter.empty:
@@ -614,9 +614,9 @@ def _build_attrs_schema(
                 ref = f"#/components/schemas/{names[val_arg]}"
                 if ref not in res:
                     _build_attrs_schema(val_arg, names, res)
-                add_prop = Reference(ref)
+                add_prop: Reference | Schema = Reference(ref)
             else:
-                add_prop = InlineType(PYTHON_PRIMITIVES_TO_OPENAPI[val_arg].type)
+                add_prop = PYTHON_PRIMITIVES_TO_OPENAPI[val_arg]
 
             schema = Schema(Schema.Type.OBJECT, additionalProperties=add_prop)
         elif is_literal(a_type):
@@ -672,13 +672,13 @@ converter.register_structure_hook(
     Reference, make_dict_structure_fn(Reference, converter, ref=override(rename="$ref"))
 )
 converter.register_structure_hook(
-    bool | InlineType | Reference,
+    bool | Schema | Reference,
     lambda v, _: v
     if isinstance(v, bool)
     else (
         converter.structure(v, Reference)
         if "$ref" in v
-        else converter.structure(v, InlineType)
+        else converter.structure(v, Schema)
     ),
 )
 converter.register_unstructure_hook(

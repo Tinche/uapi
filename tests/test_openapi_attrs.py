@@ -58,7 +58,7 @@ def test_get_model(app_factory) -> None:
             "simple_model": Reference("#/components/schemas/SimpleModel"),
             "a_list": ArraySchema(Reference("#/components/schemas/SimpleModel")),
             "a_dict": Schema(
-                Schema.Type.OBJECT, additionalProperties=InlineType(Schema.Type.STRING)
+                Schema.Type.OBJECT, additionalProperties=Schema(Schema.Type.STRING)
             ),
         },
     )
@@ -105,7 +105,7 @@ def test_get_model_status(app_factory) -> None:
             "simple_model": Reference("#/components/schemas/SimpleModel"),
             "a_list": ArraySchema(Reference("#/components/schemas/SimpleModel")),
             "a_dict": Schema(
-                Schema.Type.OBJECT, additionalProperties=InlineType(Schema.Type.STRING)
+                Schema.Type.OBJECT, additionalProperties=Schema(Schema.Type.STRING)
             ),
         },
     )
@@ -153,7 +153,7 @@ def test_post_model(app_factory) -> None:
             "simple_model": Reference("#/components/schemas/SimpleModel"),
             "a_list": ArraySchema(Reference("#/components/schemas/SimpleModel")),
             "a_dict": Schema(
-                Schema.Type.OBJECT, additionalProperties=InlineType(Schema.Type.STRING)
+                Schema.Type.OBJECT, additionalProperties=Schema(Schema.Type.STRING)
             ),
         },
     )
@@ -203,7 +203,7 @@ def test_patch_union(app_factory) -> None:
             "simple_model": Reference("#/components/schemas/SimpleModel"),
             "a_list": ArraySchema(Reference("#/components/schemas/SimpleModel")),
             "a_dict": Schema(
-                Schema.Type.OBJECT, additionalProperties=InlineType(Schema.Type.STRING)
+                Schema.Type.OBJECT, additionalProperties=Schema(Schema.Type.STRING)
             ),
         },
     )
@@ -256,7 +256,7 @@ def test_custom_loader(app_factory: Callable[[], App]) -> None:
             "simple_model": Reference("#/components/schemas/SimpleModel"),
             "a_list": ArraySchema(Reference("#/components/schemas/SimpleModel")),
             "a_dict": Schema(
-                Schema.Type.OBJECT, additionalProperties=InlineType(Schema.Type.STRING)
+                Schema.Type.OBJECT, additionalProperties=Schema(Schema.Type.STRING)
             ),
         },
     )
@@ -624,6 +624,7 @@ def test_dictionary_models(app_factory) -> None:
     assert op.delete is None
     assert op.patch is None
 
+    assert op.post.requestBody is not None
     assert op.post.requestBody.content["application/json"].schema == Schema(
         Schema.Type.OBJECT,
         additionalProperties=Reference(ref="#/components/schemas/SimpleModel"),
