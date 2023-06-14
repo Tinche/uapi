@@ -8,6 +8,7 @@ from uapi.status import Created, Forbidden, NoContent, Ok
 
 from .models import (
     GenericModel,
+    ModelWithDict,
     ModelWithLiteral,
     NestedModel,
     ResponseGenericModel,
@@ -172,6 +173,12 @@ def configure_base_async(app: App) -> None:
     ) -> SumTypesResponseModel:
         return SumTypesResponseModel(None)
 
+    @app.post("/dictionary-models")
+    async def dictionary_models(
+        payload: ReqBody[dict[str, SimpleModel]]
+    ) -> ModelWithDict:
+        return ModelWithDict(payload)
+
     @app.get("/excluded")
     async def excluded() -> str:
         """This should be excluded from OpenAPI."""
@@ -326,6 +333,10 @@ def configure_base_sync(app: App) -> None:
         payload: ReqBody[SumTypesRequestModel],
     ) -> SumTypesResponseModel:
         return SumTypesResponseModel(None)
+
+    @app.post("/dictionary-models")
+    def dictionary_models(payload: ReqBody[dict[str, SimpleModel]]) -> ModelWithDict:
+        return ModelWithDict(payload)
 
     @app.get("/excluded")
     def excluded() -> str:

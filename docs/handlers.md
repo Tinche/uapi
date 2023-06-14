@@ -143,6 +143,14 @@ async def create_article(article: MyReqBody[Article]) -> None:
 Content type validation can be disabled by passing `None` to the `JsonBodyLoader`; the `content-type` header will be ignored.
 This in inadvisable unless you have no other choice.
 
+In addition, the request body may be modeled as a `dict` of `str` to a primitive type or an _attrs_ class.
+
+```python
+@app.post("/articles")
+async def create_articles(articles: ReqBody[dict[str, Article]]) -> None:
+    ...
+```
+
 ### Headers
 
 HTTP headers are injected into your handlers when one or more of your handler parameters are annotated using `uapi.Header[T]`.

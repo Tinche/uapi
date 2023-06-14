@@ -5,7 +5,7 @@ from enum import Enum, unique
 from inspect import Parameter as InspectParameter
 from inspect import signature
 from types import NoneType
-from typing import Callable, Literal, Mapping, TypeAlias
+from typing import Callable, Final, Literal, Mapping, TypeAlias
 
 from attrs import NOTHING, Factory, fields, frozen, has
 from cattrs import override
@@ -13,7 +13,7 @@ from cattrs._compat import is_generic, is_literal, is_union_type
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
-from .requests import get_cookie_name, maybe_header_type, maybe_req_body_attrs
+from .requests import get_cookie_name, maybe_header_type, maybe_req_body_type
 from .responses import get_status_code_results
 from .status import BaseResponse
 from .types import Method, PathParamParser, RouteName, Routes, RouteTags, is_subclass
@@ -55,7 +55,7 @@ class Schema:
     type: Type
     properties: dict[str, AnySchema | Reference] | None = None
     format: str | None = None
-    additionalProperties: bool | InlineType = False
+    additionalProperties: bool | Schema | Reference = False
     enum: list[str] | None = None
     required: list[str] = Factory(list)
 
@@ -157,7 +157,7 @@ class OpenAPI:
     components: Components
 
 
-PYTHON_PRIMITIVES_TO_OPENAPI = {
+PYTHON_PRIMITIVES_TO_OPENAPI: Final = {
     str: Schema(Schema.Type.STRING),
     int: Schema(Schema.Type.INTEGER),
     bool: Schema(Schema.Type.BOOLEAN),
@@ -237,12 +237,27 @@ def build_operation(
                     )
                 )
             elif arg_type is not InspectParameter.empty and (
-                type_and_loader := maybe_req_body_attrs(arg_param)
+                type_and_loader := maybe_req_body_type(arg_param)
             ):
-                attrs_type, loader = type_and_loader
-                request_bodies[loader.content_type or "*/*"] = MediaType(
-                    Reference(f"#/components/schemas/{components[attrs_type]}")
-                )
+                req_type, loader = type_and_loader
+                if has(req_type):
+                    request_bodies[loader.content_type or "*/*"] = MediaType(
+                        Reference(f"#/components/schemas/{components[req_type]}")
+                    )
+                else:
+                    # It's a dict.
+                    v_type = req_type.__args__[1]  # type: ignore[attr-defined]
+
+                    add_prop: Reference | Schema = (
+                        Reference(f"#/components/schemas/{components[v_type]}")
+                        if has(v_type)
+                        else PYTHON_PRIMITIVES_TO_OPENAPI[v_type]
+                    )
+
+                    request_bodies[loader.content_type or "*/*"] = MediaType(
+                        Schema(Schema.Type.OBJECT, additionalProperties=add_prop)
+                    )
+
                 request_body_required = arg_param.default is InspectParameter.empty
             else:
                 params.append(
@@ -453,6 +468,10 @@ def _gather_attrs_components(
             arg = mapping.get(arg, arg)
             if has(arg):
                 _gather_attrs_components(arg, components)
+        elif getattr(a_type, "__origin__", None) is dict:
+            val_arg = a_type.__args__[1]
+            if has(val_arg):
+                _gather_attrs_components(val_arg, components)
         elif is_union_type(a_type):
             for arg in a_type.__args__:
                 if has(arg):
@@ -471,18 +490,24 @@ def gather_endpoint_components(
     sig = signature(handler, eval_str=True)
     for arg in sig.parameters.values():
         if arg.annotation is not InspectParameter.empty:
-            if (type_and_loader := maybe_req_body_attrs(arg)) is not None and (
+            if (type_and_loader := maybe_req_body_type(arg)) is not None and (
                 arg_type := type_and_loader[0]
             ) not in components:
-                if is_generic(arg_type):
-                    name = _make_generic_name(arg_type)
+                if has(arg_type):
+                    if is_generic(arg_type):
+                        name = _make_generic_name(arg_type)
+                    else:
+                        name = arg_type.__name__
+                    counter = 0
+                    while name in components.values():
+                        name = f"{arg_type.__name__}{counter}"
+                        counter += 1
+                    _gather_attrs_components(arg_type, components)
                 else:
-                    name = arg_type.__name__
-                counter = 0
-                while name in components.values():
-                    name = f"{arg_type.__name__}{counter}"
-                    counter += 1
-                _gather_attrs_components(arg_type, components)
+                    # It's a dict.
+                    val_arg = arg_type.__args__[1]  # type: ignore[attr-defined]
+                    if has(val_arg):
+                        _gather_attrs_components(val_arg, components)
     if (ret_type := sig.return_annotation) is not InspectParameter.empty:
         for _, r in get_status_code_results(ret_type):
             if has(r) and not is_subclass(r, BaseResponse) and r not in components:
@@ -584,12 +609,16 @@ def _build_attrs_schema(
                 schema = ArraySchema(InlineType(PYTHON_PRIMITIVES_TO_OPENAPI[arg].type))
         elif getattr(a_type, "__origin__", None) is dict:
             val_arg = a_type.__args__[1]
-            schema = Schema(
-                Schema.Type.OBJECT,
-                additionalProperties=InlineType(
-                    PYTHON_PRIMITIVES_TO_OPENAPI[val_arg].type
-                ),
-            )
+
+            if has(val_arg):
+                ref = f"#/components/schemas/{names[val_arg]}"
+                if ref not in res:
+                    _build_attrs_schema(val_arg, names, res)
+                add_prop: Reference | Schema = Reference(ref)
+            else:
+                add_prop = PYTHON_PRIMITIVES_TO_OPENAPI[val_arg]
+
+            schema = Schema(Schema.Type.OBJECT, additionalProperties=add_prop)
         elif is_literal(a_type):
             schema = Schema(Schema.Type.STRING, enum=list(a_type.__args__))
         elif is_union_type(a_type):
@@ -643,8 +672,14 @@ converter.register_structure_hook(
     Reference, make_dict_structure_fn(Reference, converter, ref=override(rename="$ref"))
 )
 converter.register_structure_hook(
-    bool | InlineType,
-    lambda v, _: v if isinstance(v, bool) else converter.structure(v, InlineType),
+    bool | Schema | Reference,
+    lambda v, _: v
+    if isinstance(v, bool)
+    else (
+        converter.structure(v, Reference)
+        if "$ref" in v
+        else converter.structure(v, Schema)
+    ),
 )
 converter.register_unstructure_hook(
     ApiKeySecurityScheme,

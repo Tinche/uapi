@@ -90,11 +90,12 @@ def attrs_body_factory(
     return structure_body
 
 
-def maybe_req_body_attrs(p: Parameter) -> tuple[type, JsonBodyLoader] | None:
+def maybe_req_body_type(p: Parameter) -> tuple[type, JsonBodyLoader] | None:
+    """Is this parameter a valid request body?"""
     t = p.annotation
     if is_annotated(t):
         args = get_args(t)
-        if args and has(args[0]):
+        if args and (has(args[0]) or getattr(args[0], "__origin__", None) is dict):
             for arg in args[1:]:
                 if isinstance(arg, JsonBodyLoader):
                     return args[0], arg
@@ -103,11 +104,11 @@ def maybe_req_body_attrs(p: Parameter) -> tuple[type, JsonBodyLoader] | None:
 
 def get_req_body_attrs(p: Parameter) -> tuple[type, JsonBodyLoader]:
     """Similar to `maybe_req_body_attrs`, except raises."""
-    res = maybe_req_body_attrs(p)
+    res = maybe_req_body_type(p)
     if res is None:
         raise Exception("No attrs request body found")
     return res
 
 
 def is_req_body_attrs(p: Parameter) -> bool:
-    return maybe_req_body_attrs(p) is not None
+    return maybe_req_body_type(p) is not None
