@@ -10,6 +10,7 @@ handlers.md
 openapi.md
 changelog.md
 indices.md
+modules.rst
 ```
 
 _uapi_ is an elegant, fast, and high-level framework for writing network services in Python 3.10 and later.

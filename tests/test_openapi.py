@@ -446,3 +446,25 @@ def test_tags(app_factory) -> None:
                     assert ["query"] == getattr(path_item, method).tags
                 else:
                     assert not getattr(path_item, method).tags
+
+
+@pytest.mark.parametrize(
+    "app_factory",
+    [
+        aiohttp_make_app,
+        flask_make_app,
+        quart_make_app,
+        starlette_make_app,
+        django_make_app,
+    ],
+    ids=["aiohttp", "flask", "quart", "starlette", "django"],
+)
+def test_user_response_class(app_factory) -> None:
+    app: App = app_factory()
+    spec: OpenAPI = app.make_openapi_spec(exclude={"excluded"})
+
+    pathitem = spec.paths["/throttled"]
+    assert pathitem.get is not None
+
+    assert "429" in pathitem.get.responses
+    assert "200" in pathitem.get.responses

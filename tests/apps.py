@@ -20,6 +20,7 @@ from .models import (
     SumTypesResponseModel,
 )
 from .models_2 import SimpleModel as SimpleModel2
+from .response_classes import TooManyRequests
 
 T = TypeVar("T")
 CustomReqBody: TypeAlias = Annotated[T, JsonBodyLoader("application/vnd.uapi.v1+json")]
@@ -88,6 +89,10 @@ def configure_base_async(app: App) -> None:
     @app.patch("/patch/cookie")
     async def patch_with_response_cookies() -> Ok[None]:
         return Ok(None, set_cookie("cookie", "my_cookie", CookieSettings(max_age=1)))
+
+    @app.get("/throttled")
+    async def throttled() -> Ok[None] | TooManyRequests[None]:
+        return TooManyRequests(None)
 
     async def patch_attrs_union(
         test: str = "",
@@ -253,6 +258,10 @@ def configure_base_sync(app: App) -> None:
     @app.patch("/patch/cookie")
     def patch_with_response_cookies() -> Ok[None]:
         return Ok(None, set_cookie("cookie", "my_cookie", CookieSettings(max_age=1)))
+
+    @app.get("/throttled")
+    def throttled() -> Ok[None] | TooManyRequests[None]:
+        return TooManyRequests(None)
 
     def patch_attrs_union(test: str = "") -> Ok[NestedModel] | Created[SimpleModel]:
         return Ok(NestedModel()) if test != "1" else Created(SimpleModel(1))
