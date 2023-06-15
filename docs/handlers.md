@@ -362,6 +362,69 @@ async def get_article_image() -> bytes:
 
 For strings, the `content-type` header is set to `text/plain`, and for bytes to `application/octet-stream`.
 
+### _attrs_ Classes
+
+Handlers can return an instance of an _attrs_ class.
+The return value with be deserialized into JSON using the App _cattrs_ converter, which can be customized as per the usual _cattrs_ ways.
+
+The status code will be set to `200 OK`, and the content type to `application/json`. The class will be added to the OpenAPI schema.
+
+```python
+from attrs import define
+
+@define
+class Article:
+    title: str
+
+@app.get("/article")
+async def get_article() -> Article:
+    ...
+```
+
+### _uapi_ Status Code Classes
+
+_uapi_ {py:obj}`contains a variety of classes <uapi.status>`, mapping to status codes, for returning from handlers.
+All of these classes also take an optional `header` parameter for response headers.
+
+```python
+from uapi.status import Ok
+
+@app.get("/article")
+async def get_article() -> Ok[Article]:
+    # fetch article
+    return Ok(article, headers={"my-header": "header value"})
+```
+
+### Returning Multiple Status Codes
+
+If your handler can return multiple status codes, use a union of _uapi_ response types.
+
+All responses defined this way will be rendered in the OpenAPI schema.
+
+```python
+@app.get("/profile")
+async def user_profile() -> Ok[Profile] | NoContent:
+    ...
+```
+
+### Custom Status Codes
+
+If you require a status code that is not included with _uapi_, you can define your own status code class like this:
+
+```python
+from typing import Literal
+from uapi.status import BaseResponse, R
+
+class TooManyRequests(BaseResponse[Literal[429], R]):
+    pass
+
+@api.get("/throttled")
+async def throttled() -> Ok[None] | TooManyRequests[None]:
+    return TooManyRequests(None)
+```
+
+The custom status code will be included in the generated OpenAPI schema.
+
 ### Framework-specific Response Objects
 
 If you need to return your framework's native response class, you can.
@@ -429,34 +492,3 @@ async def get_root() -> Response:
 ```
 
 ````
-
-### _attrs_ Classes
-
-Handlers can return an instance of an _attrs_ class.
-The return value with be deserialized into JSON using the App _cattrs_ converter, which can be customized as per the usual _cattrs_ ways.
-
-The status code will be set to `200 OK`, and the content type to `application/json`. The class will be added to the OpenAPI schema.
-
-```python
-from attrs import define
-
-@define
-class Article:
-    title: str
-
-@app.get("/article")
-async def get_article() -> Article:
-    ...
-```
-
-### Returning Multiple Status Codes
-
-If your handler can return multiple status codes, use a union of _uapi_ response types.
-
-All responses defined this way will be rendered in the OpenAPI schema.
-
-```python
-@app.get("/profile")
-async def user_profile() -> Ok[Profile] | NoContent:
-    ...
-```

@@ -22,6 +22,8 @@ converter = make_converter(omit_if_default=True)
 
 # MediaTypeNames are like `application/json`.
 MediaTypeName = str
+# HTTP status codes
+StatusCodeType: TypeAlias = str
 
 SummaryTransformer: TypeAlias = Callable[[Callable, str], str | None]
 
@@ -79,7 +81,7 @@ class MediaType:
 @frozen
 class Response:
     description: str
-    content: dict[str, MediaType] = Factory(dict)
+    content: dict[MediaTypeName, MediaType] = Factory(dict)
 
 
 @frozen
@@ -134,7 +136,7 @@ class OpenAPI:
     class PathItem:
         @frozen
         class Operation:
-            responses: dict[MediaTypeName, Response]
+            responses: dict[StatusCodeType, Response]
             parameters: list[Parameter] = Factory(list)
             requestBody: RequestBody | None = None
             security: list[SecurityRequirement] = Factory(list)

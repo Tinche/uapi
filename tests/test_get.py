@@ -90,3 +90,11 @@ async def test_response_model_custom_status(server):
             resp.read()
             == b'{"simple_model":{"an_int":1,"a_string":"1","a_float":1.0},"a_dict":{},"a_list":[]}'
         )
+
+
+async def test_user_response_class(server):
+    """Test user response classes."""
+    async with AsyncClient() as client:
+        resp = await client.get(f"http://localhost:{server}/throttled")
+        assert resp.status_code == 429
+        assert resp.headers["content-length"] == "0"
