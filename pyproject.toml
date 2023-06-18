@@ -60,3 +60,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "aioredis.*"
 ignore_missing_imports = true
+
+[tool.coverage.run]
+parallel = true
+source_pkgs = ["uapi"]

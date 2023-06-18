@@ -1,7 +1,7 @@
 # uapi
 
 [![Build status](https://github.com/Tinche/uapi/workflows/CI/badge.svg)](https://github.com/Tinche/uapi/actions?workflow=CI)
-[![codecov](https://codecov.io/gh/Tinche/uapi/branch/main/graph/badge.svg?token=XGKYSILAG4)](https://codecov.io/gh/Tinche/uapi)
+[![coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Tinche/fe982b645791164107bd8f6699ed0a38/raw/covbadge.json)](https://github.com/Tinche/uapi/actions/workflows/main.yml)
 [![Code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 ---

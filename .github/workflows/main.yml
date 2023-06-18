@@ -12,8 +12,6 @@ jobs:
   tests:
     name: "Python ${{ matrix.python-version }}"
     runs-on: "ubuntu-latest"
-    env:
-      USING_COVERAGE: "3.10"
 
     strategy:
       matrix:
@@ -21,52 +19,104 @@ jobs:
         redis-version: [6]
 
     steps:
-      - uses: "actions/checkout@v2"
-      - uses: "actions/setup-python@v2"
+      - uses: "actions/checkout@v3"
+
+      - uses: "actions/setup-python@v4"
         with:
           python-version: "${{ matrix.python-version }}"
-      - name: Start Redis
-        uses: supercharge/redis-github-action@1.2.0
+
+      - name: "Start Redis"
+        uses: "supercharge/redis-github-action@1.2.0"
         with:
-          redis-version: ${{ matrix.redis-version }}
-      - name: "Install dependencies"
+          redis-version: "${{ matrix.redis-version }}"
+
+      - name: "Run Tox"
         run: |
           set -xe
           python -VV
-          python -m site
-          python -m pip install --upgrade pip wheel
-          python -m pip install --upgrade coverage[toml] virtualenv tox tox-gh-actions
-      - name: "Run tox targets for ${{ matrix.python-version }}"
-        run: "python -m tox"
+          python -Im site
+          python -Im pip install --upgrade pip wheel pdm
+          python -Im pip install --upgrade tox tox-gh-actions
+          python -Im tox
+      - name: "Upload coverage data"
+        uses: "actions/upload-artifact@v3"
+        with:
+          name: "coverage-data"
+          path: ".coverage.*"
+          if-no-files-found: "ignore"
 
-      # We always use a modern Python version for combining coverage to prevent
-      # parsing errors in older versions for modern code.
-      - uses: "actions/setup-python@v2"
+  coverage:
+    name: "Combine & check coverage."
+    needs: "tests"
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - uses: "actions/checkout@v3"
+      
+      - uses: "actions/setup-python@v4"
         with:
-          python-version: "3.10"
-      - name: "Upload coverage to Codecov"
-        if: "contains(env.USING_COVERAGE, matrix.python-version)"
-        uses: "codecov/codecov-action@v1"
+          cache: "pip"
+          python-version: "3.11"
+
+      - run: "python -Im pip install --upgrade coverage[toml]"
+
+      - uses: "actions/download-artifact@v3"
         with:
-          fail_ci_if_error: true
+          name: "coverage-data"
+
+      - name: "Combine coverage"
+        run: |
+          python -Im coverage combine
+          python -Im coverage html --skip-covered --skip-empty
+          python -Im coverage json
+
+          # Report and write to summary.
+          python -Im coverage report | sed 's/^/    /' >> $GITHUB_STEP_SUMMARY
+
+          export TOTAL=$(python -c "import json;print(json.load(open('coverage.json'))['totals']['percent_covered_display'])")
+          echo "total=$TOTAL" >> $GITHUB_ENV
+
+      - name: "Upload HTML report."
+        uses: "actions/upload-artifact@v3"
+        with:
+          name: "html-report"
+          path: "htmlcov"
+      
+      - name: "Make badge"
+        uses: "schneegans/dynamic-badges-action@v1.4.0"
+        with:
+          # GIST_TOKEN is a GitHub personal access token with scope "gist".
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: fe982b645791164107bd8f6699ed0a38
+          filename: covbadge.json
+          label: Coverage
+          message: ${{ env.total }}%
+          minColorRange: 50
+          maxColorRange: 90
+          valColorRange: ${{ env.total }}
 
   package:
     name: "Build & verify package"
     runs-on: "ubuntu-latest"
 
     steps:
-      - uses: "actions/checkout@v2"
-      - uses: "actions/setup-python@v2"
-        with:
-          python-version: "3.10"
+      - uses: "actions/checkout@v3"
 
-      - name: "Install flit and twine"
-        run: "python -m pip install flit twine check-wheel-contents"
+      - uses: "actions/setup-python@v4"
+        with:
+          python-version: "3.11"
+
+      - name: "Install tools"
+        run: "python -m pip install twine check-wheel-contents build"
+
       - name: "Build package"
-        run: "flit build"
+        run: "python -m build"
+
       - name: "List result"
         run: "ls -l dist"
+
       - name: "Check wheel contents"
         run: "check-wheel-contents dist/*.whl"
+
       - name: "Check long_description"
         run: "python -m twine check dist/*"
