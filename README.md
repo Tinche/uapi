@@ -1,33 +1,27 @@
 # uapi
 
+[![Documentation](https://img.shields.io/badge/Docs-Read%20The%20Docs-black)](https://uapi.threeofwands.com)
 [![Build status](https://github.com/Tinche/uapi/workflows/CI/badge.svg)](https://github.com/Tinche/uapi/actions?workflow=CI)
 [![coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Tinche/fe982b645791164107bd8f6699ed0a38/raw/covbadge.json)](https://github.com/Tinche/uapi/actions/workflows/main.yml)
 [![Code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![License: Apache2](https://img.shields.io/badge/license-Apache2-C06524)](https://github.com/Tinche/uapi/blob/main/LICENSE)
 
----
+_uapi_ is an elegant, high-level, extremely fast Python microframework for writing HTTP APIs, either synchronously or asynchronously.
 
-`uapi` is a high-level, extremely fast Python microframework for writing HTTP APIs, either synchronously or asynchronously.
+_uapi_ uses a lower-level HTTP framework to run. Currently supported frameworks are aiohttp, Django, Flask, Quart, and Starlette.
+An _uapi_ app can be easily integrated into an existing project based on one of these frameworks, and a pure _uapi_ project can be easily switched between them when needed.
 
-```python3
-from asyncio import run
-from uapi.starlette import App
+Using _uapi_ enables you to:
 
-app = App()
+- write **either async or sync** styles of handlers, depending on the underlying framework used.
+- use and customize a **depedency injection** system, based on [incant](https://github.com/Tinche/incant/).
+- automatically **serialize and deserialize** data through [attrs](https://www.attrs.org/en/stable/) and [cattrs](https://cattrs.readthedocs.io/en/latest/).
+- generate and use **OpenAPI** descriptions of your endpoints.
+- optionally **type-check** your handlers with [Mypy](https://mypy.readthedocs.io/en/stable/).
+- write and use reusable and **powerful middleware**, which integrates with the OpenAPI schema.
+- **integrate** with existing apps based on [Django](https://docs.djangoproject.com/en/stable/), [Starlette](https://www.starlette.io/), [Flask](https://flask.palletsprojects.com/en/latest/), [Quart](https://pgjones.gitlab.io/quart/) or [aiohttp](https://docs.aiohttp.org/en/stable/).
 
-@app.get("/")
-async def index() -> str:
-    return "Index"
-
-run(app.run())
-```
-
-Documentation is available at https://uapi-docs.readthedocs.io/en/latest/.
-
-`uapi` uses a lower-level HTTP framework to run. Currently supported frameworks are aiohttp, Flask, Quart, and Starlette.
-An `uapi` app can be easily integrated into an existing project based on one of these frameworks, and a pure `uapi` project can be
-easily switched between them when needed.
-
-`uapi` supports OpenAPI out of the box.
+Here's a simple taste:
 
 ```python3
 from uapi.flask import App
@@ -41,5 +35,16 @@ def index() -> str:
 app.serve_openapi()
 app.serve_elements()
 
-run(app.run())  # Now open http://localhost:8000/elements
+app.run(__name__)  # Now open http://localhost:8000/elements
 ```
+
+## Project Information
+
+- [**PyPI**](https://pypi.org/project/uapi/)
+- [**Source Code**](https://github.com/Tinche/uapi)
+- [**Documentation**](https://uapi.threeofwands.com)
+- [**Changelog**](https://github.com/Tinche/uapi/blob/main/docs/changelog.md)
+
+## License
+
+_uapi_ is written by [Tin Tvrtković](https://threeofwands.com/) and distributed under the terms of the [Apache-2.0](https://spdx.org/licenses/Apache-2.0.html) license.
