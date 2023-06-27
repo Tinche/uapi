@@ -1,6 +1,7 @@
+from collections.abc import Callable
 from functools import partial
 from inspect import Parameter, Signature, signature
-from typing import Any, Callable, ClassVar, TypeVar
+from typing import Any, ClassVar, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -33,7 +34,7 @@ from .requests import (
 )
 from .responses import dict_to_headers, identity, make_return_adapter
 from .status import BaseResponse, get_status_code
-from .types import Method, PathParamParser, RouteName, RouteTags
+from .types import Method, RouteName, RouteTags
 
 C = TypeVar("C")
 
@@ -99,8 +100,8 @@ def _make_method_router(
     def method_router(request: FrameworkRequest) -> FrameworkResponse:
         if request.method in methods_to_handlers:
             return methods_to_handlers[request.method](request)
-        else:
-            return FrameworkResponse(status=405)
+
+        return FrameworkResponse(status=405)
 
     return method_router
 
@@ -110,12 +111,12 @@ class DjangoApp(BaseApp):
     framework_incant: Incanter = Factory(
         lambda self: make_django_incanter(self.converter), takes_self=True
     )
-    _path_param_parser: ClassVar[PathParamParser] = lambda p: (
-        strip_path_param_prefix(angle_to_curly(p)),
-        parse_curly_path_params(p),
-    )
     _framework_req_cls: ClassVar[type] = FrameworkRequest
     _framework_resp_cls: ClassVar[type] = FrameworkResponse
+
+    @staticmethod
+    def _path_param_parser(p: str) -> tuple[str, list[str]]:
+        return (strip_path_param_prefix(angle_to_curly(p)), parse_curly_path_params(p))
 
     def to_urlpatterns(self) -> list[URLPattern]:
         res = []
@@ -130,7 +131,11 @@ class DjangoApp(BaseApp):
             # Django does not strip the prefix slash, so we do it for it.
             path = path.removeprefix("/")
             per_method_adapted = {}
-            for method, (handler, name, _) in methods_and_handlers.items():
+            for method, (
+                handler,
+                name,  # noqa: B007
+                _,
+            ) in methods_and_handlers.items():
                 ra = make_return_adapter(
                     signature(handler, eval_str=True).return_annotation,
                     FrameworkResponse,
@@ -300,7 +305,7 @@ def make_header_dependency(
     name: str,
     converter: Converter,
     default: Any = Signature.empty,
-):
+) -> Callable[[FrameworkRequest], Any]:
     if isinstance(headerspec.name, str):
         name = headerspec.name
     else:
@@ -313,27 +318,23 @@ def make_header_dependency(
 
             return read_header
 
-        else:
+        def read_opt_header(_request: FrameworkRequest) -> Any:
+            return _request.headers.get(name, default)
 
-            def read_opt_header(_request: FrameworkRequest) -> Any:
-                return _request.headers.get(name, default)
+        return read_opt_header
 
-            return read_opt_header
-    else:
-        handler = converter._structure_func.dispatch(type)
-        if default is Signature.empty:
+    handler = converter._structure_func.dispatch(type)
+    if default is Signature.empty:
 
-            def read_header(_request: FrameworkRequest) -> str:
-                return handler(_request.headers[name], type)
+        def read_conv_header(_request: FrameworkRequest) -> str:
+            return handler(_request.headers[name], type)
 
-            return read_header
+        return read_conv_header
 
-        else:
+    def read_opt_conv_header(_request: FrameworkRequest) -> Any:
+        return handler(_request.headers.get(name, default), type)
 
-            def read_opt_header(_request: FrameworkRequest) -> Any:
-                return handler(_request.headers.get(name, default), type)
-
-            return read_opt_header
+    return read_opt_conv_header
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -344,23 +345,20 @@ def make_cookie_dependency(cookie_name: str, default=Signature.empty):
 
         return read_cookie
 
-    else:
+    def read_cookie_opt(_request: FrameworkRequest) -> Any:
+        return _request.COOKIES.get(cookie_name, default)
 
-        def read_cookie_opt(_request: FrameworkRequest) -> Any:
-            return _request.COOKIES.get(cookie_name, default)
-
-        return read_cookie_opt
+    return read_cookie_opt
 
 
-def _framework_return_adapter(resp: BaseResponse):
+def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:
     if resp.headers:
-        res = FrameworkResponse(
+        return FrameworkResponse(
             resp.ret or b"",
             status=get_status_code(resp.__class__),  # type: ignore
             headers=dict_to_headers(resp.headers),
         )
-        return res
-    else:
-        return FrameworkResponse(
-            resp.ret or b"", status=get_status_code(resp.__class__)  # type: ignore
-        )
+
+    return FrameworkResponse(
+        resp.ret or b"", status=get_status_code(resp.__class__)  # type: ignore
+    )

@@ -1,6 +1,6 @@
 from asyncio import Event, create_task, sleep
+from collections.abc import Callable
 from datetime import timedelta
-from typing import Callable, Optional
 
 import pytest
 from aioredis import create_redis_pool
@@ -24,11 +24,10 @@ async def configure_login_app(app: FrameworkApp) -> None:
     login_manager = configure_async_login(app, int, rss)
 
     @app.get("/")
-    async def index(current_user_id: Optional[int]) -> str:
+    async def index(current_user_id: int | None) -> str:
         if current_user_id is None:
             return "no user"
-        else:
-            return str(current_user_id)
+        return str(current_user_id)
 
     @app.post("/login")
     async def login(login_session: AsyncLoginSession[int]) -> Created[None]:

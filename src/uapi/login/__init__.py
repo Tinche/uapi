@@ -1,5 +1,5 @@
 from inspect import Signature
-from typing import Generic, Optional, TypeVar
+from typing import Generic, TypeVar
 
 from attrs import frozen
 
@@ -23,7 +23,7 @@ class AsyncLoginManager(Generic[T]):
 
 @frozen
 class AsyncLoginSession(Generic[T]):
-    user_id: Optional[T]
+    user_id: T | None
     _session: AsyncSession
 
     async def login_and_return(self, user_id: T) -> Headers:
@@ -43,17 +43,15 @@ def configure_async_login(
     def user_id_factory(session: AsyncSession) -> T:
         if "user_id" in session:
             return user_id_cls(session["user_id"])  # type: ignore
-        else:
-            raise ResponseException(forbidden_response)
+        raise ResponseException(forbidden_response)
 
-    def optional_user_id_factory(session: AsyncSession) -> Optional[T]:
+    def optional_user_id_factory(session: AsyncSession) -> T | None:
         if "user_id" in session:
             return user_id_cls(session["user_id"])  # type: ignore
-        else:
-            return None
+        return None
 
     def async_login_session_factory(
-        current_user_id: Optional[user_id_cls], session: AsyncSession  # type: ignore
+        current_user_id: user_id_cls | None, session: AsyncSession  # type: ignore
     ) -> AsyncLoginSession[T]:
         return AsyncLoginSession(current_user_id, session)
 
@@ -64,7 +62,7 @@ def configure_async_login(
         user_id_factory,
     )
     app.incant.register_hook(
-        lambda p: p.name == "current_user_id" and p.annotation is Optional[user_id_cls],
+        lambda p: p.name == "current_user_id" and p.annotation is user_id_cls | None,
         optional_user_id_factory,
     )
     app.incant.register_hook(

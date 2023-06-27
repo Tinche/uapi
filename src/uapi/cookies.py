@@ -1,4 +1,4 @@
-from typing import Literal, Optional, TypeVar
+from typing import Literal, TypeVar
 
 from attrs import frozen
 
@@ -47,7 +47,7 @@ class Cookie(str):
 
 
 def set_cookie(
-    name: str, value: Optional[str], settings: CookieSettings = CookieSettings()
+    name: str, value: str | None, settings: CookieSettings = CookieSettings()
 ) -> Headers:
     return (
         _make_cookie_header(name, value, settings)

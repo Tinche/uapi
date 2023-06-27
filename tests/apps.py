@@ -147,7 +147,7 @@ def configure_base_async(app: App) -> None:
     @app.get("/literal-model")
     async def literal_model(m: ReqBody[ModelWithLiteral]) -> None:
         """OpenAPI should handle a model with a literal field."""
-        return None
+        return
 
     @app.post("/generic-model")
     async def generic_model(m: ReqBody[GenericModel[int]]) -> GenericModel[SimpleModel]:
@@ -312,7 +312,7 @@ def configure_base_sync(app: App) -> None:
     @app.get("/literal-model")
     def literal_model(m: ReqBody[ModelWithLiteral]) -> None:
         """OpenAPI should handle a model with a literal field."""
-        return None
+        return
 
     @app.post("/generic-model")
     def generic_model(m: ReqBody[GenericModel[int]]) -> GenericModel[SimpleModel]:

@@ -1,10 +1,9 @@
 """Redis backends for sessions."""
-
 from datetime import timedelta
 from json import dumps, loads
 from secrets import token_hex
 from time import time
-from typing import TYPE_CHECKING, Annotated, Optional, TypeVar
+from typing import TYPE_CHECKING, Annotated, TypeVar
 
 from attrs import frozen
 
@@ -29,7 +28,7 @@ class AsyncSession(dict[str, str]):
     _ttl: int
     _key_prefix: str
 
-    async def update_session(self, *, namespace: Optional[str] = None) -> Headers:
+    async def update_session(self, *, namespace: str | None = None) -> Headers:
         namespace = namespace or self._namespace
         if namespace is None:
             raise Exception("The namespace must be set for new sessions.")
@@ -95,7 +94,7 @@ def configure_async_sessions(
     ttl = int(max_age.total_seconds())
 
     async def session_factory(
-        cookie: Annotated[Optional[str], Cookie(cookie_name)] = None
+        cookie: Annotated[str | None, Cookie(cookie_name)] = None
     ) -> AsyncSession:
         if cookie is not None:
             namespace, id = cookie.split(":")

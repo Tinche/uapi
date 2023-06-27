@@ -1,11 +1,13 @@
+# ruff: noqa: N815
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable, Mapping
 from enum import Enum, unique
 from inspect import Parameter as InspectParameter
 from inspect import signature
 from types import NoneType
-from typing import Callable, Final, Literal, Mapping, TypeAlias
+from typing import Final, Literal, TypeAlias
 
 from attrs import NOTHING, Factory, fields, frozen, has
 from cattrs import override
@@ -203,76 +205,75 @@ def build_operation(
     for arg, arg_param in sig.parameters.items():
         if arg in path_params:
             continue
-        else:
-            arg_type = arg_param.annotation
-            if arg_type is not InspectParameter.empty and is_subclass(
-                arg_type, framework_req_cls
-            ):
-                # We ignore params annotated as framework req classes.
-                continue
-            if arg_type is not InspectParameter.empty and (
-                type_and_header := maybe_header_type(arg_param)
-            ):
-                header_type, header_spec = type_and_header
-                if isinstance(header_spec.name, str):
-                    header_name = header_spec.name
-                else:
-                    header_name = header_spec.name(arg)
-                params.append(
-                    Parameter(
-                        header_name,
-                        Parameter.Kind.HEADER,
-                        arg_param.default is InspectParameter.empty,
-                        PYTHON_PRIMITIVES_TO_OPENAPI.get(
-                            header_type, PYTHON_PRIMITIVES_TO_OPENAPI[str]
-                        ),
-                    )
-                )
-            elif cookie_name := get_cookie_name(arg_type, arg):
-                params.append(
-                    Parameter(
-                        cookie_name,
-                        Parameter.Kind.COOKIE,
-                        arg_param.default is InspectParameter.empty,
-                        PYTHON_PRIMITIVES_TO_OPENAPI.get(
-                            arg_param.annotation, PYTHON_PRIMITIVES_TO_OPENAPI[str]
-                        ),
-                    )
-                )
-            elif arg_type is not InspectParameter.empty and (
-                type_and_loader := maybe_req_body_type(arg_param)
-            ):
-                req_type, loader = type_and_loader
-                if has(req_type):
-                    request_bodies[loader.content_type or "*/*"] = MediaType(
-                        Reference(f"#/components/schemas/{components[req_type]}")
-                    )
-                else:
-                    # It's a dict.
-                    v_type = req_type.__args__[1]  # type: ignore[attr-defined]
-
-                    add_prop: Reference | Schema = (
-                        Reference(f"#/components/schemas/{components[v_type]}")
-                        if has(v_type)
-                        else PYTHON_PRIMITIVES_TO_OPENAPI[v_type]
-                    )
-
-                    request_bodies[loader.content_type or "*/*"] = MediaType(
-                        Schema(Schema.Type.OBJECT, additionalProperties=add_prop)
-                    )
-
-                request_body_required = arg_param.default is InspectParameter.empty
+        arg_type = arg_param.annotation
+        if arg_type is not InspectParameter.empty and is_subclass(
+            arg_type, framework_req_cls
+        ):
+            # We ignore params annotated as framework req classes.
+            continue
+        if arg_type is not InspectParameter.empty and (
+            type_and_header := maybe_header_type(arg_param)
+        ):
+            header_type, header_spec = type_and_header
+            if isinstance(header_spec.name, str):
+                header_name = header_spec.name
             else:
-                params.append(
-                    Parameter(
-                        arg,
-                        Parameter.Kind.QUERY,
-                        arg_param.default is InspectParameter.empty,
-                        PYTHON_PRIMITIVES_TO_OPENAPI.get(
-                            arg_param.annotation, PYTHON_PRIMITIVES_TO_OPENAPI[str]
-                        ),
-                    )
+                header_name = header_spec.name(arg)
+            params.append(
+                Parameter(
+                    header_name,
+                    Parameter.Kind.HEADER,
+                    arg_param.default is InspectParameter.empty,
+                    PYTHON_PRIMITIVES_TO_OPENAPI.get(
+                        header_type, PYTHON_PRIMITIVES_TO_OPENAPI[str]
+                    ),
                 )
+            )
+        elif cookie_name := get_cookie_name(arg_type, arg):
+            params.append(
+                Parameter(
+                    cookie_name,
+                    Parameter.Kind.COOKIE,
+                    arg_param.default is InspectParameter.empty,
+                    PYTHON_PRIMITIVES_TO_OPENAPI.get(
+                        arg_param.annotation, PYTHON_PRIMITIVES_TO_OPENAPI[str]
+                    ),
+                )
+            )
+        elif arg_type is not InspectParameter.empty and (
+            type_and_loader := maybe_req_body_type(arg_param)
+        ):
+            req_type, loader = type_and_loader
+            if has(req_type):
+                request_bodies[loader.content_type or "*/*"] = MediaType(
+                    Reference(f"#/components/schemas/{components[req_type]}")
+                )
+            else:
+                # It's a dict.
+                v_type = req_type.__args__[1]  # type: ignore[attr-defined]
+
+                add_prop: Reference | Schema = (
+                    Reference(f"#/components/schemas/{components[v_type]}")
+                    if has(v_type)
+                    else PYTHON_PRIMITIVES_TO_OPENAPI[v_type]
+                )
+
+                request_bodies[loader.content_type or "*/*"] = MediaType(
+                    Schema(Schema.Type.OBJECT, additionalProperties=add_prop)
+                )
+
+            request_body_required = arg_param.default is InspectParameter.empty
+        else:
+            params.append(
+                Parameter(
+                    arg,
+                    Parameter.Kind.QUERY,
+                    arg_param.default is InspectParameter.empty,
+                    PYTHON_PRIMITIVES_TO_OPENAPI.get(
+                        arg_param.annotation, PYTHON_PRIMITIVES_TO_OPENAPI[str]
+                    ),
+                )
+            )
 
     ret_type = sig.return_annotation
     if ret_type is InspectParameter.empty:
@@ -498,25 +499,26 @@ def gather_endpoint_components(
 ) -> dict[type, str]:
     sig = signature(handler, eval_str=True)
     for arg in sig.parameters.values():
-        if arg.annotation is not InspectParameter.empty:
-            if (type_and_loader := maybe_req_body_type(arg)) is not None and (
-                arg_type := type_and_loader[0]
-            ) not in components:
-                if has(arg_type):
-                    if is_generic(arg_type):
-                        name = _make_generic_name(arg_type)
-                    else:
-                        name = arg_type.__name__
-                    counter = 0
-                    while name in components.values():
-                        name = f"{arg_type.__name__}{counter}"
-                        counter += 1
-                    _gather_attrs_components(arg_type, components)
+        if (
+            arg.annotation is not InspectParameter.empty
+            and (type_and_loader := maybe_req_body_type(arg)) is not None
+            and (arg_type := type_and_loader[0]) not in components
+        ):
+            if has(arg_type):
+                if is_generic(arg_type):
+                    name = _make_generic_name(arg_type)
                 else:
-                    # It's a dict.
-                    val_arg = arg_type.__args__[1]  # type: ignore[attr-defined]
-                    if has(val_arg):
-                        _gather_attrs_components(val_arg, components)
+                    name = arg_type.__name__
+                counter = 0
+                while name in components.values():
+                    name = f"{arg_type.__name__}{counter}"
+                    counter += 1
+                _gather_attrs_components(arg_type, components)
+            else:
+                # It's a dict.
+                val_arg = arg_type.__args__[1]  # type: ignore[attr-defined]
+                if has(val_arg):
+                    _gather_attrs_components(val_arg, components)
     if (ret_type := sig.return_annotation) is not InspectParameter.empty:
         for _, r in get_status_code_results(ret_type):
             if has(r) and not is_subclass(r, BaseResponse) and r not in components:
@@ -576,7 +578,7 @@ def _make_generic_mapping(type: type) -> dict:
     """A mapping of TypeVars to their actual bound types."""
     res = {}
 
-    for arg, param in zip(type.__args__, type.__origin__.__parameters__):  # type: ignore
+    for arg, param in zip(type.__args__, type.__origin__.__parameters__, strict=True):  # type: ignore
         res[param] = arg
 
     return res

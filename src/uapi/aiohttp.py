@@ -1,7 +1,8 @@
+from collections.abc import Callable
 from functools import partial
 from inspect import Parameter, Signature, signature
 from logging import Logger
-from typing import Any, Callable, ClassVar, TypeVar
+from typing import Any, ClassVar, TypeVar
 
 from aiohttp.web import Request as FrameworkRequest
 from aiohttp.web import Response as FrameworkResponse
@@ -81,12 +82,12 @@ class AiohttpApp(BaseApp):
     framework_incant: Incanter = Factory(
         lambda self: make_aiohttp_incanter(self.converter), takes_self=True
     )
-    _path_param_parser: ClassVar[Callable[[str], tuple[str, list[str]]]] = lambda p: (
-        p,
-        parse_curly_path_params(p),
-    )
     _framework_req_cls: ClassVar[type] = FrameworkRequest
     _framework_resp_cls: ClassVar[type] = FrameworkResponse
+
+    @staticmethod
+    def _path_param_parser(p: str) -> tuple[str, list[str]]:
+        return (p, parse_curly_path_params(p))
 
     def __attrs_post_init__(self) -> None:
         async def request_bytes(_request: FrameworkRequest) -> bytes:
@@ -277,11 +278,12 @@ def make_header_dependency(
     name: str,
     converter: Converter,
     default: Any = Signature.empty,
-):
+) -> Callable[[FrameworkRequest], Any]:
     if isinstance(headerspec.name, str):
         name = headerspec.name
     else:
         name = headerspec.name(name)
+
     if type is str:
         if default is Signature.empty:
 
@@ -290,27 +292,23 @@ def make_header_dependency(
 
             return read_header
 
-        else:
+        def read_opt_header(_request: FrameworkRequest) -> Any:
+            return _request.headers.get(name, default)
 
-            def read_opt_header(_request: FrameworkRequest) -> Any:
-                return _request.headers.get(name, default)
+        return read_opt_header
 
-            return read_opt_header
-    else:
-        handler = converter._structure_func.dispatch(type)
-        if default is Signature.empty:
+    handler = converter._structure_func.dispatch(type)
+    if default is Signature.empty:
 
-            def read_header(_request: FrameworkRequest) -> str:
-                return handler(_request.headers[name], type)
+        def read_conv_header(_request: FrameworkRequest) -> str:
+            return handler(_request.headers[name], type)
 
-            return read_header
+        return read_conv_header
 
-        else:
+    def read_opt_conv_header(_request: FrameworkRequest) -> Any:
+        return handler(_request.headers.get(name, default), type)
 
-            def read_opt_header(_request: FrameworkRequest) -> Any:
-                return handler(_request.headers.get(name, default), type)
-
-            return read_opt_header
+    return read_opt_conv_header
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -321,12 +319,10 @@ def make_cookie_dependency(cookie_name: str, default=Signature.empty):
 
         return read_cookie
 
-    else:
+    def read_opt_cookie(_request: FrameworkRequest) -> Any:
+        return _request.cookies.get(cookie_name, default)
 
-        def read_opt_cookie(_request: FrameworkRequest) -> Any:
-            return _request.cookies.get(cookie_name, default)
-
-        return read_opt_cookie
+    return read_opt_cookie
 
 
 def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:

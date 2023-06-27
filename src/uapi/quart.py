@@ -30,7 +30,6 @@ from .requests import (
 )
 from .responses import dict_to_headers, identity, make_return_adapter
 from .status import BaseResponse, get_status_code
-from .types import PathParamParser
 
 C = TypeVar("C")
 
@@ -81,11 +80,11 @@ class QuartApp(BaseApp):
     framework_incant: Incanter = Factory(
         lambda self: make_quart_incanter(self.converter), takes_self=True
     )
-    _path_param_parser: ClassVar[PathParamParser] = lambda p: (
-        strip_path_param_prefix(angle_to_curly(p)),
-        parse_curly_path_params(p),
-    )
     _framework_resp_cls: ClassVar[type] = FrameworkResponse
+
+    @staticmethod
+    def _path_param_parser(p: str) -> tuple[str, list[str]]:
+        return (strip_path_param_prefix(angle_to_curly(p)), parse_curly_path_params(p))
 
     def to_framework_app(self, import_name: str) -> Quart:
         q = Quart(import_name)
@@ -117,7 +116,7 @@ class QuartApp(BaseApp):
                 def o0(
                     prepared=prepared, _req_ct=req_ct, _fra=_framework_return_adapter
                 ):
-                    async def adapted(**kwargs):
+                    async def adapter(**kwargs):
                         if (
                             _req_ct is not None
                             and request.headers.get("content-type") != _req_ct
@@ -130,7 +129,7 @@ class QuartApp(BaseApp):
                         except ResponseException as exc:
                             return _fra(exc.response)
 
-                    return adapted
+                    return adapter
 
                 adapted = o0()
 
@@ -147,7 +146,7 @@ class QuartApp(BaseApp):
                         _fra=_framework_return_adapter,
                         _req_ct=req_ct,
                     ):
-                        async def adapted(**kwargs):
+                        async def adapter(**kwargs):
                             if (
                                 _req_ct is not None
                                 and request.headers.get("content-type") != _req_ct
@@ -160,7 +159,7 @@ class QuartApp(BaseApp):
                             except ResponseException as exc:
                                 return _fra(exc.response)
 
-                        return adapted
+                        return adapter
 
                     adapted = o1()
 
@@ -172,7 +171,7 @@ class QuartApp(BaseApp):
                         _ra=ra,
                         _req_ct=req_ct,
                     ):
-                        async def adapted(**kwargs):
+                        async def adapter(**kwargs):
                             if (
                                 _req_ct is not None
                                 and request.headers.get("content-type") != _req_ct
@@ -185,7 +184,7 @@ class QuartApp(BaseApp):
                             except ResponseException as exc:
                                 return _fra(exc.response)
 
-                        return adapted
+                        return adapter
 
                     adapted = o2()
 
@@ -227,27 +226,23 @@ def make_header_dependency(
 
             return read_header
 
-        else:
+        def read_opt_header() -> Any:
+            return request.headers.get(name, default)
 
-            def read_opt_header() -> Any:
-                return request.headers.get(name, default)
+        return read_opt_header
 
-            return read_opt_header
-    else:
-        handler = converter._structure_func.dispatch(type)
-        if default is Signature.empty:
+    handler = converter._structure_func.dispatch(type)
+    if default is Signature.empty:
 
-            def read_header() -> str:
-                return handler(request.headers[name], type)
+        def read_conv_header() -> str:
+            return handler(request.headers[name], type)
 
-            return read_header
+        return read_conv_header
 
-        else:
+    def read_opt_conv_header() -> Any:
+        return handler(request.headers.get(name, default), type)
 
-            def read_opt_header() -> Any:
-                return handler(request.headers.get(name, default), type)
-
-            return read_opt_header
+    return read_opt_conv_header
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -258,12 +253,10 @@ def make_cookie_dependency(cookie_name: str, default=Signature.empty):
 
         return read_cookie
 
-    else:
+    def read_cookie_opt() -> Any:
+        return request.cookies.get(cookie_name, default)
 
-        def read_cookie_opt() -> Any:
-            return request.cookies.get(cookie_name, default)
-
-        return read_cookie_opt
+    return read_cookie_opt
 
 
 def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:

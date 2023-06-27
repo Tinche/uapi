@@ -1,6 +1,7 @@
 from asyncio import Event, create_task, new_event_loop
 from asyncio.exceptions import CancelledError
-from typing import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import suppress
 
 import pytest
 
@@ -29,10 +30,9 @@ async def server(request, unused_tcp_port_factory: Callable[..., int]):
         t = create_task(aiohttp_run_server(unused_tcp_port))
         yield unused_tcp_port
         t.cancel()
-        try:
+        with suppress(CancelledError):
             await t
-        except CancelledError:
-            pass
+
     elif request.param == "flask":
         shutdown_event = Event()
         t = create_task(flask_run_server(unused_tcp_port, shutdown_event))
@@ -72,10 +72,9 @@ async def server_with_openapi(
         t = create_task(aiohttp_run_server(unused_tcp_port, openapi=True))
         yield unused_tcp_port
         t.cancel()
-        try:
+        with suppress(CancelledError):
             await t
-        except CancelledError:
-            pass
+
     elif request.param == "flask":
         shutdown_event = Event()
         t = create_task(flask_run_server(unused_tcp_port, shutdown_event, openapi=True))

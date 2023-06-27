@@ -62,23 +62,15 @@ def make_app() -> App:
 
 
 async def run_server(port: int, openapi: bool = False):
-    try:
-        app = make_app()
-        if openapi:
-            app.serve_openapi()
-        aapp = web.Application()
-        aapp.add_routes(app.to_framework_routes())
-        await web._run_app(aapp, port=port, handle_signals=False)
-    except Exception as exc:
-        print(exc)
-        raise
+    app = make_app()
+    if openapi:
+        app.serve_openapi()
+    aapp = web.Application()
+    aapp.add_routes(app.to_framework_routes())
+    await web._run_app(aapp, port=port, handle_signals=False)
 
 
 async def run_on_aiohttp(app: App, port: int):
-    try:
-        aiohttp_app = web.Application()
-        aiohttp_app.add_routes(app.to_framework_routes())
-        await web._run_app(aiohttp_app, port=port, handle_signals=False)
-    except Exception as exc:
-        print(exc)
-        raise
+    aiohttp_app = web.Application()
+    aiohttp_app.add_routes(app.to_framework_routes())
+    await web._run_app(aiohttp_app, port=port, handle_signals=False)

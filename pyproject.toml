@@ -16,7 +16,7 @@ license = {file = "LICENSE"}
 [tool.pdm.dev-dependencies]
 lint = [
     "black",
-    "flake8",
+    "ruff",
     "isort",
     "mypy",
 ]
@@ -64,3 +64,37 @@ ignore_missing_imports = true
 [tool.coverage.run]
 parallel = true
 source_pkgs = ["uapi"]
+
+[tool.ruff]
+src = ["src", "tests"]
+select = [
+    "E",   # pycodestyle
+    "W",   # pycodestyle
+    "F",   # Pyflakes
+    "UP",  # pyupgrade
+    "N",   # pep8-naming
+    "YTT", # flake8-2020
+    "S",   # flake8-bandit
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "T10", # flake8-debugger
+    "ISC", # flake8-implicit-str-concat
+    "RET", # flake8-return
+    "SIM", # flake8-simplify
+    "DTZ", # flake8-datetimez
+    "T20", # flake8-print
+    "PGH", # pygrep-hooks
+    "PLC", # Pylint
+    "PIE", # flake8-pie
+    "RUF", # ruff
+]
+ignore = [
+    "E501",   # line length is handled by black
+    "E731",   # assigning lambdas
+    "S101",   # assert
+    "PGH003", # leave my type: ignores alone
+    "B006",   # trust me
+    "B008",   # can't get it to work with extend-immutable-calls
+    "N818",   # Exceptions
+    "RUF013", # False implicit optionals
+]

@@ -1,8 +1,8 @@
 """Status code classes for return values."""
-
+from collections.abc import Mapping
 from functools import cache
 from types import MappingProxyType
-from typing import Generic, Literal, Mapping, TypeAlias, TypeVar
+from typing import Generic, Literal, TypeAlias, TypeVar
 
 from attrs import define, frozen
 
