@@ -1,4 +1,4 @@
-.PHONY: test
+.PHONY: test lint
 
 test:
 	pdm run pytest tests -x --ff
