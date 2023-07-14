@@ -1,4 +1,5 @@
-from typing import Annotated, Callable, Optional, TypeVar
+from collections.abc import Callable
+from typing import Annotated, TypeVar
 
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
@@ -45,7 +46,7 @@ def configure_secure_sessions(
         )
 
     def get_session(
-        session: Annotated[Optional[str], Cookie(cookie_name)] = None
+        session: Annotated[str | None, Cookie(cookie_name)] = None
     ) -> Session:
         if session is None:
             res = Session()

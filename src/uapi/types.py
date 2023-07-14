@@ -1,4 +1,5 @@
-from typing import Callable, Literal, Sequence, TypeAlias, TypeVar
+from collections.abc import Callable, Sequence
+from typing import Literal, TypeAlias, TypeVar
 
 R = TypeVar("R")
 CB = Callable[..., R]

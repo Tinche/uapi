@@ -1,5 +1,5 @@
 """Test the OpenAPI schema generation for attrs classes."""
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 

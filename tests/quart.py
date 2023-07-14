@@ -63,11 +63,7 @@ def make_app() -> App:
 async def run_server(port: int, shutdown_event: Event, openapi: bool = False):
     config = Config()
     config.bind = [f"localhost:{port}"]
-    try:
-        app = make_app()
-    except Exception as exc:
-        print(exc)
-        raise
+    app = make_app()
     if openapi:
         app.serve_openapi()
     await serve(app.to_framework_app(__name__), config, shutdown_trigger=shutdown_event.wait)  # type: ignore

@@ -1,6 +1,7 @@
+from collections.abc import Callable, Sequence
 from functools import partial
 from types import NoneType
-from typing import Callable, ClassVar, Sequence
+from typing import ClassVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -12,13 +13,12 @@ from .openapi import ApiKeySecurityScheme, OpenAPI, SummaryTransformer
 from .openapi import converter as openapi_converter
 from .openapi import default_summary_transformer, make_openapi_spec
 from .status import Ok
-from .types import Method, PathParamParser, RouteName, RouteTags
+from .types import Method, RouteName, RouteTags
 
 
 def make_base_incanter() -> Incanter:
     """Create the base (non-framework) incanter."""
-    res = Incanter()
-    return res
+    return Incanter()
 
 
 @define
@@ -34,9 +34,13 @@ class App:
         tuple[Method, str], tuple[Callable, RouteName, RouteTags]
     ] = Factory(dict)
     _openapi_security: list[OpenAPISecuritySpec] = Factory(list)
-    _path_param_parser: ClassVar[PathParamParser] = lambda p: (p, [])
     _framework_req_cls: ClassVar[type] = NoneType
     _framework_resp_cls: ClassVar[type] = NoneType
+
+    @staticmethod
+    def _path_param_parser(p: str) -> tuple[str, list[str]]:
+        """Override me with your path param parsing."""
+        return (p, [])
 
     def route(
         self,

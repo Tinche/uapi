@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from inspect import Parameter
-from typing import Annotated, Any, Callable, NewType, Optional, TypeAlias, TypeVar
+from typing import Annotated, Any, NewType, TypeAlias, TypeVar
 
 from attrs import frozen, has
 from cattrs import Converter
@@ -41,10 +42,11 @@ ReqBytes = NewType("ReqBytes", bytes)
 Header = Annotated[T, HeaderSpec()]
 
 
-def get_cookie_name(t, arg_name: str) -> Optional[str]:
-    if t is Cookie or t is Optional[Cookie]:
+def get_cookie_name(t, arg_name: str) -> str | None:
+    if t is Cookie or t is Cookie | None:
         return arg_name
-    elif is_annotated(t):
+
+    if is_annotated(t):
         for arg in get_args(t)[1:]:
             if arg.__class__ is Cookie:
                 return arg or arg_name
@@ -85,7 +87,7 @@ def attrs_body_factory(
         try:
             return converter.structure(loads(body), attrs_cls)
         except Exception as exc:
-            raise ResponseException(loader.error_handler(exc, body))
+            raise ResponseException(loader.error_handler(exc, body)) from exc
 
     return structure_body
 

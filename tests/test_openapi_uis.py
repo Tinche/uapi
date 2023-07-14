@@ -1,5 +1,5 @@
 from asyncio import Event, create_task
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 from aiohttp import ClientSession

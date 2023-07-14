@@ -1,7 +1,8 @@
+from collections.abc import Callable, Mapping
 from contextlib import suppress
 from inspect import Signature
 from types import MappingProxyType, NoneType
-from typing import Any, Callable, Mapping, get_args
+from typing import Any, get_args
 
 from attrs import define, has
 from cattrs import Converter
@@ -11,9 +12,9 @@ from incant import is_subclass
 from .status import BaseResponse, Headers, NoContent, Ok, get_status_code
 
 try:
-    from orjson import dumps as dumps
+    from orjson import dumps
 except ImportError:
-    from json import dumps as dumps  # type: ignore
+    from json import dumps  # type: ignore
 
 __all__ = ["dumps", "return_type_to_statuses", "get_status_code_results"]
 empty_dict: Mapping[str, str] = MappingProxyType({})
@@ -76,24 +77,24 @@ def make_return_adapter(
 
 def return_type_to_statuses(t: type) -> dict[int, Any]:
     per_status: dict[int, Any] = {}
-    for t in get_args(t) if is_union_type(t) else [t]:
-        if is_subclass(t, BaseResponse) or is_subclass(
-            getattr(t, "__origin__", None), BaseResponse
+    for typ in get_args(t) if is_union_type(t) else [t]:
+        if is_subclass(typ, BaseResponse) or is_subclass(
+            getattr(typ, "__origin__", None), BaseResponse
         ):
-            if hasattr(t, "__origin__"):
-                status = get_status_code(t.__origin__)
-                t = t.__args__[0]  # type: ignore
+            if hasattr(typ, "__origin__"):
+                status = get_status_code(typ.__origin__)
+                typ = typ.__args__[0]
             else:
-                status = get_status_code(t)
-                t = type(None)
-        elif t in (None, NoneType):
+                status = get_status_code(typ)
+                typ = type(None)
+        elif typ in (None, NoneType):
             status = 204
         else:
             status = 200
         if status in per_status:
-            per_status[status] = per_status[status] | t
+            per_status[status] = per_status[status] | typ
         else:
-            per_status[status] = t
+            per_status[status] = typ
     return per_status
 
 
@@ -108,6 +109,4 @@ def identity(*args):
 
 
 def dict_to_headers(d: Headers) -> list[tuple[str, str]]:
-    return [
-        (k, v) if not k[:9] == "__cookie_" else ("set-cookie", v) for k, v in d.items()
-    ]
+    return [(k, v) if k[:9] != "__cookie_" else ("set-cookie", v) for k, v in d.items()]

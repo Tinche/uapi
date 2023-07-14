@@ -1,5 +1,6 @@
 from asyncio import CancelledError, Event, create_task
-from typing import Callable
+from collections.abc import Callable
+from contextlib import suppress
 
 import pytest
 
@@ -30,8 +31,7 @@ def configure_secure_session_app(
         def index(session: Session) -> str:
             if "user_id" not in session:
                 return "not-logged-in"
-            else:
-                return session["user_id"]
+            return session["user_id"]
 
         @app.post("/login")
         def login(username: str, session: Session) -> Created[None]:
@@ -49,8 +49,7 @@ def configure_secure_session_app(
         async def index(session: Session) -> str:
             if "user_id" not in session:
                 return "not-logged-in"
-            else:
-                return session["user_id"]
+            return session["user_id"]
 
         @app.post("/login")
         async def login(username: str, session: Session) -> Created[None]:
@@ -74,10 +73,9 @@ async def secure_cookie_session_app(
         t = create_task(run_on_aiohttp(app, unused_tcp_port))
         yield unused_tcp_port
         t.cancel()
-        try:
+        with suppress(CancelledError):
             await t
-        except CancelledError:
-            pass
+
     elif request.param == "flask":
         flask_app = FlaskApp()
         configure_secure_session_app(flask_app)

@@ -17,7 +17,7 @@ class NestedModel:
     """A nested model."""
 
     simple_model: SimpleModel = SimpleModel()
-    a_dict: dict[str, str] = {}
+    a_dict: dict[str, str] = Factory(dict)
     a_list: list[SimpleModel] = Factory(list)
 
 

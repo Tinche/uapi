@@ -1,6 +1,7 @@
+from collections.abc import Callable
 from functools import partial
 from inspect import Parameter, Signature, signature
-from typing import Any, Callable, ClassVar, TypeVar
+from typing import Any, ClassVar, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -24,7 +25,6 @@ from .requests import (
 )
 from .responses import identity, make_return_adapter
 from .status import BaseResponse, Headers, get_status_code
-from .types import PathParamParser
 
 C = TypeVar("C")
 
@@ -88,12 +88,12 @@ class StarletteApp(BaseApp):
     framework_incant: Incanter = Factory(
         lambda self: make_starlette_incanter(self.converter), takes_self=True
     )
-    _path_param_parser: ClassVar[PathParamParser] = lambda p: (
-        p,
-        parse_curly_path_params(p),
-    )
     _framework_req_cls: ClassVar[type] = FrameworkRequest
     _framework_resp_cls: ClassVar[type] = FrameworkResponse
+
+    @staticmethod
+    def _path_param_parser(p: str) -> tuple[str, list[str]]:
+        return (p, parse_curly_path_params(p))
 
     def to_framework_app(self) -> Starlette:
         s = Starlette()
@@ -255,7 +255,7 @@ def make_header_dependency(
     name: str,
     converter: Converter,
     default: Any = Signature.empty,
-):
+) -> Callable[[FrameworkRequest], Any]:
     if isinstance(headerspec.name, str):
         name = headerspec.name
     else:
@@ -268,27 +268,23 @@ def make_header_dependency(
 
             return read_header
 
-        else:
+        def read_opt_header(_request: FrameworkRequest) -> Any:
+            return _request.headers.get(name, default)
 
-            def read_opt_header(_request: FrameworkRequest) -> Any:
-                return _request.headers.get(name, default)
+        return read_opt_header
 
-            return read_opt_header
-    else:
-        handler = converter._structure_func.dispatch(type)
-        if default is Signature.empty:
+    handler = converter._structure_func.dispatch(type)
+    if default is Signature.empty:
 
-            def read_header(_request: FrameworkRequest) -> str:
-                return handler(_request.headers[name], type)
+        def read_conv_header(_request: FrameworkRequest) -> str:
+            return handler(_request.headers[name], type)
 
-            return read_header
+        return read_conv_header
 
-        else:
+    def read_opt_conv_header(_request: FrameworkRequest) -> Any:
+        return handler(_request.headers.get(name, default), type)
 
-            def read_opt_header(_request: FrameworkRequest) -> Any:
-                return handler(_request.headers.get(name, default), type)
-
-            return read_opt_header
+    return read_opt_conv_header
 
 
 def make_cookie_dependency(cookie_name: str, default=Signature.empty):
@@ -299,12 +295,10 @@ def make_cookie_dependency(cookie_name: str, default=Signature.empty):
 
         return read_cookie
 
-    else:
+    def read_cookie_opt(_request: FrameworkRequest) -> Any:
+        return _request.cookies.get(cookie_name, default)
 
-        def read_cookie_opt(_request: FrameworkRequest) -> Any:
-            return _request.cookies.get(cookie_name, default)
-
-        return read_cookie_opt
+    return read_cookie_opt
 
 
 def extract_cookies(headers: Headers) -> tuple[dict[str, str], list[str]]:
@@ -327,5 +321,4 @@ def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:
         for cookie in cookies:
             res.raw_headers.append((b"set-cookie", cookie.encode("latin1")))
         return res
-    else:
-        return FrameworkResponse(resp.ret or b"", get_status_code(resp.__class__))  # type: ignore
+    return FrameworkResponse(resp.ret or b"", get_status_code(resp.__class__))  # type: ignore

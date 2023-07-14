@@ -1,6 +1,7 @@
+import contextlib
 from asyncio import CancelledError, create_task, sleep
+from collections.abc import Callable
 from datetime import timedelta
-from typing import Callable
 
 import pytest
 from aioredis import create_redis_pool
@@ -26,8 +27,7 @@ async def configure_redis_session_app(app: AiohttpApp) -> None:
     async def index(session: AsyncSession) -> str:
         if "user_id" not in session:
             return "naughty!"
-        else:
-            return session["user_id"]
+        return session["user_id"]
 
     @app.post("/login")
     async def login(username: str, session: AsyncSession) -> Created[None]:
@@ -48,10 +48,8 @@ async def redis_session_app(unused_tcp_port_factory: Callable[..., int]):
     t = create_task(run_on_aiohttp(app, unused_tcp_port))
     yield unused_tcp_port
     t.cancel()
-    try:
+    with contextlib.suppress(CancelledError):
         await t
-    except CancelledError:
-        pass
 
 
 async def test_login_logout(redis_session_app: int):
