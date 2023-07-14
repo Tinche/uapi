@@ -57,12 +57,12 @@ def configure_async_login(
 
     app.incant.register_hook(
         lambda p: p.name == "current_user_id"
-        and p.annotation is user_id_cls
+        and p.annotation == user_id_cls
         and p.default is Signature.empty,
         user_id_factory,
     )
     app.incant.register_hook(
-        lambda p: p.name == "current_user_id" and p.annotation is user_id_cls | None,
+        lambda p: p.name == "current_user_id" and p.annotation == user_id_cls | None,
         optional_user_id_factory,
     )
     app.incant.register_hook(
