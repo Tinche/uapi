@@ -23,7 +23,7 @@ lint = [
     "black",
     "ruff",
     "isort",
-    "mypy",
+    "mypy>=1.4.1",
 ]
 test = [
     "coverage",
