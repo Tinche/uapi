@@ -296,9 +296,12 @@ summary = "Getting image size from png/jpeg/jpeg2000/gif file"
 
 [[package]]
 name = "incant"
-version = "22.2.2"
+version = "23.1.0"
 requires_python = ">=3.8"
 summary = "Magical function composition"
+dependencies = [
+    "attrs",
+]
 
 [[package]]
 name = "iniconfig"
@@ -1222,9 +1225,9 @@ content_hash = "sha256:7e780a5a11452b48b7d992530405dfb60016a9192189460be6b9ad30c
     {url = "https://files.pythonhosted.org/packages/a7/84/62473fb57d61e31fef6e36d64a179c8781605429fd927b5dd608c997be31/imagesize-1.4.1.tar.gz", hash = "sha256:69150444affb9cb0d5cc5a92b3676f0b2fb7cd9ae39e947a5e11a36b4497cd4a"},
     {url = "https://files.pythonhosted.org/packages/ff/62/85c4c919272577931d407be5ba5d71c20f0b616d31a0befe0ae45bb79abd/imagesize-1.4.1-py2.py3-none-any.whl", hash = "sha256:0d8d18d08f840c19d0ee7ca1fd82490fdc3729b7ac93f49870406ddde8ef8d8b"},
 ]
-"incant 22.2.2" = [
-    {url = "https://files.pythonhosted.org/packages/7c/76/2f13ff09211142a3264a8a6cdc7fc6b4101e3faae74dfc76d69065797383/incant-22.2.2.tar.gz", hash = "sha256:d28ee8819634176f2e8781886c6c8910336c96ef6c893cfe42a4ac1dc466bead"},
-    {url = "https://files.pythonhosted.org/packages/da/1f/327adf05d2ea34d52c40a1676d378fc026f92cfa2bfd87bdc7cd406ddb15/incant-22.2.2-py3-none-any.whl", hash = "sha256:2461d814bb8866418e46ac48d75afdd3425631010f5efbc1ece897895d9752db"},
+"incant 23.1.0" = [
+    {url = "https://files.pythonhosted.org/packages/8b/06/8cc12743453b33c7d984b9cf8f79820083e168e535a4a0f7cd94fb42c9ff/incant-23.1.0.tar.gz", hash = "sha256:b16d61ec4d3550644ae855aa44b9b149b53c08de00ba80b1e16e9e8bf1090a8c"},
+    {url = "https://files.pythonhosted.org/packages/f0/65/e7c36df268b08c8f488a15fb4bb60b4dc9daca41298231cc3f94a3649539/incant-23.1.0-py3-none-any.whl", hash = "sha256:410eb81893946e5220a61f229486d3afd66b9127513c0e82f21ba2a47ef16535"},
 ]
 "iniconfig 2.0.0" = [
     {url = "https://files.pythonhosted.org/packages/d7/4b/cbd8e699e64a6f16ca3a8220661b5f83792b3017d0f79807cb8708d33913/iniconfig-2.0.0.tar.gz", hash = "sha256:2d91e135bf72d31a410b17c16da610a82cb55f6b0477d1a902134b24a455b8b3"},
