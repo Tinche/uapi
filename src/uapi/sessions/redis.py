@@ -1,6 +1,4 @@
 """Redis backends for sessions."""
-from __future__ import annotations
-
 from datetime import timedelta
 from json import dumps, loads
 from secrets import token_hex
@@ -24,7 +22,7 @@ T2 = TypeVar("T2")
 class AsyncSession(dict[str, str]):
     _cookie_name: str
     _cookie_settings: CookieSettings
-    _aioredis: Redis
+    _aioredis: "Redis"
     _namespace: str
     _id: str
     _ttl: int
@@ -68,7 +66,7 @@ class AsyncSession(dict[str, str]):
 
 @frozen
 class AsyncRedisSessionStore:
-    _redis: Redis
+    _redis: "Redis"
     _key_prefix: str
     _cookie_name: str
     _cookie_settings: CookieSettings
@@ -86,7 +84,7 @@ class AsyncRedisSessionStore:
 
 def configure_async_sessions(
     app: App,
-    aioredis: Redis,
+    aioredis: "Redis",
     max_age: timedelta = timedelta(days=14),
     cookie_name: str = "session_id",
     cookie_settings: CookieSettings = CookieSettings(),

@@ -678,7 +678,7 @@ dependencies = [
 lock_version = "4.2"
 cross_platform = true
 groups = ["default", "docs", "lint", "test"]
-content_hash = "sha256:a5fc7f9bc6c14373ba160ff996c6f7ad5f0bf93a280120293ff0c3db6533fd2f"
+content_hash = "sha256:74fc85bc8185343339b191e4f024aac1ad6ee5282e1fc5ce606981122be827c1"
 
 [metadata.files]
 "aiofiles 23.1.0" = [
