@@ -63,3 +63,5 @@ html_theme_options = {
     },
     "dark_css_variables": {"color-highlight-on-target": "transparent"},
 }
+
+myst_heading_anchors = 2
