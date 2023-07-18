@@ -91,6 +91,37 @@ def configure_async_sessions(
     redis_key_prefix: str = "",
     session_arg_param_name: str = "session",
 ) -> AsyncRedisSessionStore:
+    """
+    Configure an instance of async sessions for an app.
+
+    A session ID will be generated using Python's `secrets.token_hex` and stored in a
+    cookie.
+
+    Once configured, handlers may declare a parameter of name _session_arg_param_name
+    (defaults to `session`) and type `AsyncSession`. AsyncSessions are mappings of
+    strings to strings, and can be used to store data using the
+    `AsyncSession.update_session()` and `AsyncSession.clear_session()` coroutines.
+
+    If the cookie is missing or the session data has expired, a new empty session will
+    be transparently created.
+
+    Sessions have optional namespaces. Namespaces are useful for logically grouping
+    sessions, for example by user ID, so that multiple sessions can be cleared at once.
+
+    Fresh sessions start with no namespace set. To set a namespace, pass it to
+    `AsyncSession.update_session()`.
+
+    An `AsyncRedisSessionStore` is produced at configuration time and can be used to
+    clean up namespaces even outside the context of a request.
+
+    :param max_age: The maximum age of a session. When this expires, the session is
+        cleaned up from Redis.
+    :param cookie_name: The name of the cookie to use for the session id.
+    :param cookie_settings: The settings for the cookie.
+    :param redis_key_prefix: The prefix to use for redis keys.
+    :param session_arg_param_name: The name of the handler parameter that will be
+        available for dependency injection.
+    """
     ttl = int(max_age.total_seconds())
 
     async def session_factory(

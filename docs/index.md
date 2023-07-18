@@ -8,6 +8,7 @@
 self
 handlers.md
 openapi.md
+addons.md
 changelog.md
 indices.md
 modules.rst

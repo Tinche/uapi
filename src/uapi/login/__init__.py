@@ -17,7 +17,8 @@ T2 = TypeVar("T2")
 class AsyncLoginManager(Generic[T]):
     async_session_store: AsyncRedisSessionStore
 
-    async def logout(self, user_id: T):
+    async def logout(self, user_id: T) -> None:
+        """Invalidate all sessions of `user_id`."""
         await self.async_session_store.remove_namespace(str(user_id))
 
 
@@ -27,6 +28,11 @@ class AsyncLoginSession(Generic[T]):
     _session: AsyncSession
 
     async def login_and_return(self, user_id: T) -> Headers:
+        """Set the current session as logged with the given user ID.
+
+        The produced headers need to be returned to the user to set the appropriate
+        cookies.
+        """
         self._session["user_id"] = str(user_id)
         return await self._session.update_session(namespace=str(user_id))
 
@@ -40,6 +46,12 @@ def configure_async_login(
     redis_session_store: AsyncRedisSessionStore,
     forbidden_response: BaseResponse = Forbidden(None),
 ) -> AsyncLoginManager[T]:
+    """Configure the app for handling login sessions.
+
+    :param user_id_cls: The class of the user ID. Handlers will need to annotate the
+        `current_user_id` parameter with this class or `user_id_cls | None`.
+    """
+
     def user_id_factory(session: AsyncSession) -> T:
         if "user_id" in session:
             return user_id_cls(session["user_id"])  # type: ignore
