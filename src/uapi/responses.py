@@ -1,5 +1,4 @@
 from collections.abc import Callable, Mapping
-from contextlib import suppress
 from inspect import Signature
 from types import MappingProxyType, NoneType
 from typing import Any, get_args
@@ -45,9 +44,8 @@ def make_return_adapter(
         return lambda r: Ok(r, {"content-type": "application/octet-stream"})
     if return_type is str:
         return lambda r: Ok(r, {"content-type": "text/plain"})
-    with suppress(Exception):
-        if issubclass(return_type, BaseResponse):
-            return identity
+    if is_subclass(return_type, BaseResponse):
+        return identity
     if is_subclass(getattr(return_type, "__origin__", None), BaseResponse) and has(
         inner := return_type.__args__[0]
     ):
@@ -73,6 +71,25 @@ def make_return_adapter(
             headers=r.headers | {"content-type": "application/json"},
         )
     return identity
+
+
+def make_exception_adapter(
+    converter: Converter,
+) -> Callable[[ResponseException], BaseResponse]:
+    """Produce an adapter of exceptions to BaseResponses.
+
+    Since exception types aren't statically known, this can be
+    simpler than the return adapter.
+    """
+
+    def adapt_exception(exc: ResponseException) -> BaseResponse:
+        if isinstance(exc.response.ret, str | bytes | None):
+            return exc.response
+        return exc.response.__class__(
+            dumps(converter.unstructure(exc.response.ret)), exc.response.headers
+        )
+
+    return adapt_exception
 
 
 def return_type_to_statuses(t: type) -> dict[int, Any]:
