@@ -23,7 +23,7 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import identity, make_return_adapter
+from .responses import identity, make_exception_adapter, make_return_adapter
 from .status import BaseResponse, Headers, get_status_code
 
 C = TypeVar("C")
@@ -97,6 +97,7 @@ class StarletteApp(BaseApp):
 
     def to_framework_app(self) -> Starlette:
         s = Starlette()
+        exc_adapter = make_exception_adapter(self.converter)
 
         for (method, path), (handler, name, _) in self._route_map.items():
             ra = make_return_adapter(
@@ -128,6 +129,7 @@ class StarletteApp(BaseApp):
                     request: FrameworkRequest,
                     _incant=self.framework_incant.aincant,
                     _fra=_framework_return_adapter,
+                    _ea=exc_adapter,
                     _prepared=prepared,
                     _path_params=path_params,
                     _path_types=path_types,
@@ -154,7 +156,7 @@ class StarletteApp(BaseApp):
                         }
                         return await _incant(_prepared, request, **path_args)
                     except ResponseException as exc:
-                        return _fra(exc.response)
+                        return _fra(_ea(exc))
 
             else:
                 prepared = self.framework_incant.prepare(
@@ -169,6 +171,7 @@ class StarletteApp(BaseApp):
                         request: FrameworkRequest,
                         _incant=self.framework_incant.aincant,
                         _fra=_framework_return_adapter,
+                        _ea=exc_adapter,
                         _prepared=prepared,
                         _path_params=path_params,
                         _path_types=path_types,
@@ -195,7 +198,7 @@ class StarletteApp(BaseApp):
                         try:
                             return _fra(await _incant(_prepared, request, **path_args))
                         except ResponseException as exc:
-                            return _fra(exc.response)
+                            return _fra(_ea(exc))
 
                 else:
 
@@ -204,6 +207,7 @@ class StarletteApp(BaseApp):
                         _incant=self.framework_incant.aincant,
                         _ra=ra,
                         _fra=_framework_return_adapter,
+                        _ea=exc_adapter,
                         _prepared=prepared,
                         _path_params=path_params,
                         _path_types=path_types,
@@ -232,7 +236,7 @@ class StarletteApp(BaseApp):
                                 _ra(await _incant(_prepared, request, **path_args))
                             )
                         except ResponseException as exc:
-                            return _fra(exc.response)
+                            return _fra(_ea(exc))
 
             s.add_route(path, adapted, name=name, methods=[method])
 

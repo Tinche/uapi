@@ -32,7 +32,12 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import dict_to_headers, identity, make_return_adapter
+from .responses import (
+    dict_to_headers,
+    identity,
+    make_exception_adapter,
+    make_return_adapter,
+)
 from .status import BaseResponse, get_status_code
 from .types import Method, RouteName, RouteTags
 
@@ -127,6 +132,8 @@ class DjangoApp(BaseApp):
         for (method, path), v in self._route_map.items():
             by_path_by_method.setdefault(path, {})[method] = v
 
+        exc_adapter = make_exception_adapter(self.converter)
+
         for path, methods_and_handlers in by_path_by_method.items():
             # Django does not strip the prefix slash, so we do it for it.
             path = path.removeprefix("/")
@@ -164,6 +171,7 @@ class DjangoApp(BaseApp):
                         request: WSGIRequest,
                         _incant=self.framework_incant.incant,
                         _fra=_framework_return_adapter,
+                        _ea=exc_adapter,
                         _prepared=prepared,
                         _path_params=path_params,
                         _path_types=path_types,
@@ -189,7 +197,7 @@ class DjangoApp(BaseApp):
                             }
                             return _incant(_prepared, request, **path_args)
                         except ResponseException as exc:
-                            return _fra(exc.response)
+                            return _fra(_ea(exc))
 
                 else:
                     prepared = self.framework_incant.prepare(
@@ -204,6 +212,7 @@ class DjangoApp(BaseApp):
                             request: WSGIRequest,
                             _incant=self.framework_incant.incant,
                             _fra=_framework_return_adapter,
+                            _ea=exc_adapter,
                             _prepared=prepared,
                             _path_params=path_params,
                             _path_types=path_types,
@@ -230,7 +239,7 @@ class DjangoApp(BaseApp):
                             try:
                                 return _fra(_incant(_prepared, request, **path_args))
                             except ResponseException as exc:
-                                return _fra(exc.response)
+                                return _fra(_ea(exc))
 
                     else:
 
@@ -239,6 +248,7 @@ class DjangoApp(BaseApp):
                             _incant=self.framework_incant.incant,
                             _ra=ra,
                             _fra=_framework_return_adapter,
+                            _ea=exc_adapter,
                             _prepared=prepared,
                             _path_params=path_params,
                             _path_types=path_types,
@@ -267,7 +277,7 @@ class DjangoApp(BaseApp):
                                     _ra(_incant(_prepared, request, **path_args))
                                 )
                             except ResponseException as exc:
-                                return _fra(exc.response)
+                                return _fra(_ea(exc))
 
                 per_method_adapted[method] = adapted
 

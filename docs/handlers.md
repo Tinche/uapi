@@ -407,6 +407,42 @@ async def user_profile() -> Ok[Profile] | NoContent:
     ...
 ```
 
+### _uapi_ ResponseExceptions
+
+Any raised instances of {class}`uapi.ResponseException` will be caught and transformed into a proper response.
+Like any exception, ResponseExceptions short-circuit handlers so they can be useful for validation and middleware.
+In other cases, simply returning a response instead is cheaper and usually more type-safe.
+
+ResponseExceptions contain instances of _uapi_ status code classes and so can return rich response data, just like any normal response.
+
+```python
+from uapi import ResponseException
+from uapi.status import Ok, NotFound
+
+@app.get("/article")
+async def get_article() -> Ok[Article]:
+    article = await fetch_article()
+    if article is None:
+        raise ResponseException(NotFound("article not found"))
+    ...
+```
+
+Since exceptions don't show up in the handler signature, they won't be present in the generated OpenAPI schema.
+If you need them to, you can add the actual response type into the handler response signature as part of a union:
+
+```python
+from uapi import ResponseException
+from uapi.status import Ok, NotFound
+
+@app.get("/article")
+async def get_article() -> Ok[Article] | NotFound[str]:
+    article = await fetch_article()
+    if article is None:
+        raise ResponseException(NotFound("article not found"))
+    ...
+```
+
+
 ### Custom Status Codes
 
 If you require a status code that is not included with _uapi_, you can define your own status code class like this:

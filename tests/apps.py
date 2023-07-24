@@ -105,6 +105,21 @@ def configure_base_async(app: App) -> None:
     async def head_with_exc() -> str:
         raise ResponseException(Forbidden(None))
 
+    @app.get("/exc/attrs")
+    async def exception_attrs() -> None:
+        """ResponseExceptions can have attrs classes."""
+        raise ResponseException(Ok(SimpleModel()))
+
+    @app.get("/exc/attrs-response")
+    async def exception_attrs_response() -> Created:
+        """ResponseExceptions can have attrs classes."""
+        raise ResponseException(Ok(SimpleModel()))
+
+    @app.get("/exc/attrs-none")
+    async def exception_attrs_none():
+        """ResponseExceptions can have attrs classes."""
+        raise ResponseException(Ok(SimpleModel()))
+
     @app.put("/header")
     async def header(test_header: Header[str]) -> str:
         return test_header
@@ -271,6 +286,21 @@ def configure_base_sync(app: App) -> None:
     @app.head("/head/exc")
     def head_with_exc() -> str:
         raise ResponseException(Forbidden(None))
+
+    @app.get("/exc/attrs")
+    def exception_attrs() -> None:
+        """ResponseExceptions can have attrs classes."""
+        raise ResponseException(Ok(SimpleModel()))
+
+    @app.get("/exc/attrs-response")
+    def exception_attrs_response() -> Created[SimpleModel]:
+        """ResponseExceptions can have attrs classes."""
+        raise ResponseException(Ok(SimpleModel()))
+
+    @app.get("/exc/attrs-none")
+    def exception_attrs_none():
+        """ResponseExceptions can have attrs classes."""
+        raise ResponseException(Ok(SimpleModel()))
 
     @app.put("/header")
     def header(test_header: Header[str]) -> str:

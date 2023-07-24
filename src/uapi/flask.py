@@ -27,7 +27,12 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import dict_to_headers, identity, make_return_adapter
+from .responses import (
+    dict_to_headers,
+    identity,
+    make_exception_adapter,
+    make_return_adapter,
+)
 from .status import BaseResponse, get_status_code
 
 
@@ -85,6 +90,7 @@ class FlaskApp(BaseApp):
 
     def to_framework_app(self, import_name: str) -> Flask:
         f = Flask(import_name)
+        exc_adapter = make_exception_adapter(self.converter)
 
         for (method, path), (handler, name, _) in self._route_map.items():
             ra = make_return_adapter(
@@ -111,7 +117,10 @@ class FlaskApp(BaseApp):
                 )
 
                 def o0(
-                    prepared=prepared, _req_ct=req_ct, _fra=_framework_return_adapter
+                    prepared=prepared,
+                    _req_ct=req_ct,
+                    _fra=_framework_return_adapter,
+                    _ea=exc_adapter,
                 ):
                     def adapter(**kwargs):
                         if (
@@ -124,7 +133,7 @@ class FlaskApp(BaseApp):
                         try:
                             return prepared(**kwargs)
                         except ResponseException as exc:
-                            return _fra(exc.response)
+                            return _fra(_ea(exc))
 
                     return adapter
 
@@ -136,7 +145,7 @@ class FlaskApp(BaseApp):
                 )
                 if ra == identity:
 
-                    def o1(prepared=prepared, _req_ct=req_ct):
+                    def o1(prepared=prepared, _req_ct=req_ct, _ea=exc_adapter):
                         def adapter(**kwargs):
                             if (
                                 _req_ct is not None
@@ -148,7 +157,7 @@ class FlaskApp(BaseApp):
                             try:
                                 return _framework_return_adapter(prepared(**kwargs))
                             except ResponseException as exc:
-                                return _framework_return_adapter(exc.response)
+                                return _framework_return_adapter(_ea(exc))
 
                         return adapter
 
@@ -156,7 +165,7 @@ class FlaskApp(BaseApp):
 
                 else:
 
-                    def o2(prepared=prepared, ra=ra, _req_ct=req_ct):
+                    def o2(prepared=prepared, ra=ra, _req_ct=req_ct, _ea=exc_adapter):
                         def adapter(**kwargs):
                             if (
                                 _req_ct is not None
@@ -168,7 +177,7 @@ class FlaskApp(BaseApp):
                             try:
                                 return _framework_return_adapter(ra(prepared(**kwargs)))
                             except ResponseException as exc:
-                                return _framework_return_adapter(exc.response)
+                                return _framework_return_adapter(_ea(exc))
 
                         return adapter
 

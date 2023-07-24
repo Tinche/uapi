@@ -28,7 +28,12 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import dict_to_headers, identity, make_return_adapter
+from .responses import (
+    dict_to_headers,
+    identity,
+    make_exception_adapter,
+    make_return_adapter,
+)
 from .status import BaseResponse, get_status_code
 
 C = TypeVar("C")
@@ -88,6 +93,7 @@ class QuartApp(BaseApp):
 
     def to_framework_app(self, import_name: str) -> Quart:
         q = Quart(import_name)
+        exc_adapter = make_exception_adapter(self.converter)
 
         for (method, path), (handler, name, _) in self._route_map.items():
             ra = make_return_adapter(
@@ -114,7 +120,10 @@ class QuartApp(BaseApp):
                 )
 
                 def o0(
-                    prepared=prepared, _req_ct=req_ct, _fra=_framework_return_adapter
+                    prepared=prepared,
+                    _req_ct=req_ct,
+                    _fra=_framework_return_adapter,
+                    _ea=exc_adapter,
                 ):
                     async def adapter(**kwargs):
                         if (
@@ -127,7 +136,7 @@ class QuartApp(BaseApp):
                         try:
                             return await prepared(**kwargs)
                         except ResponseException as exc:
-                            return _fra(exc.response)
+                            return _fra(_ea(exc))
 
                     return adapter
 
@@ -145,6 +154,7 @@ class QuartApp(BaseApp):
                         prepared=prepared,
                         _fra=_framework_return_adapter,
                         _req_ct=req_ct,
+                        _ea=exc_adapter,
                     ):
                         async def adapter(**kwargs):
                             if (
@@ -157,7 +167,7 @@ class QuartApp(BaseApp):
                             try:
                                 return _fra(await prepared(**kwargs))
                             except ResponseException as exc:
-                                return _fra(exc.response)
+                                return _fra(_ea(exc))
 
                         return adapter
 
@@ -170,6 +180,7 @@ class QuartApp(BaseApp):
                         _fra=_framework_return_adapter,
                         _ra=ra,
                         _req_ct=req_ct,
+                        _ea=exc_adapter,
                     ):
                         async def adapter(**kwargs):
                             if (
@@ -182,7 +193,7 @@ class QuartApp(BaseApp):
                             try:
                                 return _fra(_ra(await prepared(**kwargs)))
                             except ResponseException as exc:
-                                return _fra(exc.response)
+                                return _fra(_ea(exc))
 
                         return adapter
 

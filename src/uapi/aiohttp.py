@@ -26,7 +26,12 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import dict_to_headers, identity, make_return_adapter
+from .responses import (
+    dict_to_headers,
+    identity,
+    make_exception_adapter,
+    make_return_adapter,
+)
 from .status import BaseResponse, get_status_code
 
 C = TypeVar("C")
@@ -103,6 +108,7 @@ class AiohttpApp(BaseApp):
 
     def to_framework_routes(self) -> RouteTableDef:
         r = RouteTableDef()
+        exc_adapter = make_exception_adapter(self.converter)
 
         for (method, path), (handler, name, _) in self._route_map.items():
             ra = make_return_adapter(
@@ -134,6 +140,7 @@ class AiohttpApp(BaseApp):
                     request: FrameworkRequest,
                     _incant=self.framework_incant.aincant,
                     _fra=_framework_return_adapter,
+                    _ea=exc_adapter,
                     _prepared=prepared,
                     _path_params=path_params,
                     _path_types=path_types,
@@ -162,7 +169,7 @@ class AiohttpApp(BaseApp):
                         }
                         return await _incant(_prepared, request, **path_args)
                     except ResponseException as exc:
-                        return _fra(exc.response)
+                        return _fra(_ea(exc))
 
             else:
                 prepared = self.framework_incant.prepare(
@@ -177,6 +184,7 @@ class AiohttpApp(BaseApp):
                         request: FrameworkRequest,
                         _incant=self.framework_incant.aincant,
                         _fra=_framework_return_adapter,
+                        _ea=exc_adapter,
                         _prepared=prepared,
                         _path_params=path_params,
                         _path_types=path_types,
@@ -204,7 +212,7 @@ class AiohttpApp(BaseApp):
                         try:
                             return _fra(await _incant(_prepared, request, **path_args))
                         except ResponseException as exc:
-                            return _fra(exc.response)
+                            return _fra(_ea(exc))
 
                 else:
 
@@ -213,6 +221,7 @@ class AiohttpApp(BaseApp):
                         _incant=self.framework_incant.aincant,
                         _ra=ra,
                         _fra=_framework_return_adapter,
+                        _ea=exc_adapter,
                         _prepared=prepared,
                         _path_params=path_params,
                         _path_types=path_types,
@@ -242,7 +251,7 @@ class AiohttpApp(BaseApp):
                                 _ra(await _incant(_prepared, request, **path_args))
                             )
                         except ResponseException as exc:
-                            return _fra(exc.response)
+                            return _fra(_ea(exc))
 
             r.route(method, path, name=name)(adapted)
 
