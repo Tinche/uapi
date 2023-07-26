@@ -86,7 +86,8 @@ def make_exception_adapter(
         if isinstance(exc.response.ret, str | bytes | None):
             return exc.response
         return exc.response.__class__(
-            dumps(converter.unstructure(exc.response.ret)), exc.response.headers
+            dumps(converter.unstructure(exc.response.ret)),
+            {"content-type": "application/json"} | exc.response.headers,
         )
 
     return adapt_exception
