@@ -34,6 +34,45 @@ The documentation viewer will be available at its default URL.
 {py:meth}`App.serve_elements() <uapi.base.App.serve_elements>`
 ```
 
+What is referred to as _handlers_ in _uapi_, OpenAPI refers to as _operations_.
+This document uses the _uapi_ nomenclature by default.
+
+## Handler Summaries and Descriptions
+
+OpenAPI allows handlers to have summaries and descriptions; summaries are usually used as operation labels in OpenAPI tooling.
+
+By default, uapi generates summaries from [handler names](handlers.md#handler-names).
+This can be customized by using your own summary transformer, which is a function taking the actual handler function or coroutine and the handler name, and returning the summary string.
+
+```python
+app = App()
+
+def summary_transformer(handler: Callable, name: str) -> str:
+    """Use the name of the handler function as the summary."""
+    return handler.__name__
+
+app.serve_openapi(summary_transformer=summary_transformer)
+```
+
+Handler descriptions are generated from handler docstrings by default. 
+This can again be customized by supplying your own description transformer, with the same signature as the summary transformer.
+
+```python
+app = App()
+
+def desc_transformer(handler: Callable, name: str) -> str:
+    """Use the first line of the docstring as the description."""
+    doc = getattr(handler, "__doc__", None)
+    if doc is not None:
+        return doc.split("\n")[0]
+    return None
+
+app.serve_openapi(description_transformer=desc_transformer)
+```
+
+
+OpenAPI allows Markdown to be used for descriptions.
+
 ## Endpoint Tags
 
 OpenAPI supports grouping endpoints by tags.

@@ -27,6 +27,7 @@ The **third number** is for emergencies when we need to start branches for older
 - _uapi_ now uses [PDM](https://pdm.fming.dev/latest/).
 - Dictionary request bodies and _attrs_ classes with dictionary fields are now supported.
 - OpenAPI `operationId` properties for operations are now generated from handler names.
+- OpenAPI summaries and descriptions are now supported, and can be overridden.
 
 ### Fixed
 
