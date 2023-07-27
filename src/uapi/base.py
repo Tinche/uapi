@@ -9,9 +9,18 @@ from cattrs.preconf.orjson import make_converter
 from incant import Incanter
 from orjson import dumps
 
-from .openapi import ApiKeySecurityScheme, OpenAPI, SummaryTransformer
+from .openapi import (
+    ApiKeySecurityScheme,
+    DescriptionTransformer,
+    OpenAPI,
+    SummaryTransformer,
+)
 from .openapi import converter as openapi_converter
-from .openapi import default_summary_transformer, make_openapi_spec
+from .openapi import (
+    default_description_transformer,
+    default_summary_transformer,
+    make_openapi_spec,
+)
 from .status import Ok
 from .types import Method, RouteName, RouteTags
 
@@ -100,6 +109,7 @@ class App:
         version: str = "1.0",
         exclude: set[RouteName] = set(),
         summary_transformer: SummaryTransformer = default_summary_transformer,
+        description_transformer: DescriptionTransformer = default_description_transformer,
     ) -> OpenAPI:
         """
         Create the OpenAPI spec for the registered routes.
@@ -123,6 +133,7 @@ class App:
             self._framework_resp_cls,
             [s.security_scheme for s in self._openapi_security],
             summary_transformer,
+            description_transformer,
         )
 
     def serve_openapi(

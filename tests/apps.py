@@ -40,6 +40,7 @@ def configure_base_async(app: App) -> None:
     @app.get("/")
     @app.post("/", name="hello-post")
     async def hello() -> str:
+        """To be used as a description."""
         return "Hello, world"
 
     @app.get("/query-bytes", tags=["query"])
@@ -224,6 +225,7 @@ def configure_base_sync(app: App) -> None:
     @app.get("/")
     @app.post("/", name="hello-post")
     def hello() -> str:
+        """To be used as a description."""
         return "Hello, world"
 
     @app.get("/query-bytes", tags=["query"])

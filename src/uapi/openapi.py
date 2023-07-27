@@ -28,10 +28,16 @@ MediaTypeName = str
 StatusCodeType: TypeAlias = str
 
 SummaryTransformer: TypeAlias = Callable[[Callable, str], str | None]
+DescriptionTransformer: TypeAlias = Callable[[Callable, str], str | None]
 
 
 def default_summary_transformer(handler: Callable, name: str) -> str:
     return name.replace("_", " ").title()
+
+
+def default_description_transformer(handler: Callable, name: str) -> str | None:
+    """Use the handler docstring, if present."""
+    return getattr(handler, "__doc__", None)
 
 
 @frozen
@@ -145,6 +151,7 @@ class OpenAPI:
             summary: str | None = None
             tags: list[str] = Factory(list)
             operationId: str | None = None
+            description: str | None = None
 
         get: Operation | None = None
         post: Operation | None = None
@@ -181,6 +188,7 @@ def build_operation(
     framework_resp_cls: type | None,
     security_schemas: Mapping[str, ApiKeySecurityScheme],
     summary_transformer: SummaryTransformer,
+    description_transformer: DescriptionTransformer,
     tags: list[str],
 ) -> OpenAPI.PathItem.Operation:
     request_bodies = {}
@@ -340,6 +348,7 @@ def build_operation(
         summary_transformer(handler, name),
         tags,
         name,
+        description_transformer(handler, name),
     )
 
 
@@ -352,6 +361,7 @@ def build_pathitem(
     framework_resp_cls: type | None,
     security_schemas: Mapping[str, ApiKeySecurityScheme],
     summary_transformer: SummaryTransformer,
+    description_transformer: DescriptionTransformer,
 ) -> OpenAPI.PathItem:
     get = post = put = patch = delete = None
     if get_route := path_routes.get("GET"):
@@ -365,6 +375,7 @@ def build_pathitem(
             framework_resp_cls,
             security_schemas,
             summary_transformer,
+            description_transformer,
             list(get_route[2]),
         )
     if post_route := path_routes.get("POST"):
@@ -378,6 +389,7 @@ def build_pathitem(
             framework_resp_cls,
             security_schemas,
             summary_transformer,
+            description_transformer,
             list(post_route[2]),
         )
     if put_route := path_routes.get("PUT"):
@@ -391,6 +403,7 @@ def build_pathitem(
             framework_resp_cls,
             security_schemas,
             summary_transformer,
+            description_transformer,
             list(put_route[2]),
         )
     if patch_route := path_routes.get("PATCH"):
@@ -404,6 +417,7 @@ def build_pathitem(
             framework_resp_cls,
             security_schemas,
             summary_transformer,
+            description_transformer,
             list(patch_route[2]),
         )
     if delete_route := path_routes.get("DELETE"):
@@ -417,6 +431,7 @@ def build_pathitem(
             framework_resp_cls,
             security_schemas,
             summary_transformer,
+            description_transformer,
             list(delete_route[2]),
         )
     return OpenAPI.PathItem(get, post, put, patch, delete)
@@ -430,6 +445,7 @@ def routes_to_paths(
     framework_resp_cls: type | None,
     security_schemas: Mapping[str, ApiKeySecurityScheme],
     summary_transformer: SummaryTransformer,
+    description_transformer: DescriptionTransformer,
 ) -> dict[str, OpenAPI.PathItem]:
     res: dict[str, dict[Method, tuple[Callable, RouteName, RouteTags]]] = defaultdict(
         dict
@@ -449,6 +465,7 @@ def routes_to_paths(
             framework_resp_cls,
             security_schemas,
             summary_transformer,
+            description_transformer,
         )
         for k, v in res.items()
     }
@@ -554,6 +571,7 @@ def make_openapi_spec(
     framework_resp_cls: type | None = None,
     security_schemes: list[ApiKeySecurityScheme] = [],
     summary_transformer: SummaryTransformer = default_summary_transformer,
+    description_transformer: DescriptionTransformer = default_description_transformer,
 ) -> OpenAPI:
     c, components = components_to_openapi(
         routes, {f"{scheme.in_}/{scheme.name}": scheme for scheme in security_schemes}
@@ -569,6 +587,7 @@ def make_openapi_spec(
             framework_resp_cls,
             c.securitySchemes,
             summary_transformer,
+            description_transformer,
         ),
         c,
     )
