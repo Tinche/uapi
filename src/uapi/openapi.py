@@ -18,7 +18,7 @@ from cattrs.preconf.json import make_converter
 from .requests import get_cookie_name, maybe_header_type, maybe_req_body_type
 from .responses import get_status_code_results
 from .status import BaseResponse
-from .types import Method, PathParamParser, RouteName, Routes, RouteTags, is_subclass
+from .types import Method, PathParamParser, RouteName, RouteTags, is_subclass
 
 converter = make_converter(omit_if_default=True)
 
@@ -29,6 +29,9 @@ StatusCodeType: TypeAlias = str
 
 SummaryTransformer: TypeAlias = Callable[[Callable, str], str | None]
 DescriptionTransformer: TypeAlias = Callable[[Callable, str], str | None]
+Routes: TypeAlias = dict[
+    tuple[Method, str], tuple[Callable, Callable, RouteName, RouteTags]
+]
 
 
 def default_summary_transformer(handler: Callable, name: str) -> str:
@@ -180,6 +183,7 @@ PYTHON_PRIMITIVES_TO_OPENAPI: Final = {
 
 def build_operation(
     handler: Callable,
+    original_handler: Callable,
     name: str,
     path: str,
     components: dict[type, str],
@@ -345,16 +349,16 @@ def build_operation(
         params,
         req_body,
         security,
-        summary_transformer(handler, name),
+        summary_transformer(original_handler, name),
         tags,
         name,
-        description_transformer(handler, name),
+        description_transformer(original_handler, name),
     )
 
 
 def build_pathitem(
     path: str,
-    path_routes: dict[Method, tuple[Callable, RouteName, RouteTags]],
+    path_routes: dict[Method, tuple[Callable, Callable, RouteName, RouteTags]],
     components: dict[type, str],
     path_param_parser: PathParamParser,
     framework_req_cls: type | None,
@@ -368,6 +372,7 @@ def build_pathitem(
         get = build_operation(
             get_route[0],
             get_route[1],
+            get_route[2],
             path,
             components,
             path_param_parser,
@@ -376,12 +381,13 @@ def build_pathitem(
             security_schemas,
             summary_transformer,
             description_transformer,
-            list(get_route[2]),
+            list(get_route[3]),
         )
     if post_route := path_routes.get("POST"):
         post = build_operation(
             post_route[0],
             post_route[1],
+            post_route[2],
             path,
             components,
             path_param_parser,
@@ -390,12 +396,13 @@ def build_pathitem(
             security_schemas,
             summary_transformer,
             description_transformer,
-            list(post_route[2]),
+            list(post_route[3]),
         )
     if put_route := path_routes.get("PUT"):
         put = build_operation(
             put_route[0],
             put_route[1],
+            put_route[2],
             path,
             components,
             path_param_parser,
@@ -404,12 +411,13 @@ def build_pathitem(
             security_schemas,
             summary_transformer,
             description_transformer,
-            list(put_route[2]),
+            list(put_route[3]),
         )
     if patch_route := path_routes.get("PATCH"):
         patch = build_operation(
             patch_route[0],
             patch_route[1],
+            patch_route[2],
             path,
             components,
             path_param_parser,
@@ -418,12 +426,13 @@ def build_pathitem(
             security_schemas,
             summary_transformer,
             description_transformer,
-            list(patch_route[2]),
+            list(patch_route[3]),
         )
     if delete_route := path_routes.get("DELETE"):
         delete = build_operation(
             delete_route[0],
             delete_route[1],
+            delete_route[2],
             path,
             components,
             path_param_parser,
@@ -432,7 +441,7 @@ def build_pathitem(
             security_schemas,
             summary_transformer,
             description_transformer,
-            list(delete_route[2]),
+            list(delete_route[3]),
         )
     return OpenAPI.PathItem(get, post, put, patch, delete)
 
@@ -447,13 +456,13 @@ def routes_to_paths(
     summary_transformer: SummaryTransformer,
     description_transformer: DescriptionTransformer,
 ) -> dict[str, OpenAPI.PathItem]:
-    res: dict[str, dict[Method, tuple[Callable, RouteName, RouteTags]]] = defaultdict(
-        dict
-    )
+    res: dict[
+        str, dict[Method, tuple[Callable, Callable, RouteName, RouteTags]]
+    ] = defaultdict(dict)
 
-    for (method, path), (handler, name, tags) in routes.items():
+    for (method, path), (handler, orig_handler, name, tags) in routes.items():
         path = path_param_parser(path)[0]
-        res[path] = res[path] | {method: (handler, name, tags)}
+        res[path] = res[path] | {method: (handler, orig_handler, name, tags)}
 
     return {
         k: build_pathitem(
@@ -552,7 +561,7 @@ def components_to_openapi(
     """
     # First pass, we build the component registry.
     components: dict[type, str] = {}
-    for handler, _, _ in routes.values():
+    for handler, *_ in routes.values():
         gather_endpoint_components(handler, components)
 
     res: dict[str, AnySchema | Reference] = {}

@@ -1,18 +1,21 @@
 """Test the OpenAPI schema generation."""
+from collections.abc import Callable
+
 import pytest
 from httpx import AsyncClient
 
+from uapi.base import App
 from uapi.openapi import OpenAPI, Parameter, Response, Schema, converter
 
 from .aiohttp import make_app as aiohttp_make_app
-from .django_uapi_app.views import App
+from .django_uapi_app.views import App as DjangoApp
 from .django_uapi_app.views import app as django_app
 from .flask import make_app as flask_make_app
 from .quart import make_app as quart_make_app
 from .starlette import make_app as starlette_make_app
 
 
-def django_make_app() -> App:
+def django_make_app() -> DjangoApp:
     return django_app
 
 
@@ -431,8 +434,8 @@ def test_excluded(app_factory) -> None:
     ],
     ids=["aiohttp", "flask", "quart", "starlette", "django"],
 )
-def test_tags(app_factory) -> None:
-    app: App = app_factory()
+def test_tags(app_factory: Callable[[], App]) -> None:
+    app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
     tagged_routes = [
