@@ -117,10 +117,12 @@ class App:
         :param exclude: A set of route names to exclude from the spec.
         :param summary_transformer: A function to map handlers and
             route names to OpenAPI PathItem summary strings.
+        :param description_transformer: A function to map handlers
+            and route names to OpenAPI PathItem description strings.
         """
         # We need to prepare the handlers to get the correct signature.
         route_map = {
-            k: (self.incant.prepare(v[0]), v[1], v[2])
+            k: (self.incant.prepare(v[0]), v[0], v[1], v[2])
             for k, v in self._route_map.items()
             if v[1] not in exclude
         }
@@ -142,6 +144,7 @@ class App:
         path: str = "/openapi.json",
         exclude: set[str] = set(),
         summary_transformer: SummaryTransformer = default_summary_transformer,
+        description_transformer: DescriptionTransformer = default_description_transformer,
     ):
         """
         Create the OpenAPI spec and start serving it at the given path.
@@ -149,9 +152,14 @@ class App:
         :param exclude: A set of route names to exclude from the spec.
         :param summary_transformer: A function to map handlers and
             route names to OpenAPI PathItem summary strings.
+        :param description_transformer: A function to map handlers
+            and route names to OpenAPI PathItem description strings.
         """
         openapi = self.make_openapi_spec(
-            title, exclude=exclude, summary_transformer=summary_transformer
+            title,
+            exclude=exclude,
+            summary_transformer=summary_transformer,
+            description_transformer=description_transformer,
         )
         payload = dumps(openapi_converter.unstructure(openapi))
 

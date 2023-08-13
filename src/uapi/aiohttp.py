@@ -34,6 +34,8 @@ from .responses import (
 )
 from .status import BaseResponse, get_status_code
 
+__all__ = ["App", "AiohttpApp"]
+
 C = TypeVar("C")
 
 
