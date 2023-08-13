@@ -396,7 +396,7 @@ def build_pathitem(
             security_schemas,
             summary_transformer,
             description_transformer,
-            list(post_route[2]),
+            list(post_route[3]),
         )
     if put_route := path_routes.get("PUT"):
         put = build_operation(
@@ -411,7 +411,7 @@ def build_pathitem(
             security_schemas,
             summary_transformer,
             description_transformer,
-            list(put_route[2]),
+            list(put_route[3]),
         )
     if patch_route := path_routes.get("PATCH"):
         patch = build_operation(
@@ -426,7 +426,7 @@ def build_pathitem(
             security_schemas,
             summary_transformer,
             description_transformer,
-            list(patch_route[2]),
+            list(patch_route[3]),
         )
     if delete_route := path_routes.get("DELETE"):
         delete = build_operation(
@@ -441,7 +441,7 @@ def build_pathitem(
             security_schemas,
             summary_transformer,
             description_transformer,
-            list(delete_route[2]),
+            list(delete_route[3]),
         )
     return OpenAPI.PathItem(get, post, put, patch, delete)
 
