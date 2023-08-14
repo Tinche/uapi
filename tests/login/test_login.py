@@ -1,5 +1,6 @@
-from asyncio import Event, create_task, sleep
+from asyncio import CancelledError, create_task, sleep
 from collections.abc import Callable
+from contextlib import suppress
 from datetime import timedelta
 
 import pytest
@@ -49,12 +50,12 @@ async def login_app(unused_tcp_port_factory: Callable[..., int]):
     unused_tcp_port = unused_tcp_port_factory()
     app = FrameworkApp()
     await configure_login_app(app)
-    shutdown_event = Event()
-    t = create_task(run_on_framework(app, unused_tcp_port, shutdown_event))
+    t = create_task(run_on_framework(app, unused_tcp_port))
     yield unused_tcp_port
 
-    shutdown_event.set()
-    await t
+    t.cancel()
+    with suppress(CancelledError):
+        await t
 
 
 async def test_login_logout(login_app: int):

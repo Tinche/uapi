@@ -1,3 +1,5 @@
+from asyncio import create_task, sleep
+from contextlib import suppress
 from functools import partial
 from inspect import Signature, signature
 from typing import Any, ClassVar, TypeVar
@@ -207,12 +209,35 @@ class QuartApp(BaseApp):
 
         return q
 
-    async def run(self, import_name: str, port: int = 8000):
+    async def run(
+        self, import_name: str, port: int = 8000, handle_signals: bool = True
+    ) -> None:
+        """Start serving this app using uvicorn.
+
+        Cancel the task running this to shut down uvicorn.
+        """
         from uvicorn import Config, Server
 
         config = Config(self.to_framework_app(import_name), port=port, access_log=False)
-        server = Server(config=config)
-        await server.serve()
+
+        if handle_signals:
+            server = Server(config=config)
+
+        else:
+
+            class NoSignalsServer(Server):
+                def install_signal_handlers(self) -> None:
+                    return
+
+            server = NoSignalsServer(config=config)
+
+        t = create_task(server.serve())
+
+        with suppress(BaseException):
+            while True:
+                await sleep(360)
+        server.should_exit = True
+        await t
 
 
 App = QuartApp

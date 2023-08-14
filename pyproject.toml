@@ -10,7 +10,7 @@ authors = [{name = "Tin Tvrtkovic", email = "tinchester@gmail.com"}]
 classifiers = ["License :: OSI Approved :: Apache Software License"]
 dependencies = [
     "cattrs >= 22.2.0",
-    "incant>=23.1.0",
+    "incant >= 23.1.0",
     "itsdangerous",
     "attrs >= 23.1.0",
 ]

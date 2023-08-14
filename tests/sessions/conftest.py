@@ -87,20 +87,18 @@ async def secure_cookie_session_app(
     elif request.param == "quart":
         quart_app = QuartApp()
         configure_secure_session_app(quart_app)
-        shutdown_event = Event()
-        t = create_task(run_on_quart(quart_app, unused_tcp_port, shutdown_event))
+        t = create_task(run_on_quart(quart_app, unused_tcp_port))
         yield unused_tcp_port
-        shutdown_event.set()
-        await t
+        t.cancel()
+        with suppress(CancelledError):
+            await t
     elif request.param == "starlette":
         starlette_app = StarletteApp()
         configure_secure_session_app(starlette_app)
-        shutdown_event = Event()
-        t = create_task(
-            run_on_starlette(starlette_app, unused_tcp_port, shutdown_event)
-        )
+        t = create_task(run_on_starlette(starlette_app, unused_tcp_port))
         yield unused_tcp_port
-        shutdown_event.set()
-        await t
+        t.cancel()
+        with suppress(CancelledError):
+            await t
     else:
         raise Exception("Unknown server framework")
