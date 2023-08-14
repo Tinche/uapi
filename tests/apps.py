@@ -43,8 +43,12 @@ def configure_base_async(app: App) -> None:
         """To be used as a description."""
         return "Hello, world"
 
-    @app.get("/query-bytes", tags=["query"])
-    async def query_bytes() -> bytes:
+    @app.post("/query-post")
+    async def query_post(page: int) -> str:
+        return str(page + 1)
+
+    @app.get("/response-bytes", tags=["query"])
+    async def response_bytes() -> bytes:
         return b"2"
 
     @app.get("/get/model")
@@ -233,8 +237,12 @@ def configure_base_sync(app: App) -> None:
         """To be used as a description."""
         return "Hello, world"
 
-    @app.get("/query-bytes", tags=["query"])
-    def query_bytes() -> bytes:
+    @app.post("/query-post")
+    def query_post(page: int) -> str:
+        return str(page + 1)
+
+    @app.get("/response-bytes", tags=["query"])
+    def response_bytes() -> bytes:
         return b"2"
 
     @app.get("/get/model")

@@ -37,6 +37,14 @@ class OpenAPISecuritySpec:
 
 @define
 class App:
+    """A base _uapi_ App.
+
+    Use this class directly when creating reusable apps, or subclass
+    it to create a framework-specific app.
+
+    Otherwise, an existing framework-specific app should be used.
+    """
+
     converter: Converter = Factory(make_converter)
     incant: Incanter = Factory(make_base_incanter)
     _route_map: dict[

@@ -58,10 +58,10 @@ async def test_query_parameter_default(server):
         assert resp.text == "1"
 
 
-async def test_query_bytes(server):
+async def test_response_bytes(server):
     """Test byte responses."""
     async with AsyncClient() as client:
-        resp = await client.get(f"http://localhost:{server}/query-bytes")
+        resp = await client.get(f"http://localhost:{server}/response-bytes")
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/octet-stream"
         assert resp.read() == b"2"

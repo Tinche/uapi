@@ -40,12 +40,22 @@ async def multipurpose_handler() -> None:
 ### Query Parameters
 
 To receive query parameters, annotate a handler parameter with any type that hasn't been overriden and is not a [path parameter](handlers.md#path-parameters).
-The {class}`App <uapi.App>`'s dependency injection system is configured to fulfill handler parameters from query strings by default; directly when annotated as strings or Any, or through the App's converter if any other type.
+The {py:class}`App <uapi.base.App>`'s dependency injection system is configured to fulfill handler parameters from query parameters by default; directly when annotated as strings or Any or through the App's converter if any other type.
+Query parameters may have default values.
+
+Query params will be present in the [OpenAPI schema](openapi.md); parameters with defaults will be rendered as `required=False`.
+
+```python
+@app.get("/query_handler")
+async def query_handler(string_query: str, int_query: int = 0) -> None:
+    # The int_query param will be the result of `app.converter.structure(int_query, int)`
+    return
+```
 
 ### Path Parameters
 
 One of the simplest ways of getting data into a handler is by using _path parameters_.
-A path parameter is inserted into the _handler route string_, and the value of the parameter is given to the handler.
+A path parameter is inserted into the _handler route string_ and the value of the parameter is given to the handler.
 Since the routing is left to the underlying framework, the format of the route string is framework-specific.
 
 The path parameter in the route string and the name of the handler argument must match.
@@ -446,7 +456,6 @@ async def get_article() -> Ok[Article] | NotFound[str]:
         raise ResponseException(NotFound("article not found"))
     ...
 ```
-
 
 ### Custom Status Codes
 

@@ -435,11 +435,12 @@ def test_excluded(app_factory) -> None:
     ids=["aiohttp", "flask", "quart", "starlette", "django"],
 )
 def test_tags(app_factory: Callable[[], App]) -> None:
+    """Tags are properly generated."""
     app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
     tagged_routes = [
-        ("/query-bytes", "get"),
+        ("/response-bytes", "get"),
         ("/query/unannotated", "get"),
         ("/query/string", "get"),
         ("/query", "get"),
