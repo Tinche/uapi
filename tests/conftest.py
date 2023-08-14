@@ -41,16 +41,17 @@ async def server(request, unused_tcp_port_factory: Callable[..., int]):
         await t
     elif request.param == "quart":
         shutdown_event = Event()
-        t = create_task(quart_run_server(unused_tcp_port, shutdown_event))
+        t = create_task(quart_run_server(unused_tcp_port))
         yield unused_tcp_port
-        shutdown_event.set()
-        await t
+        t.cancel()
+        with suppress(CancelledError):
+            await t
     elif request.param == "starlette":
-        shutdown_event = Event()
-        t = create_task(starlette_run_server(unused_tcp_port, shutdown_event))
+        t = create_task(starlette_run_server(unused_tcp_port))
         yield unused_tcp_port
-        shutdown_event.set()
-        await t
+        t.cancel()
+        with suppress(CancelledError):
+            await t
     elif request.param == "django":
         shutdown_event = Event()
         t = create_task(django_run_server(unused_tcp_port, shutdown_event))
@@ -82,19 +83,17 @@ async def server_with_openapi(
         shutdown_event.set()
         await t
     elif request.param == "quart":
-        shutdown_event = Event()
-        t = create_task(quart_run_server(unused_tcp_port, shutdown_event, openapi=True))
+        t = create_task(quart_run_server(unused_tcp_port, openapi=True))
         yield unused_tcp_port
-        shutdown_event.set()
-        await t
+        t.cancel()
+        with suppress(CancelledError):
+            await t
     elif request.param == "starlette":
-        shutdown_event = Event()
-        t = create_task(
-            starlette_run_server(unused_tcp_port, shutdown_event, openapi=True)
-        )
+        t = create_task(starlette_run_server(unused_tcp_port, openapi=True))
         yield unused_tcp_port
-        shutdown_event.set()
-        await t
+        t.cancel()
+        with suppress(CancelledError):
+            await t
     elif request.param == "django":
         shutdown_event = Event()
         t = create_task(django_run_server(unused_tcp_port, shutdown_event))

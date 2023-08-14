@@ -1,7 +1,3 @@
-from asyncio import Event
-
-from hypercorn.asyncio import serve
-from hypercorn.config import Config
 from quart import Response, request
 
 from uapi import ResponseException
@@ -60,16 +56,12 @@ def make_app() -> App:
     return app
 
 
-async def run_server(port: int, shutdown_event: Event, openapi: bool = False):
-    config = Config()
-    config.bind = [f"localhost:{port}"]
+async def run_server(port: int, openapi: bool = False) -> None:
     app = make_app()
     if openapi:
         app.serve_openapi()
-    await serve(app.to_framework_app(__name__), config, shutdown_trigger=shutdown_event.wait)  # type: ignore
+    await app.run(__name__, port, handle_signals=False)
 
 
-async def run_on_quart(app: App, port: int, shutdown_event: Event):
-    config = Config()
-    config.bind = [f"localhost:{port}"]
-    await serve(app.to_framework_app(__name__), config, shutdown_trigger=shutdown_event.wait)  # type: ignore
+async def run_on_quart(app: App, port: int) -> None:
+    await app.run(__name__, port, handle_signals=False)
