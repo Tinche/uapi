@@ -125,6 +125,11 @@ def configure_base_async(app: App) -> None:
     async def header(test_header: Header[str]) -> str:
         return test_header
 
+    @app.put("/header-string-default")
+    async def header_str_default(test_header: Header[str] = "def") -> str:
+        """This is special-cased so needs a test."""
+        return test_header
+
     @app.put("/header-default")
     async def header_default(test_header: Header[str | None] = None) -> str:
         return test_header or "default"
@@ -306,6 +311,11 @@ def configure_base_sync(app: App) -> None:
 
     @app.put("/header")
     def header(test_header: Header[str]) -> str:
+        return test_header
+
+    @app.put("/header-string-default")
+    def header_str_default(test_header: Header[str] = "def") -> str:
+        """This is special-cased so needs a test."""
         return test_header
 
     @app.put("/header-default")
