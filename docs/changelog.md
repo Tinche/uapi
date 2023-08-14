@@ -28,6 +28,7 @@ The **third number** is for emergencies when we need to start branches for older
 - Dictionary request bodies and _attrs_ classes with dictionary fields are now supported.
 - OpenAPI `operationId` properties for operations are now generated from handler names.
 - OpenAPI summaries and descriptions are now supported, and can be overridden.
+- `aiohttp.web.StreamResponse` is now handled as the root class of aiohttp responses.
 
 ### Fixed
 

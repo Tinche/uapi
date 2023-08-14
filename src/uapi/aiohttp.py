@@ -5,8 +5,9 @@ from logging import Logger
 from typing import Any, ClassVar, TypeVar
 
 from aiohttp.web import Request as FrameworkRequest
-from aiohttp.web import Response as FrameworkResponse
-from aiohttp.web import RouteTableDef, _run_app, access_logger
+from aiohttp.web import Response, RouteTableDef
+from aiohttp.web import StreamResponse as FrameworkResponse
+from aiohttp.web import _run_app, access_logger
 from aiohttp.web_app import Application
 from attrs import Factory, define
 from cattrs import Converter
@@ -152,7 +153,7 @@ class AiohttpApp(BaseApp):
                         _req_ct is not None
                         and request.headers.get("content-type") != _req_ct
                     ):
-                        return FrameworkResponse(
+                        return Response(
                             body=f"invalid content type (expected {_req_ct})",
                             status=415,
                         )
@@ -196,7 +197,7 @@ class AiohttpApp(BaseApp):
                             _req_ct is not None
                             and request.headers.get("content-type") != _req_ct
                         ):
-                            return FrameworkResponse(
+                            return Response(
                                 body=f"invalid content type (expected {_req_ct})",
                                 status=415,
                             )
@@ -233,7 +234,7 @@ class AiohttpApp(BaseApp):
                             _req_ct is not None
                             and request.headers.get("content-type") != _req_ct
                         ):
-                            return FrameworkResponse(
+                            return Response(
                                 body=f"invalid content type (expected {_req_ct})",
                                 status=415,
                             )
@@ -337,7 +338,7 @@ def make_cookie_dependency(cookie_name: str, default=Signature.empty):
 
 
 def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:
-    return FrameworkResponse(
+    return Response(
         body=resp.ret or b"",
         status=get_status_code(resp.__class__),  # type: ignore
         headers=CIMultiDict(dict_to_headers(resp.headers)) if resp.headers else None,
