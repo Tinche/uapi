@@ -202,7 +202,7 @@ def test_get_bytes(app_factory) -> None:
     app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
-    op = spec.paths["/query-bytes"]
+    op = spec.paths["/response-bytes"]
     assert op is not None
     assert op.get
     assert op.get.parameters == []
@@ -435,11 +435,12 @@ def test_excluded(app_factory) -> None:
     ids=["aiohttp", "flask", "quart", "starlette", "django"],
 )
 def test_tags(app_factory: Callable[[], App]) -> None:
+    """Tags are properly generated."""
     app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
     tagged_routes = [
-        ("/query-bytes", "get"),
+        ("/response-bytes", "get"),
         ("/query/unannotated", "get"),
         ("/query/string", "get"),
         ("/query", "get"),
