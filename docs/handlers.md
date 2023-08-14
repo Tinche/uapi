@@ -37,9 +37,14 @@ async def multipurpose_handler() -> None:
 
 ## Receiving Data
 
+### Query Parameters
+
+To receive query parameters, annotate a handler parameter with any type that hasn't been overriden and is not a [path parameter](handlers.md#path-parameters).
+The {class}`App <uapi.App>`'s dependency injection system is configured to fulfill handler parameters from query strings by default; directly when annotated as strings or Any, or through the App's converter if any other type.
+
 ### Path Parameters
 
-The first way to get data into a handler is by using _path parameters_.
+One of the simplest ways of getting data into a handler is by using _path parameters_.
 A path parameter is inserted into the _handler route string_, and the value of the parameter is given to the handler.
 Since the routing is left to the underlying framework, the format of the route string is framework-specific.
 
