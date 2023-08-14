@@ -98,8 +98,6 @@ class App:
             raise Exception("Incompatible apps.")
         for (method, path), (handler, name, tags) in app._route_map.items():
             if name_prefix is not None:
-                if name is None:
-                    name = handler.__name__
                 name = f"{name_prefix}.{name}"
             self._route_map[(method, (prefix or "") + path)] = (handler, name, tags)
 
