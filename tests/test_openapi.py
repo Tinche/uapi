@@ -202,7 +202,7 @@ def test_get_bytes(app_factory) -> None:
     app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
-    op = spec.paths["/query-bytes"]
+    op = spec.paths["/response-bytes"]
     assert op is not None
     assert op.get
     assert op.get.parameters == []
