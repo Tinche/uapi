@@ -128,7 +128,7 @@ class App:
         """
         # We need to prepare the handlers to get the correct signature.
         route_map = {
-            k: (self.incant.prepare(v[0]), v[0], v[1], v[2])
+            k: (self.incant.compose(v[0]), v[0], v[1], v[2])
             for k, v in self._route_map.items()
             if v[1] not in exclude
         }

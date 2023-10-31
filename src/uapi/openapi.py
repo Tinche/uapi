@@ -9,7 +9,7 @@ from inspect import signature
 from types import NoneType
 from typing import Final, Literal, TypeAlias
 
-from attrs import NOTHING, Factory, fields, frozen, has
+from attrs import NOTHING, AttrsInstance, Factory, fields, frozen, has
 from cattrs import override
 from cattrs._compat import is_generic, is_literal, is_union_type
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
@@ -481,7 +481,7 @@ def routes_to_paths(
 
 
 def _gather_attrs_components(
-    type: type, components: dict[type, str]
+    type: type[AttrsInstance], components: dict[type, str]
 ) -> dict[type, str]:
     """DFS for attrs components."""
     if type in components:
@@ -493,7 +493,7 @@ def _gather_attrs_components(
         counter += 1
     components[type] = name
     mapping = _make_generic_mapping(type) if is_generic(type) else {}
-    for a in fields(type):
+    for a in fields(type):  # type: ignore
         if a.type is None:
             continue
         a_type = mapping.get(a.type, a.type)
@@ -613,13 +613,15 @@ def _make_generic_mapping(type: type) -> dict:
 
 
 def _build_attrs_schema(
-    type: type, names: dict[type, str], res: dict[str, AnySchema | Reference]
+    type: type[AttrsInstance],
+    names: dict[type, str],
+    res: dict[str, AnySchema | Reference],
 ) -> None:
     properties = {}
     name = names[type]
     mapping = _make_generic_mapping(type) if is_generic(type) else {}
     required = []
-    for a in fields(type):
+    for a in fields(type):  # type: ignore
         if a.type is None:
             continue
 
