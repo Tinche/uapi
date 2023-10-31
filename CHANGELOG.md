@@ -30,6 +30,7 @@ The **third number** is for emergencies when we need to start branches for older
 - OpenAPI summaries and descriptions are now supported, and can be overridden.
 - `aiohttp.web.StreamResponse` is now handled as the root class of aiohttp responses.
 - _uapi_ is now tested against Flask 3.
+- _uapi_ is now tested against Python 3.12.
 
 ### Fixed
 
