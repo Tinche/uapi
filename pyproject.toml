@@ -7,10 +7,17 @@ name = "uapi"
 version = "23.1.0.dev0"
 description = "A Python HTTP superframework"
 authors = [{name = "Tin Tvrtkovic", email = "tinchester@gmail.com"}]
-classifiers = ["License :: OSI Approved :: Apache Software License"]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Typing :: Typed",
+]
 dependencies = [
     "cattrs >= 22.2.0",
-    "incant >= 23.1.0",
+    "incant >= 23.2.0",
     "itsdangerous",
     "attrs >= 23.1.0",
 ]

@@ -150,7 +150,7 @@ class DjangoApp(BaseApp):
                 )
                 path_params = parse_angle_path_params(path)
                 hooks = [Hook.for_name(p, None) for p in path_params]
-                base_handler = self.incant.prepare(handler, is_async=False)
+                base_handler = self.incant.compose(handler, is_async=False)
                 # Detect required content-types here, based on the registered
                 # request loaders.
                 base_sig = signature(base_handler)
@@ -161,7 +161,7 @@ class DjangoApp(BaseApp):
                         req_ct = loader.content_type
 
                 if ra is None:
-                    prepared = self.framework_incant.prepare(
+                    prepared = self.framework_incant.compose(
                         base_handler, hooks, is_async=False
                     )
                     sig = signature(prepared)
@@ -200,7 +200,7 @@ class DjangoApp(BaseApp):
                             return _fra(_ea(exc))
 
                 else:
-                    prepared = self.framework_incant.prepare(
+                    prepared = self.framework_incant.compose(
                         base_handler, hooks, is_async=False
                     )
                     sig = signature(prepared)
