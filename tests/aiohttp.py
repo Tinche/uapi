@@ -1,4 +1,3 @@
-from aiohttp import web
 from aiohttp.web import Request, Response
 
 from uapi import ResponseException
@@ -15,6 +14,8 @@ class RespSubclass(Response):
 def make_app() -> App:
     app = App()
 
+    configure_base_async(app)
+
     @app.get("/framework-request")
     async def framework_request(req: Request) -> str:
         return "framework_request" + req.headers["test"]
@@ -27,8 +28,6 @@ def make_app() -> App:
         return Response(text=str(path_id + 1))
 
     app.route("/path/{path_id}", path_param)
-
-    configure_base_async(app)
 
     @app.options("/unannotated-exception")
     async def unannotated_exception() -> Response:
@@ -61,16 +60,5 @@ def make_app() -> App:
     return app
 
 
-async def run_server(port: int, openapi: bool = False):
-    app = make_app()
-    if openapi:
-        app.serve_openapi()
-    aapp = web.Application()
-    aapp.add_routes(app.to_framework_routes())
-    await web._run_app(aapp, port=port, handle_signals=False)
-
-
 async def run_on_aiohttp(app: App, port: int):
-    aiohttp_app = web.Application()
-    aiohttp_app.add_routes(app.to_framework_routes())
-    await web._run_app(aiohttp_app, port=port, handle_signals=False)
+    await app.run(port, handle_signals=False, shutdown_timeout=0.0, access_log=None)

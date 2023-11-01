@@ -267,6 +267,7 @@ class AiohttpApp(BaseApp):
         handle_signals: bool = True,
         shutdown_timeout: float = 60,
         access_log: Logger | None = access_logger,
+        print: Callable[..., None] | None = print,
     ):
         app = Application()
         app.add_routes(self.to_framework_routes())
@@ -278,6 +279,7 @@ class AiohttpApp(BaseApp):
             handle_signals=handle_signals,
             shutdown_timeout=shutdown_timeout,
             access_log=access_log,
+            print=print,
         )
 
 

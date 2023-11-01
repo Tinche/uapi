@@ -56,12 +56,5 @@ def make_app() -> App:
     return app
 
 
-async def run_server(port: int, openapi: bool = False) -> None:
-    app = make_app()
-    if openapi:
-        app.serve_openapi()
-    await app.run(__name__, port, handle_signals=False)
-
-
 async def run_on_quart(app: App, port: int) -> None:
     await app.run(__name__, port, handle_signals=False)
