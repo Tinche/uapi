@@ -1,10 +1,9 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "uapi"
-version = "23.1.0.dev0"
 description = "A Python HTTP superframework"
 authors = [{name = "Tin Tvrtkovic", email = "tinchester@gmail.com"}]
 classifiers = [
@@ -25,6 +24,7 @@ dependencies = [
 requires-python = ">=3.10"
 readme = "README.md"
 license = {file = "LICENSE"}
+dynamic = ["version"]
 
 [tool.pdm.dev-dependencies]
 lint = [
@@ -111,3 +111,7 @@ ignore = [
     "N818",   # Exceptions
     "RUF013", # False implicit optionals
 ]
+
+[tool.hatch.version]
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
