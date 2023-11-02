@@ -12,6 +12,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: Implementation :: CPython",
     "Typing :: Typed",
 ]
@@ -36,7 +37,7 @@ test = [
     "coverage",
     "pytest-asyncio",
     "httpx",
-    "aiohttp",
+    "aiohttp==3.9.0b0",
     "flask",
     "quart",
     "starlette",

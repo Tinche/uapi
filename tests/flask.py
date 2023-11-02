@@ -3,7 +3,6 @@ from asyncio import Event
 from flask import Response, request
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
-from hypercorn.middleware import AsyncioWSGIMiddleware
 
 from uapi import ResponseException
 from uapi.flask import App
@@ -61,20 +60,13 @@ def make_app() -> App:
     return app
 
 
-async def run_server(port: int, shutdown_event: Event, openapi: bool = False):
-    config = Config()
-    config.bind = [f"localhost:{port}"]
-
-    app = make_app()
-    if openapi:
-        app.serve_openapi()
-    asyncio_app = AsyncioWSGIMiddleware(app.to_framework_app(__name__))
-    await serve(asyncio_app, config, shutdown_trigger=shutdown_event.wait)  # type: ignore
-
-
 async def run_on_flask(app: App, port: int, shutdown_event: Event):
     config = Config()
     config.bind = [f"localhost:{port}"]
 
-    asyncio_app = AsyncioWSGIMiddleware(app.to_framework_app(__name__))
-    await serve(asyncio_app, config, shutdown_trigger=shutdown_event.wait)  # type: ignore
+    await serve(
+        app.to_framework_app(__name__),
+        config,
+        shutdown_trigger=shutdown_event.wait,  # type: ignore
+        mode="wsgi",
+    )

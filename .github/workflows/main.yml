@@ -15,7 +15,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12"]
         redis-version: [6]
 
     steps:
@@ -24,6 +24,7 @@ jobs:
       - uses: "actions/setup-python@v4"
         with:
           python-version: "${{ matrix.python-version }}"
+          allow-prereleases: true
 
       - name: "Start Redis"
         uses: "supercharge/redis-github-action@1.2.0"
