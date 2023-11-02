@@ -189,11 +189,40 @@ run(app.run(__name__))
 ```
 ````
 
-```{tab} Django
+````{tab} Django
 
-Unfortunately, Django is too complex to be able to spin up a development server quickly.
-Please see the Django section for information on how to integrate a _uapi_ `App` into a Django site.
+
+```python
+from django.conf import settings
+from django.core.handlers.wsgi import WSGIHandler
+from django.core.management import execute_from_command_line
+
+from uapi.django import App
+
+app = App()
+
+
+@app.get("/")
+def hello() -> str:
+    return "hello world"
+
+
+settings.configure(ALLOWED_HOSTS="*", ROOT_URLCONF=__name__)
+
+urlpatterns = app.to_urlpatterns()
+
+if __name__ == "__main__":
+    execute_from_command_line()
+else:  # new
+    application = WSGIHandler()
 ```
+
+Then run the file using `python <filename> runserver`.
+
+```{note}
+This example uses code from the [µDjango](https://github.com/wsvincent/django-microframework) project.
+```
+````
 
 ````{tab} Aiohttp
 
