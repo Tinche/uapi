@@ -143,11 +143,7 @@ class DjangoApp(BaseApp):
             # Django does not strip the prefix slash, so we do it for it.
             path = path.removeprefix("/")
             per_method_adapted = {}
-            for method, (
-                handler,
-                name,  # noqa: B007
-                _,
-            ) in methods_and_handlers.items():
+            for method, (handler, name, _) in methods_and_handlers.items():
                 ra = make_return_adapter(
                     signature(handler, eval_str=True).return_annotation,
                     FrameworkResponse,
