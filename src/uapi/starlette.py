@@ -3,7 +3,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from functools import partial
 from inspect import Parameter, Signature, signature
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar, TypeAlias, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -25,7 +25,7 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import identity, make_exception_adapter, make_return_adapter
+from .responses import make_exception_adapter, make_return_adapter
 from .status import BaseResponse, Headers, get_status_code
 from .types import RouteName
 
@@ -179,76 +179,37 @@ class StarletteApp(BaseApp):
                     **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
                 )
 
-                if ra == identity:
-
-                    async def adapted(
-                        request: FrameworkRequest,
-                        _incant=self.framework_incant.aincant,
-                        _fra=_framework_return_adapter,
-                        _ea=exc_adapter,
-                        _prepared=prepared,
-                        _path_params=path_params,
-                        _path_types=path_types,
-                        _req_ct=req_ct,
-                    ) -> FrameworkResponse:
-                        if (
-                            _req_ct is not None
-                            and request.headers.get("content-type") != _req_ct
-                        ):
-                            return FrameworkResponse(
-                                f"invalid content type (expected {_req_ct})", 415
-                            )
-                        path_args = {
-                            p: (
-                                self.converter.structure(
-                                    request.path_params[p], path_type
-                                )
-                                if (path_type := _path_types[p])
-                                not in (str, Signature.empty)
-                                else request.path_params[p]
-                            )
-                            for p in _path_params
-                        }
-                        try:
-                            return _fra(await _incant(_prepared, request, **path_args))
-                        except ResponseException as exc:
-                            return _fra(_ea(exc))
-
-                else:
-
-                    async def adapted(  # type: ignore
-                        request: FrameworkRequest,
-                        _ra=ra,
-                        _fra=_framework_return_adapter,
-                        _ea=exc_adapter,
-                        _prepared=adapted,
-                        _path_params=path_params,
-                        _path_types=path_types,
-                        _req_ct=req_ct,
-                        _rn=name,
-                    ) -> FrameworkResponse:
-                        if (
-                            _req_ct is not None
-                            and request.headers.get("content-type") != _req_ct
-                        ):
-                            return FrameworkResponse(
-                                f"invalid content type (expected {_req_ct})", 415
-                            )
-                        path_args = {
-                            p: (
-                                self.converter.structure(
-                                    request.path_params[p], path_type
-                                )
-                                if (path_type := _path_types[p])
-                                not in (str, Signature.empty)
-                                else request.path_params[p]
-                            )
-                            for p in _path_params
-                        }
-                        try:
-                            return _fra(_ra(await _prepared(request, _rn, **path_args)))
-                        except ResponseException as exc:
-                            return _fra(_ea(exc))
+                async def adapted(  # type: ignore
+                    request: FrameworkRequest,
+                    _ra=ra,
+                    _fra=_framework_return_adapter,
+                    _ea=exc_adapter,
+                    _prepared=adapted,
+                    _path_params=path_params,
+                    _path_types=path_types,
+                    _req_ct=req_ct,
+                    _rn=name,
+                ) -> FrameworkResponse:
+                    if (
+                        _req_ct is not None
+                        and request.headers.get("content-type") != _req_ct
+                    ):
+                        return FrameworkResponse(
+                            f"invalid content type (expected {_req_ct})", 415
+                        )
+                    path_args = {
+                        p: (
+                            self.converter.structure(request.path_params[p], path_type)
+                            if (path_type := _path_types[p])
+                            not in (str, Signature.empty)
+                            else request.path_params[p]
+                        )
+                        for p in _path_params
+                    }
+                    try:
+                        return _fra(_ra(await _prepared(request, _rn, **path_args)))
+                    except ResponseException as exc:
+                        return _fra(_ea(exc))
 
             s.add_route(path, adapted, name=name, methods=[method])
 
@@ -290,7 +251,7 @@ class StarletteApp(BaseApp):
         await t
 
 
-App = StarletteApp
+App: TypeAlias = StarletteApp
 
 
 def make_header_dependency(

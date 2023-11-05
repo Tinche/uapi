@@ -1,7 +1,7 @@
 from collections.abc import Callable, Mapping
 from inspect import Signature
 from types import MappingProxyType, NoneType
-from typing import Any, get_args
+from typing import Any, TypeVar, get_args
 
 from attrs import define, has
 from cattrs import Converter
@@ -16,6 +16,7 @@ except ImportError:
     from json import dumps  # type: ignore
 
 __all__ = ["dumps", "return_type_to_statuses", "get_status_code_results"]
+
 empty_dict: Mapping[str, str] = MappingProxyType({})
 
 
@@ -121,9 +122,12 @@ def get_status_code_results(t: type) -> list[tuple[int, Any]]:
     return list(return_type_to_statuses(t).items())
 
 
-def identity(*args):
+T = TypeVar("T")
+
+
+def identity(x: T) -> T:
     """The identity function, used and recognized for certain optimizations."""
-    return args
+    return x
 
 
 def dict_to_headers(d: Headers) -> list[tuple[str, str]]:

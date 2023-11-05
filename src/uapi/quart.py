@@ -2,7 +2,7 @@ from asyncio import create_task, sleep
 from contextlib import suppress
 from functools import partial
 from inspect import Signature, signature
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar, TypeAlias, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -30,12 +30,7 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import (
-    dict_to_headers,
-    identity,
-    make_exception_adapter,
-    make_return_adapter,
-)
+from .responses import dict_to_headers, make_exception_adapter, make_return_adapter
 from .status import BaseResponse, get_status_code
 from .types import RouteName
 
@@ -161,58 +156,30 @@ class QuartApp(BaseApp):
                     **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
                 )
 
-                if ra == identity:
+                def o1(
+                    handler=adapted,
+                    _fra=_framework_return_adapter,
+                    _ra=ra,
+                    _req_ct=req_ct,
+                    _ea=exc_adapter,
+                    _rn=name,
+                ):
+                    async def adapter(**kwargs):
+                        if (
+                            _req_ct is not None
+                            and request.headers.get("content-type") != _req_ct
+                        ):
+                            return FrameworkResponse(
+                                f"invalid content type (expected {_req_ct})", 415
+                            )
+                        try:
+                            return _fra(_ra(await handler(_rn, **kwargs)))
+                        except ResponseException as exc:
+                            return _fra(_ea(exc))
 
-                    def o1(
-                        handler=adapted,
-                        _fra=_framework_return_adapter,
-                        _req_ct=req_ct,
-                        _ea=exc_adapter,
-                        _rn=name,
-                    ):
-                        async def adapter(**kwargs):
-                            if (
-                                _req_ct is not None
-                                and request.headers.get("content-type") != _req_ct
-                            ):
-                                return FrameworkResponse(
-                                    f"invalid content type (expected {_req_ct})", 415
-                                )
-                            try:
-                                return _fra(await handler(_rn, **kwargs))
-                            except ResponseException as exc:
-                                return _fra(_ea(exc))
+                    return adapter
 
-                        return adapter
-
-                    adapted = o1()
-
-                else:
-
-                    def o2(
-                        handler=adapted,
-                        _fra=_framework_return_adapter,
-                        _ra=ra,
-                        _req_ct=req_ct,
-                        _ea=exc_adapter,
-                        _rn=name,
-                    ):
-                        async def adapter(**kwargs):
-                            if (
-                                _req_ct is not None
-                                and request.headers.get("content-type") != _req_ct
-                            ):
-                                return FrameworkResponse(
-                                    f"invalid content type (expected {_req_ct})", 415
-                                )
-                            try:
-                                return _fra(_ra(await handler(_rn, **kwargs)))
-                            except ResponseException as exc:
-                                return _fra(_ea(exc))
-
-                        return adapter
-
-                    adapted = o2()
+                adapted = o1()
 
             q.route(
                 path,
@@ -262,7 +229,7 @@ class QuartApp(BaseApp):
         await t
 
 
-App = QuartApp
+App: TypeAlias = QuartApp
 
 
 def make_header_dependency(

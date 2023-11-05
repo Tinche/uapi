@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from functools import partial
 from inspect import Parameter, Signature, signature
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar, TypeAlias, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -32,12 +32,7 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import (
-    dict_to_headers,
-    identity,
-    make_exception_adapter,
-    make_return_adapter,
-)
+from .responses import dict_to_headers, make_exception_adapter, make_return_adapter
 from .status import BaseResponse, get_status_code
 from .types import Method, RouteName, RouteTags
 
@@ -213,76 +208,38 @@ class DjangoApp(BaseApp):
                         **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
                     )
 
-                    if ra == identity:
-
-                        def adapted(
-                            request: WSGIRequest,
-                            _incant=self.framework_incant.incant,
-                            _fra=_framework_return_adapter,
-                            _ea=exc_adapter,
-                            _prepared=prepared,
-                            _path_params=path_params,
-                            _path_types=path_types,
-                            _req_ct=req_ct,
-                            **kwargs: Any,
-                        ) -> FrameworkResponse:
-                            if (
-                                _req_ct is not None
-                                and request.headers.get("content-type") != _req_ct
-                            ):
-                                return FrameworkResponse(
-                                    f"invalid content type (expected {_req_ct})",
-                                    status=415,
-                                )
-                            path_args = {
-                                p: (
-                                    self.converter.structure(kwargs[p], path_type)
-                                    if (path_type := _path_types[p])
-                                    not in (str, Signature.empty)
-                                    else kwargs[p]
-                                )
-                                for p in _path_params
-                            }
-                            try:
-                                return _fra(_incant(_prepared, request, **path_args))
-                            except ResponseException as exc:
-                                return _fra(_ea(exc))
-
-                    else:
-
-                        def adapted(  # type: ignore
-                            request: WSGIRequest,
-                            _ra=ra,
-                            _fra=_framework_return_adapter,
-                            _ea=exc_adapter,
-                            _handler=adapted,
-                            _path_params=path_params,
-                            _path_types=path_types,
-                            _req_ct=req_ct,
-                            _rn=name,
-                            **kwargs: Any,
-                        ) -> FrameworkResponse:
-                            if (
-                                _req_ct is not None
-                                and request.headers.get("content-type") != _req_ct
-                            ):
-                                return FrameworkResponse(
-                                    f"invalid content type (expected {_req_ct})",
-                                    status=415,
-                                )
-                            path_args = {
-                                p: (
-                                    self.converter.structure(kwargs[p], path_type)
-                                    if (path_type := _path_types[p])
-                                    not in (str, Signature.empty)
-                                    else kwargs[p]
-                                )
-                                for p in _path_params
-                            }
-                            try:
-                                return _fra(_ra(_handler(request, _rn, **path_args)))
-                            except ResponseException as exc:
-                                return _fra(_ea(exc))
+                    def adapted(  # type: ignore
+                        request: WSGIRequest,
+                        _ra=ra,
+                        _fra=_framework_return_adapter,
+                        _ea=exc_adapter,
+                        _handler=adapted,
+                        _path_params=path_params,
+                        _path_types=path_types,
+                        _req_ct=req_ct,
+                        _rn=name,
+                        **kwargs: Any,
+                    ) -> FrameworkResponse:
+                        if (
+                            _req_ct is not None
+                            and request.headers.get("content-type") != _req_ct
+                        ):
+                            return FrameworkResponse(
+                                f"invalid content type (expected {_req_ct})", status=415
+                            )
+                        path_args = {
+                            p: (
+                                self.converter.structure(kwargs[p], path_type)
+                                if (path_type := _path_types[p])
+                                not in (str, Signature.empty)
+                                else kwargs[p]
+                            )
+                            for p in _path_params
+                        }
+                        try:
+                            return _fra(_ra(_handler(request, _rn, **path_args)))
+                        except ResponseException as exc:
+                            return _fra(_ea(exc))
 
                 per_method_adapted[method] = adapted
 
@@ -311,7 +268,7 @@ class DjangoApp(BaseApp):
         return res
 
 
-App = DjangoApp
+App: TypeAlias = DjangoApp
 
 
 def make_header_dependency(

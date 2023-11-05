@@ -1,6 +1,6 @@
 from functools import partial
 from inspect import Signature, signature
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypeAlias
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -27,12 +27,7 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import (
-    dict_to_headers,
-    identity,
-    make_exception_adapter,
-    make_return_adapter,
-)
+from .responses import dict_to_headers, make_exception_adapter, make_return_adapter
 from .status import BaseResponse, get_status_code
 from .types import RouteName
 
@@ -156,52 +151,30 @@ class FlaskApp(BaseApp):
                     **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
                 )
 
-                if ra == identity:
+                def o1(
+                    _handler=adapted,
+                    _ra=ra,
+                    _fra=_framework_return_adapter,
+                    _req_ct=req_ct,
+                    _ea=exc_adapter,
+                    _rn=name,
+                ):
+                    def adapter(**kwargs):
+                        if (
+                            _req_ct is not None
+                            and request.headers.get("content-type") != _req_ct
+                        ):
+                            return FrameworkResponse(
+                                f"invalid content type (expected {_req_ct})", 415
+                            )
+                        try:
+                            return _fra(_ra(_handler(_rn, **kwargs)))
+                        except ResponseException as exc:
+                            return _fra(_ea(exc))
 
-                    def o1(prepared=prepared, _req_ct=req_ct, _ea=exc_adapter):
-                        def adapter(**kwargs):
-                            if (
-                                _req_ct is not None
-                                and request.headers.get("content-type") != _req_ct
-                            ):
-                                return FrameworkResponse(
-                                    f"invalid content type (expected {_req_ct})", 415
-                                )
-                            try:
-                                return _framework_return_adapter(prepared(**kwargs))
-                            except ResponseException as exc:
-                                return _framework_return_adapter(_ea(exc))
+                    return adapter
 
-                        return adapter
-
-                    adapted = o1()
-
-                else:
-
-                    def o2(
-                        _handler=adapted,
-                        _ra=ra,
-                        _fra=_framework_return_adapter,
-                        _req_ct=req_ct,
-                        _ea=exc_adapter,
-                        _rn=name,
-                    ):
-                        def adapter(**kwargs):
-                            if (
-                                _req_ct is not None
-                                and request.headers.get("content-type") != _req_ct
-                            ):
-                                return FrameworkResponse(
-                                    f"invalid content type (expected {_req_ct})", 415
-                                )
-                            try:
-                                return _fra(_ra(_handler(_rn, **kwargs)))
-                            except ResponseException as exc:
-                                return _fra(_ea(exc))
-
-                        return adapter
-
-                    adapted = o2()
+                adapted = o1()
 
             f.route(
                 path,
@@ -215,7 +188,7 @@ class FlaskApp(BaseApp):
         self.to_framework_app(import_name).run(port=port)
 
 
-App = FlaskApp
+App: TypeAlias = FlaskApp
 
 
 def make_header_dependency(
