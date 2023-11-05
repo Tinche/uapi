@@ -34,6 +34,7 @@ from .responses import (
     make_return_adapter,
 )
 from .status import BaseResponse, get_status_code
+from .types import RouteName
 
 __all__ = ["App", "AiohttpApp"]
 
@@ -82,6 +83,10 @@ def make_aiohttp_incanter(converter: Converter) -> Incanter:
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
+
+    # RouteNames get an empty hook, so the parameter propagates to the base incanter.
+    res.hook_factory_registry.insert(0, Hook(lambda p: p.annotation is RouteName, None))
+
     return res
 
 
@@ -180,6 +185,12 @@ class AiohttpApp(BaseApp):
                 )
                 sig = signature(prepared)
                 path_types = {p: sig.parameters[p].annotation for p in path_params}
+                adapted = self.framework_incant.adapt(
+                    prepared,
+                    lambda p: p.annotation is FrameworkRequest,
+                    lambda p: p.annotation is RouteName,
+                    **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
+                )
 
                 if ra == identity:
 
@@ -221,14 +232,14 @@ class AiohttpApp(BaseApp):
 
                     async def adapted(  # type: ignore
                         request: FrameworkRequest,
-                        _incant=self.framework_incant.aincant,
                         _ra=ra,
                         _fra=_framework_return_adapter,
                         _ea=exc_adapter,
-                        _prepared=prepared,
+                        _handler=adapted,
                         _path_params=path_params,
                         _path_types=path_types,
                         _req_ct=req_ct,
+                        _rn=name,
                     ) -> FrameworkResponse:
                         if (
                             _req_ct is not None
@@ -250,9 +261,7 @@ class AiohttpApp(BaseApp):
                             for p in _path_params
                         }
                         try:
-                            return _fra(
-                                _ra(await _incant(_prepared, request, **path_args))
-                            )
+                            return _fra(_ra(await _handler(request, _rn, **path_args)))
                         except ResponseException as exc:
                             return _fra(_ea(exc))
 

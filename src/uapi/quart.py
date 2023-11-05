@@ -37,6 +37,9 @@ from .responses import (
     make_return_adapter,
 )
 from .status import BaseResponse, get_status_code
+from .types import RouteName
+
+__all__ = ["App"]
 
 C = TypeVar("C")
 
@@ -79,6 +82,10 @@ def make_quart_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         is_req_body_attrs, partial(attrs_body_factory, converter=converter)
     )
+
+    # RouteNames get an empty hook, so the parameter propagates to the base incanter.
+    res.hook_factory_registry.insert(0, Hook(lambda p: p.annotation is RouteName, None))
+
     return res
 
 
@@ -145,18 +152,23 @@ class QuartApp(BaseApp):
                 adapted = o0()
 
             else:
-                base_handler = self.incant.compose(handler, is_async=True)
                 prepared = self.framework_incant.compose(
                     base_handler, hooks, is_async=True
+                )
+                adapted = self.framework_incant.adapt(
+                    prepared,
+                    lambda p: p.annotation is RouteName,
+                    **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
                 )
 
                 if ra == identity:
 
                     def o1(
-                        prepared=prepared,
+                        handler=adapted,
                         _fra=_framework_return_adapter,
                         _req_ct=req_ct,
                         _ea=exc_adapter,
+                        _rn=name,
                     ):
                         async def adapter(**kwargs):
                             if (
@@ -167,7 +179,7 @@ class QuartApp(BaseApp):
                                     f"invalid content type (expected {_req_ct})", 415
                                 )
                             try:
-                                return _fra(await prepared(**kwargs))
+                                return _fra(await handler(_rn, **kwargs))
                             except ResponseException as exc:
                                 return _fra(_ea(exc))
 
@@ -178,11 +190,12 @@ class QuartApp(BaseApp):
                 else:
 
                     def o2(
-                        prepared=prepared,
+                        handler=adapted,
                         _fra=_framework_return_adapter,
                         _ra=ra,
                         _req_ct=req_ct,
                         _ea=exc_adapter,
+                        _rn=name,
                     ):
                         async def adapter(**kwargs):
                             if (
@@ -193,7 +206,7 @@ class QuartApp(BaseApp):
                                     f"invalid content type (expected {_req_ct})", 415
                                 )
                             try:
-                                return _fra(_ra(await prepared(**kwargs)))
+                                return _fra(_ra(await handler(_rn, **kwargs)))
                             except ResponseException as exc:
                                 return _fra(_ea(exc))
 
@@ -210,7 +223,11 @@ class QuartApp(BaseApp):
         return q
 
     async def run(
-        self, import_name: str, port: int = 8000, handle_signals: bool = True
+        self,
+        import_name: str,
+        port: int = 8000,
+        handle_signals: bool = True,
+        log_level: str | int | None = None,
     ) -> None:
         """Start serving this app using uvicorn.
 
@@ -218,7 +235,12 @@ class QuartApp(BaseApp):
         """
         from uvicorn import Config, Server
 
-        config = Config(self.to_framework_app(import_name), port=port, access_log=False)
+        config = Config(
+            self.to_framework_app(import_name),
+            port=port,
+            access_log=False,
+            log_level=log_level,
+        )
 
         if handle_signals:
             server = Server(config=config)

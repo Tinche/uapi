@@ -6,7 +6,7 @@
 [![Code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License: Apache2](https://img.shields.io/badge/license-Apache2-C06524)](https://github.com/Tinche/uapi/blob/main/LICENSE)
 
-_uapi_ is an elegant, high-level, extremely fast Python microframework for writing HTTP APIs, either synchronously or asynchronously.
+_uapi_ is an elegant, high-level, extremely low-overhead Python microframework for writing HTTP APIs, either synchronously or asynchronously.
 
 _uapi_ uses a lower-level HTTP framework to run. Currently supported frameworks are aiohttp, Django, Flask, Quart, and Starlette.
 An _uapi_ app can be easily integrated into an existing project based on one of these frameworks, and a pure _uapi_ project can be easily switched between them when needed.

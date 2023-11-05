@@ -1,6 +1,6 @@
 from typing import Annotated, TypeAlias, TypeVar
 
-from uapi import Cookie, Header, ReqBody, ResponseException
+from uapi import Cookie, Header, ReqBody, ResponseException, RouteName
 from uapi.base import App
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.requests import HeaderSpec, JsonBodyLoader
@@ -214,7 +214,7 @@ def configure_base_async(app: App) -> None:
         """This should be excluded from OpenAPI."""
         return ""
 
-    # Subapps.
+    # # Subapps.
 
     app.route_app(make_generic_subapp())
     app.route_app(make_generic_subapp(), "/subapp", "subapp")
@@ -228,6 +228,12 @@ def configure_base_async(app: App) -> None:
     @app.get("/injection")
     async def injection(injected_id: str) -> str:
         return injected_id
+
+    # Route name composition.
+    @app.get("/comp/route-name")
+    @app.post("/comp/route-name", name="route-name-post")
+    async def route_name(route_name: RouteName) -> str:
+        return route_name
 
 
 def configure_base_sync(app: App) -> None:
@@ -416,3 +422,9 @@ def configure_base_sync(app: App) -> None:
     @app.get("/injection")
     def injection(injected_id: str) -> str:
         return injected_id
+
+    # Route name composition.
+    @app.get("/comp/route-name")
+    @app.post("/comp/route-name", name="route-name-post")
+    def route_name(route_name: RouteName) -> str:
+        return route_name

@@ -34,6 +34,9 @@ from .responses import (
     make_return_adapter,
 )
 from .status import BaseResponse, get_status_code
+from .types import RouteName
+
+__all__ = ["App"]
 
 
 def make_flask_incanter(converter: Converter) -> Incanter:
@@ -74,6 +77,10 @@ def make_flask_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         is_req_body_attrs, partial(attrs_body_factory, converter=converter)
     )
+
+    # RouteNames get an empty hook, so the parameter propagates to the base incanter.
+    res.hook_factory_registry.insert(0, Hook(lambda p: p.annotation is RouteName, None))
+
     return res
 
 
@@ -143,6 +150,12 @@ class FlaskApp(BaseApp):
                 prepared = self.framework_incant.compose(
                     base_handler, hooks, is_async=False
                 )
+                adapted = self.framework_incant.adapt(
+                    prepared,
+                    lambda p: p.annotation is RouteName,
+                    **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
+                )
+
                 if ra == identity:
 
                     def o1(prepared=prepared, _req_ct=req_ct, _ea=exc_adapter):
@@ -165,7 +178,14 @@ class FlaskApp(BaseApp):
 
                 else:
 
-                    def o2(prepared=prepared, ra=ra, _req_ct=req_ct, _ea=exc_adapter):
+                    def o2(
+                        _handler=adapted,
+                        _ra=ra,
+                        _fra=_framework_return_adapter,
+                        _req_ct=req_ct,
+                        _ea=exc_adapter,
+                        _rn=name,
+                    ):
                         def adapter(**kwargs):
                             if (
                                 _req_ct is not None
@@ -175,9 +195,9 @@ class FlaskApp(BaseApp):
                                     f"invalid content type (expected {_req_ct})", 415
                                 )
                             try:
-                                return _framework_return_adapter(ra(prepared(**kwargs)))
+                                return _fra(_ra(_handler(_rn, **kwargs)))
                             except ResponseException as exc:
-                                return _framework_return_adapter(_ea(exc))
+                                return _fra(_ea(exc))
 
                         return adapter
 

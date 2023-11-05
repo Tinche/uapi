@@ -1,8 +1,12 @@
+```{currentmodule} uapi.base
+
+```
+
 # Writing Handlers
 
 Handlers are your functions and coroutines that _uapi_ calls to process incoming requests.
 
-Handlers are registered to apps using {py:meth}`App.route() <uapi.base.App.route>`, or helper decorators like {py:meth}`App.get() <uapi.base.App.get>` and {py:meth}`App.post() <uapi.base.App.post>`.
+Handlers are registered to apps using {meth}`App.route`, or helper decorators like {meth}`App.get` and {meth}`App.post`.
 
 ```python
 @app.get("/")
@@ -199,7 +203,7 @@ async def create_articles(articles: ReqBody[dict[str, Article]]) -> None:
 
 ### Headers
 
-HTTP headers are injected into your handlers when one or more of your handler parameters are annotated using `uapi.Header[T]`.
+HTTP headers are provided to your handlers when one or more of your handler parameters are annotated using `uapi.Header[T]`.
 
 ```{tip}
 Technically, HTTP requests may contain several headers of the same name.

@@ -74,7 +74,7 @@ class App:
         if name is None:
             name = handler.__name__
         for method in methods:
-            self._route_map[(method, path)] = (handler, name, tags)
+            self._route_map[(method, path)] = (handler, RouteName(name), tags)
         return handler
 
     def get(self, path: str, name: str | None = None, tags: RouteTags = ()):
@@ -106,14 +106,14 @@ class App:
             raise Exception("Incompatible apps.")
         for (method, path), (handler, name, tags) in app._route_map.items():
             if name_prefix is not None:
-                name = f"{name_prefix}.{name}"
+                name = RouteName(f"{name_prefix}.{name}")
             self._route_map[(method, (prefix or "") + path)] = (handler, name, tags)
 
     def make_openapi_spec(
         self,
         title: str = "Server",
         version: str = "1.0",
-        exclude: set[RouteName] = set(),
+        exclude: set[str] = set(),
         summary_transformer: SummaryTransformer = default_summary_transformer,
         description_transformer: DescriptionTransformer = default_description_transformer,
     ) -> OpenAPI:
