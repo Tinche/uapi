@@ -184,7 +184,7 @@ class AiohttpApp(BaseApp):
 
             else:
 
-                async def adapted(  # type: ignore
+                async def adapted(
                     request: FrameworkRequest,
                     _ra=ra,
                     _fra=_framework_return_adapter,

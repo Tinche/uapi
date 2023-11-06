@@ -208,7 +208,7 @@ class DjangoApp(BaseApp):
 
                 else:
 
-                    def adapted(  # type: ignore
+                    def adapted(
                         request: WSGIRequest,
                         _ra=ra,
                         _fra=_framework_return_adapter,
