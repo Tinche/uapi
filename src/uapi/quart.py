@@ -32,7 +32,7 @@ from .requests import (
 )
 from .responses import dict_to_headers, make_exception_adapter, make_return_adapter
 from .status import BaseResponse, get_status_code
-from .types import RouteName
+from .types import Method, RouteName
 
 __all__ = ["App"]
 
@@ -78,8 +78,10 @@ def make_quart_incanter(converter: Converter) -> Incanter:
         is_req_body_attrs, partial(attrs_body_factory, converter=converter)
     )
 
-    # RouteNames get an empty hook, so the parameter propagates to the base incanter.
-    res.hook_factory_registry.insert(0, Hook(lambda p: p.annotation is RouteName, None))
+    # RouteNames and methods get an empty hook, so the parameter propagates to the base incanter.
+    res.hook_factory_registry.insert(
+        0, Hook(lambda p: p.annotation in (RouteName, Method), None)
+    )
 
     return res
 
@@ -117,17 +119,23 @@ class QuartApp(BaseApp):
                 if is_req_body_attrs(arg):
                     _, loader = get_req_body_attrs(arg)
                     req_ct = loader.content_type
+            prepared = self.framework_incant.compose(base_handler, hooks, is_async=True)
+            adapted = self.framework_incant.adapt(
+                prepared,
+                lambda p: p.annotation is RouteName,
+                lambda p: p.annotation is Method,
+                **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
+            )
 
             if ra is None:
-                prepared = self.framework_incant.compose(
-                    base_handler, hooks, is_async=True
-                )
 
                 def o0(
-                    prepared=prepared,
+                    handler=adapted,
                     _req_ct=req_ct,
                     _fra=_framework_return_adapter,
                     _ea=exc_adapter,
+                    _rn=name,
+                    _rm=method,
                 ):
                     async def adapter(**kwargs):
                         if (
@@ -138,7 +146,7 @@ class QuartApp(BaseApp):
                                 f"invalid content type (expected {_req_ct})", 415
                             )
                         try:
-                            return await prepared(**kwargs)
+                            return await handler(_rn, _rm, **kwargs)
                         except ResponseException as exc:
                             return _fra(_ea(exc))
 
@@ -147,14 +155,6 @@ class QuartApp(BaseApp):
                 adapted = o0()
 
             else:
-                prepared = self.framework_incant.compose(
-                    base_handler, hooks, is_async=True
-                )
-                adapted = self.framework_incant.adapt(
-                    prepared,
-                    lambda p: p.annotation is RouteName,
-                    **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
-                )
 
                 def o1(
                     handler=adapted,
@@ -163,6 +163,7 @@ class QuartApp(BaseApp):
                     _req_ct=req_ct,
                     _ea=exc_adapter,
                     _rn=name,
+                    _rm=method,
                 ):
                     async def adapter(**kwargs):
                         if (
@@ -173,7 +174,7 @@ class QuartApp(BaseApp):
                                 f"invalid content type (expected {_req_ct})", 415
                             )
                         try:
-                            return _fra(_ra(await handler(_rn, **kwargs)))
+                            return _fra(_ra(await handler(_rn, _rm, **kwargs)))
                         except ResponseException as exc:
                             return _fra(_ea(exc))
 

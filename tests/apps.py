@@ -1,6 +1,6 @@
 from typing import Annotated, TypeAlias, TypeVar
 
-from uapi import Cookie, Header, ReqBody, ResponseException, RouteName
+from uapi import Cookie, Header, Method, ReqBody, ResponseException, RouteName
 from uapi.base import App
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.requests import HeaderSpec, JsonBodyLoader
@@ -235,6 +235,12 @@ def configure_base_async(app: App) -> None:
     async def route_name(route_name: RouteName) -> str:
         return route_name
 
+    # Request method composition.
+    @app.get("/comp/req-method")
+    @app.post("/comp/req-method", name="request-method-post")
+    async def request_method(req_method: Method) -> str:
+        return req_method
+
 
 def configure_base_sync(app: App) -> None:
     @app.get("/")
@@ -428,3 +434,9 @@ def configure_base_sync(app: App) -> None:
     @app.post("/comp/route-name", name="route-name-post")
     def route_name(route_name: RouteName) -> str:
         return route_name
+
+    # Request method composition.
+    @app.get("/comp/req-method")
+    @app.post("/comp/req-method", name="request-method-post")
+    def request_method(req_method: Method) -> str:
+        return req_method

@@ -21,7 +21,10 @@ JSON payloads, structured into _attrs_ classes by _cattrs_, can by provided to h
 ## Route Metadata
 
 ```{tip}
-_Routes_ are different than _handlers_, a single handler may be registered on multiple routes.
+_Routes_ are different than _handlers_; a single handler may be registered on multiple routes.
 ```
 
 Route metadata can be provided to handlers and middleware, although it can be more useful to middleware.
+
+- The route name will be provided if a parameter is annotated as {class}`uapi.RouteName <uapi.types.RouteName>`, which is a string-based NewType.
+- The request HTTP method will be provided if a parameter is annotated as {class}`uapi.Method <uapi.types.Method>`, which is a string Literal.

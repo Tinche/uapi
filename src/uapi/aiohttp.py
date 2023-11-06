@@ -29,7 +29,7 @@ from .requests import (
 )
 from .responses import dict_to_headers, make_exception_adapter, make_return_adapter
 from .status import BaseResponse, get_status_code
-from .types import RouteName
+from .types import Method, RouteName
 
 __all__ = ["App", "AiohttpApp"]
 
@@ -79,8 +79,10 @@ def make_aiohttp_incanter(converter: Converter) -> Incanter:
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
 
-    # RouteNames get an empty hook, so the parameter propagates to the base incanter.
-    res.hook_factory_registry.insert(0, Hook(lambda p: p.annotation is RouteName, None))
+    # RouteNames and methods get an empty hook, so the parameter propagates to the base incanter.
+    res.hook_factory_registry.insert(
+        0, Hook(lambda p: p.annotation in (RouteName, Method), None)
+    )
 
     return res
 
@@ -132,22 +134,30 @@ class AiohttpApp(BaseApp):
                     _, loader = get_req_body_attrs(arg)
                     req_ct = loader.content_type
 
+            prepared = self.framework_incant.compose(base_handler, hooks, is_async=True)
+            sig = signature(prepared)
+            path_types = {p: sig.parameters[p].annotation for p in path_params}
+
+            adapted = self.framework_incant.adapt(
+                prepared,
+                lambda p: p.annotation is FrameworkRequest,
+                lambda p: p.annotation is RouteName,
+                lambda p: p.annotation is Method,
+                **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
+            )
+
             if ra is None:
-                prepared = self.framework_incant.compose(
-                    base_handler, hooks, is_async=True
-                )
-                sig = signature(prepared)
-                path_types = {p: sig.parameters[p].annotation for p in path_params}
 
                 async def adapted(
                     request: FrameworkRequest,
-                    _incant=self.framework_incant.aincant,
                     _fra=_framework_return_adapter,
                     _ea=exc_adapter,
-                    _prepared=prepared,
+                    _prepared=adapted,
                     _path_params=path_params,
                     _path_types=path_types,
                     _req_ct=req_ct,
+                    _rn=name,
+                    _rm=method,
                 ) -> FrameworkResponse:
                     if (
                         _req_ct is not None
@@ -158,34 +168,21 @@ class AiohttpApp(BaseApp):
                             status=415,
                         )
 
+                    path_args = {
+                        p: (
+                            self.converter.structure(request.match_info[p], path_type)
+                            if (path_type := _path_types[p])
+                            not in (str, Signature.empty)
+                            else request.match_info[p]
+                        )
+                        for p in _path_params
+                    }
                     try:
-                        path_args = {
-                            p: (
-                                self.converter.structure(
-                                    request.match_info[p], path_type
-                                )
-                                if (path_type := _path_types[p])
-                                not in (str, Signature.empty)
-                                else request.match_info[p]
-                            )
-                            for p in _path_params
-                        }
-                        return await _incant(_prepared, request, **path_args)
+                        return await _prepared(request, _rn, _rm, **path_args)
                     except ResponseException as exc:
                         return _fra(_ea(exc))
 
             else:
-                prepared = self.framework_incant.compose(
-                    base_handler, hooks, is_async=True
-                )
-                sig = signature(prepared)
-                path_types = {p: sig.parameters[p].annotation for p in path_params}
-                adapted = self.framework_incant.adapt(
-                    prepared,
-                    lambda p: p.annotation is FrameworkRequest,
-                    lambda p: p.annotation is RouteName,
-                    **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
-                )
 
                 async def adapted(  # type: ignore
                     request: FrameworkRequest,
@@ -197,6 +194,7 @@ class AiohttpApp(BaseApp):
                     _path_types=path_types,
                     _req_ct=req_ct,
                     _rn=name,
+                    _rm=method,
                 ) -> FrameworkResponse:
                     if (
                         _req_ct is not None
@@ -216,7 +214,7 @@ class AiohttpApp(BaseApp):
                         for p in _path_params
                     }
                     try:
-                        return _fra(_ra(await _handler(request, _rn, **path_args)))
+                        return _fra(_ra(await _handler(request, _rn, _rm, **path_args)))
                     except ResponseException as exc:
                         return _fra(_ea(exc))
 
