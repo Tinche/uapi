@@ -115,16 +115,24 @@ class FlaskApp(BaseApp):
                     _, loader = get_req_body_attrs(arg)
                     req_ct = loader.content_type
 
+            prepared = self.framework_incant.compose(
+                base_handler, hooks, is_async=False
+            )
+            adapted = self.framework_incant.adapt(
+                prepared,
+                lambda p: p.annotation is RouteName,
+                lambda p: p.annotation is Method,
+                **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
+            )
             if ra is None:
-                prepared = self.framework_incant.compose(
-                    base_handler, hooks, is_async=False
-                )
 
                 def o0(
-                    prepared=prepared,
+                    _handler=adapted,
                     _req_ct=req_ct,
                     _fra=_framework_return_adapter,
                     _ea=exc_adapter,
+                    _rn=name,
+                    _rm=method,
                 ):
                     def adapter(**kwargs):
                         if (
@@ -135,7 +143,7 @@ class FlaskApp(BaseApp):
                                 f"invalid content type (expected {_req_ct})", 415
                             )
                         try:
-                            return prepared(**kwargs)
+                            return _handler(_rn, _rm, **kwargs)
                         except ResponseException as exc:
                             return _fra(_ea(exc))
 
@@ -144,15 +152,6 @@ class FlaskApp(BaseApp):
                 adapted = o0()
 
             else:
-                prepared = self.framework_incant.compose(
-                    base_handler, hooks, is_async=False
-                )
-                adapted = self.framework_incant.adapt(
-                    prepared,
-                    lambda p: p.annotation is RouteName,
-                    lambda p: p.annotation is Method,
-                    **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
-                )
 
                 def o1(
                     _handler=adapted,

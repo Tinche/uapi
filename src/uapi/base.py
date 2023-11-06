@@ -46,7 +46,10 @@ class App:
     """
 
     converter: Converter = Factory(make_converter)
+
+    #: The incanter used to compose handlers and middleware.
     incant: Incanter = Factory(make_base_incanter)
+
     _route_map: dict[
         tuple[Method, str], tuple[Callable, RouteName, RouteTags]
     ] = Factory(dict)
