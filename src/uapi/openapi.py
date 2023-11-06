@@ -218,6 +218,9 @@ def build_operation(
         if arg in path_params:
             continue
         arg_type = arg_param.annotation
+        if arg_type in (RouteName, Method):
+            # These are special and fulfilled by uapi itself.
+            continue
         if arg_type is not InspectParameter.empty and is_subclass(
             arg_type, framework_req_cls
         ):

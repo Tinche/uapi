@@ -1,35 +1,10 @@
 """Test headers."""
-from collections.abc import Callable
-
-import pytest
-
 from uapi.openapi import OpenAPI, Parameter, Schema
 
-from .aiohttp import make_app as aiohttp_make_app
-from .django_uapi_app.views import App
-from .django_uapi_app.views import app as django_app
-from .flask import make_app as flask_make_app
-from .quart import make_app as quart_make_app
-from .starlette import make_app as starlette_make_app
+from ..django_uapi_app.views import App
 
 
-def django_make_app() -> App:
-    return django_app
-
-
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_header(app_factory: Callable[[], App]) -> None:
-    app = app_factory()
+def test_header(app: App) -> None:
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/header"]
@@ -53,19 +28,7 @@ def test_header(app_factory: Callable[[], App]) -> None:
     assert schema.type == Schema.Type.STRING
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_default_header(app_factory: Callable[[], App]) -> None:
-    app = app_factory()
+def test_default_header(app: App) -> None:
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/header-default"]

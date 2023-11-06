@@ -1,8 +1,4 @@
 """Test the OpenAPI schema generation for attrs classes."""
-from collections.abc import Callable
-
-import pytest
-
 from uapi.base import App
 from uapi.openapi import (
     ArraySchema,
@@ -15,30 +11,8 @@ from uapi.openapi import (
     Schema,
 )
 
-from .aiohttp import make_app as aiohttp_make_app
-from .django_uapi_app.views import app as django_app
-from .flask import make_app as flask_make_app
-from .quart import make_app as quart_make_app
-from .starlette import make_app as starlette_make_app
 
-
-def django_make_app() -> App:
-    return django_app
-
-
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_get_model(app_factory) -> None:
-    app = app_factory()
+def test_get_model(app: App) -> None:
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/get/model"]
@@ -72,19 +46,7 @@ def test_get_model(app_factory) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_get_model_status(app_factory) -> None:
-    app = app_factory()
+def test_get_model_status(app: App) -> None:
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/get/model-status"]
@@ -119,19 +81,7 @@ def test_get_model_status(app_factory) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_post_model(app_factory) -> None:
-    app = app_factory()
+def test_post_model(app: App) -> None:
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/post/model"]
@@ -167,20 +117,8 @@ def test_post_model(app_factory) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_patch_union(app_factory) -> None:
+def test_patch_union(app: App) -> None:
     """Unions of attrs classes."""
-    app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/patch/attrs"]
@@ -217,20 +155,8 @@ def test_patch_union(app_factory) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_custom_loader(app_factory: Callable[[], App]) -> None:
+def test_custom_loader(app: App) -> None:
     """Custom loaders advertise proper content types."""
-    app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/custom-loader"]
@@ -270,19 +196,7 @@ def test_custom_loader(app_factory: Callable[[], App]) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_models_same_name(app_factory) -> None:
-    app: App = app_factory()
+def test_models_same_name(app: App) -> None:
     spec: OpenAPI = app.make_openapi_spec()
 
     assert spec.components.schemas["SimpleModel"] == Schema(
@@ -300,20 +214,8 @@ def test_models_same_name(app_factory) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_response_models(app_factory) -> None:
+def test_response_models(app: App) -> None:
     """Response models should be properly added to the spec."""
-    app: App = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
     assert spec.components.schemas["ResponseModel"] == Schema(
@@ -326,20 +228,8 @@ def test_response_models(app_factory) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_response_union_none(app_factory) -> None:
+def test_response_union_none(app: App) -> None:
     """Response models of unions containing an inner None should be properly added to the spec."""
-    app: App = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/response-union-none"]
@@ -365,20 +255,8 @@ def test_response_union_none(app_factory) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_model_with_literal(app_factory) -> None:
+def test_model_with_literal(app: App) -> None:
     """Models with Literal types are properly added to the spec."""
-    app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/literal-model"]
@@ -405,20 +283,8 @@ def test_model_with_literal(app_factory) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_generic_model(app_factory) -> None:
+def test_generic_model(app: App) -> None:
     """Models with Literal types are properly added to the spec."""
-    app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/generic-model"]
@@ -469,20 +335,8 @@ def test_generic_model(app_factory) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_generic_response_model(app_factory) -> None:
+def test_generic_response_model(app: App) -> None:
     """Models from responses are collected properly."""
-    app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/response-generic-model"]
@@ -524,20 +378,8 @@ def test_generic_response_model(app_factory) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_sum_types_model(app_factory) -> None:
+def test_sum_types_model(app: App) -> None:
     """Sum types are handled properly."""
-    app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/sum-types-model"]
@@ -600,20 +442,8 @@ def test_sum_types_model(app_factory) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "app_factory",
-    [
-        aiohttp_make_app,
-        flask_make_app,
-        quart_make_app,
-        starlette_make_app,
-        django_make_app,
-    ],
-    ids=["aiohttp", "flask", "quart", "starlette", "django"],
-)
-def test_dictionary_models(app_factory) -> None:
+def test_dictionary_models(app: App) -> None:
     """Dictionary models are handled properly."""
-    app = app_factory()
     spec: OpenAPI = app.make_openapi_spec()
 
     op = spec.paths["/dictionary-models"]
