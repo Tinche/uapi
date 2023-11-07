@@ -236,7 +236,7 @@ class StarletteApp(BaseApp):
 
         if handle_signals:
             server = Server(config=config)
-
+            await server.serve()
         else:
 
             class NoSignalsServer(Server):
@@ -245,13 +245,13 @@ class StarletteApp(BaseApp):
 
             server = NoSignalsServer(config=config)
 
-        t = create_task(server.serve())
+            t = create_task(server.serve())
 
-        with suppress(BaseException):
-            while True:
-                await sleep(360)
-        server.should_exit = True
-        await t
+            with suppress(BaseException):
+                while True:
+                    await sleep(360)
+            server.should_exit = True
+            await t
 
 
 App: TypeAlias = StarletteApp

@@ -75,3 +75,104 @@ This is true of all dependency hooks and middleware.
 
 The final handler signature available to _uapi_ at time of serving contains all the dependencies as function arguments.
 ```
+
+## Extending the Context
+
+The composition context can be extended with arbitrary dependencies.
+
+For example, imagine your application needs to perform HTTP requests.
+Ideally, the handlers should use a shared connection pool instance for efficiency.
+Here's a complete implementation of a very simple HTTP proxy.
+The example can be pasted and ran as-is as long as Starlette and Uvicorn are available.
+
+```python
+from asyncio import run
+
+from httpx import AsyncClient
+
+from uapi.starlette import App
+
+app = App()
+
+_client = AsyncClient()  # We only want one.
+app.incant.register_by_type(lambda: _client, type=AsyncClient)
+
+
+@app.get("/proxy")
+async def proxy(client: AsyncClient) -> str:
+    """We just return the payload at www.example.com."""
+    return (await client.get("http://example.com")).read().decode()
+
+
+run(app.run())
+```
+
+## Integrating the `svcs` Package
+
+If you'd like to get more serious about application architecture, one of the approaches is to use the [svcs](https://svcs.hynek.me/) library.
+Here's a way of integrating it into _uapi_.
+
+```python
+from httpx import AsyncClient
+from svcs import Container, Registry
+
+from uapi.starlette import App
+
+reg = Registry()
+reg.register_value(AsyncClient, AsyncClient(), enter=False)
+
+app = App()
+app.incant.register_by_type(
+    lambda: Container(reg), type=Container, is_ctx_manager="async"
+)
+
+
+@app.get("/proxy")
+async def proxy(container: Container) -> str:
+    """We just return the payload at www.example.com."""
+    client = await container.aget(AsyncClient)
+    return (await client.get("http://example.com")).read().decode()
+```
+
+We can go even further and instead of providing the `container`, we can provide anything the container contains too.
+
+```python
+from collections.abc import Callable
+from inspect import Parameter
+
+from httpx import AsyncClient
+from svcs import Container, Registry
+
+from uapi.starlette import App
+
+reg = Registry()
+reg.register_value(AsyncClient, AsyncClient(), enter=False)
+
+app = App()
+app.incant.register_by_type(
+    lambda: Container(reg), type=Container, is_ctx_manager="async"
+)
+
+
+def svcs_hook_factory(parameter: Parameter) -> Callable:
+    t = parameter.annotation
+
+    async def from_container(c: Container):
+        return await c.aget(t)
+
+    return from_container
+
+
+app.incant.register_hook_factory(lambda p: p.annotation in reg, svcs_hook_factory)
+
+
+@app.get("/proxy")
+async def proxy(client: AsyncClient) -> str:
+    """We just return the payload at www.example.com."""
+    return (await client.get("http://example.com")).read().decode()
+```
+
+```{note}
+The _svcs_ library includes integrations for several popular web frameworks, and code examples for them.
+The examples shown here are independent of the underlying web framework used; they will work on all of them (with a potential sync/async tweak).
+```
