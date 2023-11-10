@@ -203,9 +203,9 @@ async def create_articles(articles: ReqBody[dict[str, Article]]) -> None:
 
 ### Headers
 
-HTTP headers are provided to your handlers when one or more of your handler parameters are annotated using `uapi.Header[T]`.
+HTTP headers are provided to your handlers when one or more of your handler parameters are annotated using {class}`uapi.Header[T] <uapi.requests.Header>`.
 
-```{tip}
+```{note}
 Technically, HTTP requests may contain several headers of the same name.
 All underlying frameworks return the *first* value encountered.
 ```
@@ -230,8 +230,8 @@ is left to the underlying framework. The current options are:
 - Quart: a response with status `400` is returned
 - All others: a response with status `500` is returned
 
-`uapi.Header[T]` is equivalent to `Annotated[T, uapi.HeaderSpec]`, and header behavior can be customized
-by providing your own instance of {py:class}`uapi.requests.HeaderSpec`.
+{class}`uapi.Header[T] <uapi.requests.Header>` is equivalent to `Annotated[T, uapi.HeaderSpec]`, and header behavior can be customized
+by providing your own instance of {class}`uapi.requests.HeaderSpec`.
 
 For example, the header name can be customized on a case-by-case basis like this:
 
@@ -261,6 +261,51 @@ async def login(session_token: Header[str | None] = None) -> None:
 Header types may be strings or anything else. Strings are provided directly by
 the underlying frameworks, any other type is produced by structuring the string value
 into that type using the App _cattrs_ `Converter`.
+
+### Cookies
+
+Cookies are provided to your handlers when one or more of your handler parameters are annotated using {class}`uapi.Cookie <uapi.cookies.Cookie>`, which is a subclass of `str`.
+By default, the name of the cookie is the exact name of the handler parameter.
+
+```python
+from uapi import Cookie
+
+
+@app.post("/login")
+async def login(session_token: Cookie) -> None:
+    # `session_token` is a `str` subclass
+    ...
+```
+
+The name of the cookie can be customized on an individual basis by using `typing.Annotated`:
+
+```python
+from typing import Annotated
+from uapi import Cookie
+
+
+@app.post("/login")
+async def login(session_token: Annotated[str, Cookie("session-token")]) -> None:
+    # `session_token` is a `str` subclass, fetched from the `session-token` cookie
+    ...
+```
+
+Cookies may have defaults which will be used if the cookie is not present in the request.
+Cookies with defaults will be rendered as `required=False` in the OpenAPI schema.
+
+Cookies may be set by using {meth}`uapi.cookies.set_cookie`.
+
+```python
+from uapi.status import Ok
+from uapi.cookies import set_cookie
+
+async def sets_cookies() -> Ok[str]
+    return Ok("response", headers=set_cookie("my_cookie_name", "my_cookie_value"))
+```
+
+```{tip}
+Since {meth}`uapi.cookies.set_cookie` returns a header mapping, multiple cookies can be set by using the `|` operator.
+```
 
 ### Framework-specific Request Objects
 
