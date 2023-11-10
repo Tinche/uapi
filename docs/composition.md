@@ -115,11 +115,11 @@ Here's a way of integrating it into _uapi_.
 ```python
 from httpx import AsyncClient
 from svcs import Container, Registry
+from asyncio import run
 
 from uapi.starlette import App
 
 reg = Registry()
-reg.register_value(AsyncClient, AsyncClient(), enter=False)
 
 app = App()
 app.incant.register_by_type(
@@ -132,6 +132,13 @@ async def proxy(container: Container) -> str:
     """We just return the payload at www.example.com."""
     client = await container.aget(AsyncClient)
     return (await client.get("http://example.com")).read().decode()
+
+async def main() -> None:
+    async with AsyncClient() as client:  # Clean up connections at the end
+        reg.register_value(AsyncClient, client, enter=False)
+        await app.run()
+
+run(main())
 ```
 
 We can go even further and instead of providing the `container`, we can provide anything the container contains too.
@@ -139,6 +146,7 @@ We can go even further and instead of providing the `container`, we can provide 
 ```python
 from collections.abc import Callable
 from inspect import Parameter
+from asyncio import run
 
 from httpx import AsyncClient
 from svcs import Container, Registry
@@ -146,7 +154,7 @@ from svcs import Container, Registry
 from uapi.starlette import App
 
 reg = Registry()
-reg.register_value(AsyncClient, AsyncClient(), enter=False)
+
 
 app = App()
 app.incant.register_by_type(
@@ -170,6 +178,15 @@ app.incant.register_hook_factory(lambda p: p.annotation in reg, svcs_hook_factor
 async def proxy(client: AsyncClient) -> str:
     """We just return the payload at www.example.com."""
     return (await client.get("http://example.com")).read().decode()
+
+
+async def main() -> None:
+    async with AsyncClient() as client:
+        reg.register_value(AsyncClient, client, enter=False)
+        await app.run()
+
+
+run(main())
 ```
 
 ```{note}
