@@ -1,7 +1,7 @@
 from django.http import HttpRequest as Request
 from django.http import HttpResponse as Response
 
-from uapi import ResponseException
+from uapi import Method, ResponseException, RouteName
 from uapi.django import App
 from uapi.status import NoContent
 
@@ -70,3 +70,17 @@ def post_path_string(path_id: str) -> str:
 
 # This is difficult to programatically set, so just always run it.
 app.serve_openapi()
+
+
+# Route name composition.
+@app.get("/comp/route-name-native")
+@app.post("/comp/route-name-native", name="route-name-native-post")
+def route_name_native(route_name: RouteName) -> Response:
+    return Response(route_name)
+
+
+# Request method composition.
+@app.get("/comp/req-method-native")
+@app.post("/comp/req-method-native", name="request-method-native-post")
+def request_method_native(req_method: Method) -> Response:
+    return Response(req_method)

@@ -9,14 +9,6 @@ async def test_index(server):
         assert resp.headers["content-type"] == "text/plain"
 
 
-async def test_path_parameter(server):
-    """Test path parameter handling."""
-    async with AsyncClient() as client:
-        resp = await client.get(f"http://localhost:{server}/path/15")
-        assert resp.status_code == 200
-        assert resp.text == "16"
-
-
 async def test_query_parameter_unannotated(server):
     """Test query parameter handling for unannotated parameters."""
     async with AsyncClient() as client:

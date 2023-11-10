@@ -3,7 +3,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from functools import partial
 from inspect import Parameter, Signature, signature
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar, TypeAlias, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -25,8 +25,11 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import identity, make_exception_adapter, make_return_adapter
+from .responses import make_exception_adapter, make_return_adapter
 from .status import BaseResponse, Headers, get_status_code
+from .types import Method, RouteName
+
+__all__ = ["App"]
 
 C = TypeVar("C")
 
@@ -82,6 +85,12 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         is_req_body_attrs, partial(attrs_body_factory, converter=converter)
     )
+
+    # RouteNames and methods get an empty hook, so the parameter propagates to the base incanter.
+    res.hook_factory_registry.insert(
+        0, Hook(lambda p: p.annotation in (RouteName, Method), None)
+    )
+
     return res
 
 
@@ -120,22 +129,30 @@ class StarletteApp(BaseApp):
                     _, loader = get_req_body_attrs(arg)
                     req_ct = loader.content_type
 
+            prepared = self.framework_incant.compose(base_handler, hooks, is_async=True)
+            sig = signature(prepared)
+            path_types = {p: sig.parameters[p].annotation for p in path_params}
+
+            adapted = self.framework_incant.adapt(
+                prepared,
+                lambda p: p.annotation is FrameworkRequest,
+                lambda p: p.annotation is RouteName,
+                lambda p: p.annotation is Method,
+                **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
+            )
+
             if ra is None:
-                prepared = self.framework_incant.compose(
-                    base_handler, hooks, is_async=True
-                )
-                sig = signature(prepared)
-                path_types = {p: sig.parameters[p].annotation for p in path_params}
 
                 async def adapted(
                     request: FrameworkRequest,
-                    _incant=self.framework_incant.aincant,
                     _fra=_framework_return_adapter,
                     _ea=exc_adapter,
-                    _prepared=prepared,
+                    _handler=adapted,
                     _path_params=path_params,
                     _path_types=path_types,
                     _req_ct=req_ct,
+                    _rn=name,
+                    _rm=method,
                 ) -> FrameworkResponse:
                     if (
                         _req_ct is not None
@@ -156,106 +173,70 @@ class StarletteApp(BaseApp):
                             )
                             for p in _path_params
                         }
-                        return await _incant(_prepared, request, **path_args)
+                        return await _handler(request, _rn, _rm, **path_args)
                     except ResponseException as exc:
                         return _fra(_ea(exc))
 
             else:
-                prepared = self.framework_incant.compose(
-                    base_handler, hooks, is_async=True
-                )
-                sig = signature(prepared)
-                path_types = {p: sig.parameters[p].annotation for p in path_params}
 
-                if ra == identity:
-
-                    async def adapted(
-                        request: FrameworkRequest,
-                        _incant=self.framework_incant.aincant,
-                        _fra=_framework_return_adapter,
-                        _ea=exc_adapter,
-                        _prepared=prepared,
-                        _path_params=path_params,
-                        _path_types=path_types,
-                        _req_ct=req_ct,
-                    ) -> FrameworkResponse:
-                        if (
-                            _req_ct is not None
-                            and request.headers.get("content-type") != _req_ct
-                        ):
-                            return FrameworkResponse(
-                                f"invalid content type (expected {_req_ct})", 415
-                            )
-                        path_args = {
-                            p: (
-                                self.converter.structure(
-                                    request.path_params[p], path_type
-                                )
-                                if (path_type := _path_types[p])
-                                not in (str, Signature.empty)
-                                else request.path_params[p]
-                            )
-                            for p in _path_params
-                        }
-                        try:
-                            return _fra(await _incant(_prepared, request, **path_args))
-                        except ResponseException as exc:
-                            return _fra(_ea(exc))
-
-                else:
-
-                    async def adapted(  # type: ignore
-                        request: FrameworkRequest,
-                        _incant=self.framework_incant.aincant,
-                        _ra=ra,
-                        _fra=_framework_return_adapter,
-                        _ea=exc_adapter,
-                        _prepared=prepared,
-                        _path_params=path_params,
-                        _path_types=path_types,
-                        _req_ct=req_ct,
-                    ) -> FrameworkResponse:
-                        if (
-                            _req_ct is not None
-                            and request.headers.get("content-type") != _req_ct
-                        ):
-                            return FrameworkResponse(
-                                f"invalid content type (expected {_req_ct})", 415
-                            )
-                        path_args = {
-                            p: (
-                                self.converter.structure(
-                                    request.path_params[p], path_type
-                                )
-                                if (path_type := _path_types[p])
-                                not in (str, Signature.empty)
-                                else request.path_params[p]
-                            )
-                            for p in _path_params
-                        }
-                        try:
-                            return _fra(
-                                _ra(await _incant(_prepared, request, **path_args))
-                            )
-                        except ResponseException as exc:
-                            return _fra(_ea(exc))
+                async def adapted(
+                    request: FrameworkRequest,
+                    _ra=ra,
+                    _fra=_framework_return_adapter,
+                    _ea=exc_adapter,
+                    _prepared=adapted,
+                    _path_params=path_params,
+                    _path_types=path_types,
+                    _req_ct=req_ct,
+                    _rn=name,
+                    _rm=method,
+                ) -> FrameworkResponse:
+                    if (
+                        _req_ct is not None
+                        and request.headers.get("content-type") != _req_ct
+                    ):
+                        return FrameworkResponse(
+                            f"invalid content type (expected {_req_ct})", 415
+                        )
+                    path_args = {
+                        p: (
+                            self.converter.structure(request.path_params[p], path_type)
+                            if (path_type := _path_types[p])
+                            not in (str, Signature.empty)
+                            else request.path_params[p]
+                        )
+                        for p in _path_params
+                    }
+                    try:
+                        return _fra(
+                            _ra(await _prepared(request, _rn, _rm, **path_args))
+                        )
+                    except ResponseException as exc:
+                        return _fra(_ea(exc))
 
             s.add_route(path, adapted, name=name, methods=[method])
 
         return s
 
-    async def run(self, port: int = 8000, handle_signals: bool = True) -> None:
+    async def run(
+        self,
+        port: int = 8000,
+        handle_signals: bool = True,
+        log_level: str | int | None = None,
+    ) -> None:
         """Start serving this app using uvicorn.
 
         Cancel the task running this to shut down uvicorn.
         """
         from uvicorn import Config, Server
 
-        config = Config(self.to_framework_app(), port=port, access_log=False)
+        config = Config(
+            self.to_framework_app(), port=port, access_log=False, log_level=log_level
+        )
 
         if handle_signals:
             server = Server(config=config)
-
+            await server.serve()
         else:
 
             class NoSignalsServer(Server):
@@ -264,16 +245,16 @@ class StarletteApp(BaseApp):
 
             server = NoSignalsServer(config=config)
 
-        t = create_task(server.serve())
+            t = create_task(server.serve())
 
-        with suppress(BaseException):
-            while True:
-                await sleep(360)
-        server.should_exit = True
-        await t
+            with suppress(BaseException):
+                while True:
+                    await sleep(360)
+            server.should_exit = True
+            await t
 
 
-App = StarletteApp
+App: TypeAlias = StarletteApp
 
 
 def make_header_dependency(

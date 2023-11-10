@@ -42,6 +42,7 @@ def _make_delete_cookie_header(name: str) -> dict:
     return {f"__cookie_{name}": val}
 
 
+#: A cookie dependency.
 class Cookie(str):
     ...
 
@@ -49,6 +50,11 @@ class Cookie(str):
 def set_cookie(
     name: str, value: str | None, settings: CookieSettings = CookieSettings()
 ) -> Headers:
+    """
+    Produce headers that should be returned as part of a response to set the cookie.
+
+    :param value: When `None`, the cookie will be deleted.
+    """
     return (
         _make_cookie_header(name, value, settings)
         if value is not None

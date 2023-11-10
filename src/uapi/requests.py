@@ -39,7 +39,9 @@ class HeaderSpec:
 
 ReqBody = Annotated[T, JsonBodyLoader()]
 ReqBytes = NewType("ReqBytes", bytes)
-Header = Annotated[T, HeaderSpec()]
+
+#: A header dependency.
+Header: TypeAlias = Annotated[T, HeaderSpec()]
 
 
 def get_cookie_name(t, arg_name: str) -> str | None:

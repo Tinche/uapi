@@ -6,7 +6,7 @@ from aiohttp import ClientSession
 
 from uapi.flask import App
 
-from .flask import run_on_flask
+from ..flask import run_on_flask
 
 
 @pytest.fixture(scope="session")

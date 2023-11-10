@@ -1,6 +1,6 @@
 from quart import Response, request
 
-from uapi import ResponseException
+from uapi import Method, ResponseException, RouteName
 from uapi.quart import App
 from uapi.status import NoContent
 
@@ -53,8 +53,20 @@ def make_app() -> App:
     async def post_no_body() -> Response:
         return Response("post", status=201)
 
+    # Route name composition.
+    @app.get("/comp/route-name-native")
+    @app.post("/comp/route-name-native", name="route-name-native-post")
+    def route_name_native(route_name: RouteName) -> Response:
+        return Response(route_name)
+
+    # Request method composition.
+    @app.get("/comp/req-method-native")
+    @app.post("/comp/req-method-native", name="request-method-native-post")
+    def request_method_native(req_method: Method) -> Response:
+        return Response(req_method)
+
     return app
 
 
 async def run_on_quart(app: App, port: int) -> None:
-    await app.run(__name__, port, handle_signals=False)
+    await app.run(__name__, port, handle_signals=False, log_level="critical")

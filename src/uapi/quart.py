@@ -2,7 +2,7 @@ from asyncio import create_task, sleep
 from contextlib import suppress
 from functools import partial
 from inspect import Signature, signature
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar, TypeAlias, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -30,13 +30,11 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import (
-    dict_to_headers,
-    identity,
-    make_exception_adapter,
-    make_return_adapter,
-)
+from .responses import dict_to_headers, make_exception_adapter, make_return_adapter
 from .status import BaseResponse, get_status_code
+from .types import Method, RouteName
+
+__all__ = ["App"]
 
 C = TypeVar("C")
 
@@ -79,6 +77,12 @@ def make_quart_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         is_req_body_attrs, partial(attrs_body_factory, converter=converter)
     )
+
+    # RouteNames and methods get an empty hook, so the parameter propagates to the base incanter.
+    res.hook_factory_registry.insert(
+        0, Hook(lambda p: p.annotation in (RouteName, Method), None)
+    )
+
     return res
 
 
@@ -115,17 +119,23 @@ class QuartApp(BaseApp):
                 if is_req_body_attrs(arg):
                     _, loader = get_req_body_attrs(arg)
                     req_ct = loader.content_type
+            prepared = self.framework_incant.compose(base_handler, hooks, is_async=True)
+            adapted = self.framework_incant.adapt(
+                prepared,
+                lambda p: p.annotation is RouteName,
+                lambda p: p.annotation is Method,
+                **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
+            )
 
             if ra is None:
-                prepared = self.framework_incant.compose(
-                    base_handler, hooks, is_async=True
-                )
 
                 def o0(
-                    prepared=prepared,
+                    handler=adapted,
                     _req_ct=req_ct,
                     _fra=_framework_return_adapter,
                     _ea=exc_adapter,
+                    _rn=name,
+                    _rm=method,
                 ):
                     async def adapter(**kwargs):
                         if (
@@ -136,7 +146,7 @@ class QuartApp(BaseApp):
                                 f"invalid content type (expected {_req_ct})", 415
                             )
                         try:
-                            return await prepared(**kwargs)
+                            return await handler(_rn, _rm, **kwargs)
                         except ResponseException as exc:
                             return _fra(_ea(exc))
 
@@ -145,61 +155,32 @@ class QuartApp(BaseApp):
                 adapted = o0()
 
             else:
-                base_handler = self.incant.compose(handler, is_async=True)
-                prepared = self.framework_incant.compose(
-                    base_handler, hooks, is_async=True
-                )
 
-                if ra == identity:
+                def o1(
+                    handler=adapted,
+                    _fra=_framework_return_adapter,
+                    _ra=ra,
+                    _req_ct=req_ct,
+                    _ea=exc_adapter,
+                    _rn=name,
+                    _rm=method,
+                ):
+                    async def adapter(**kwargs):
+                        if (
+                            _req_ct is not None
+                            and request.headers.get("content-type") != _req_ct
+                        ):
+                            return FrameworkResponse(
+                                f"invalid content type (expected {_req_ct})", 415
+                            )
+                        try:
+                            return _fra(_ra(await handler(_rn, _rm, **kwargs)))
+                        except ResponseException as exc:
+                            return _fra(_ea(exc))
 
-                    def o1(
-                        prepared=prepared,
-                        _fra=_framework_return_adapter,
-                        _req_ct=req_ct,
-                        _ea=exc_adapter,
-                    ):
-                        async def adapter(**kwargs):
-                            if (
-                                _req_ct is not None
-                                and request.headers.get("content-type") != _req_ct
-                            ):
-                                return FrameworkResponse(
-                                    f"invalid content type (expected {_req_ct})", 415
-                                )
-                            try:
-                                return _fra(await prepared(**kwargs))
-                            except ResponseException as exc:
-                                return _fra(_ea(exc))
+                    return adapter
 
-                        return adapter
-
-                    adapted = o1()
-
-                else:
-
-                    def o2(
-                        prepared=prepared,
-                        _fra=_framework_return_adapter,
-                        _ra=ra,
-                        _req_ct=req_ct,
-                        _ea=exc_adapter,
-                    ):
-                        async def adapter(**kwargs):
-                            if (
-                                _req_ct is not None
-                                and request.headers.get("content-type") != _req_ct
-                            ):
-                                return FrameworkResponse(
-                                    f"invalid content type (expected {_req_ct})", 415
-                                )
-                            try:
-                                return _fra(_ra(await prepared(**kwargs)))
-                            except ResponseException as exc:
-                                return _fra(_ea(exc))
-
-                        return adapter
-
-                    adapted = o2()
+                adapted = o1()
 
             q.route(
                 path,
@@ -210,7 +191,11 @@ class QuartApp(BaseApp):
         return q
 
     async def run(
-        self, import_name: str, port: int = 8000, handle_signals: bool = True
+        self,
+        import_name: str,
+        port: int = 8000,
+        handle_signals: bool = True,
+        log_level: str | int | None = None,
     ) -> None:
         """Start serving this app using uvicorn.
 
@@ -218,11 +203,16 @@ class QuartApp(BaseApp):
         """
         from uvicorn import Config, Server
 
-        config = Config(self.to_framework_app(import_name), port=port, access_log=False)
+        config = Config(
+            self.to_framework_app(import_name),
+            port=port,
+            access_log=False,
+            log_level=log_level,
+        )
 
         if handle_signals:
             server = Server(config=config)
-
+            await server.serve()
         else:
 
             class NoSignalsServer(Server):
@@ -231,16 +221,16 @@ class QuartApp(BaseApp):
 
             server = NoSignalsServer(config=config)
 
-        t = create_task(server.serve())
+            t = create_task(server.serve())
 
-        with suppress(BaseException):
-            while True:
-                await sleep(360)
-        server.should_exit = True
-        await t
+            with suppress(BaseException):
+                while True:
+                    await sleep(360)
+            server.should_exit = True
+            await t
 
 
-App = QuartApp
+App: TypeAlias = QuartApp
 
 
 def make_header_dependency(

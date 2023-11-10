@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from functools import partial
 from inspect import Parameter, Signature, signature
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar, TypeAlias, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -32,14 +32,11 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import (
-    dict_to_headers,
-    identity,
-    make_exception_adapter,
-    make_return_adapter,
-)
+from .responses import dict_to_headers, make_exception_adapter, make_return_adapter
 from .status import BaseResponse, get_status_code
 from .types import Method, RouteName, RouteTags
+
+__all__ = ["App"]
 
 C = TypeVar("C")
 
@@ -96,6 +93,12 @@ def make_django_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         is_req_body_attrs, partial(attrs_body_factory, converter=converter)
     )
+
+    # RouteNames and methods get an empty hook, so the parameter propagates to the base incanter.
+    res.hook_factory_registry.insert(
+        0, Hook(lambda p: p.annotation in (RouteName, Method), None)
+    )
+
     return res
 
 
@@ -138,11 +141,7 @@ class DjangoApp(BaseApp):
             # Django does not strip the prefix slash, so we do it for it.
             path = path.removeprefix("/")
             per_method_adapted = {}
-            for method, (
-                handler,
-                name,  # noqa: B007
-                _,
-            ) in methods_and_handlers.items():
+            for method, (handler, name, _) in methods_and_handlers.items():
                 ra = make_return_adapter(
                     signature(handler, eval_str=True).return_annotation,
                     FrameworkResponse,
@@ -159,23 +158,31 @@ class DjangoApp(BaseApp):
                     if is_req_body_attrs(arg):
                         _, loader = get_req_body_attrs(arg)
                         req_ct = loader.content_type
+                prepared = self.framework_incant.compose(
+                    base_handler, hooks, is_async=False
+                )
+                sig = signature(prepared)
+                path_types = {p: sig.parameters[p].annotation for p in path_params}
+                adapted = self.framework_incant.adapt(
+                    prepared,
+                    lambda p: p.annotation is FrameworkRequest,
+                    lambda p: p.annotation is RouteName,
+                    lambda p: p.annotation is Method,
+                    **{pp: (lambda p, _pp=pp: p.name == _pp) for pp in path_params},
+                )
 
                 if ra is None:
-                    prepared = self.framework_incant.compose(
-                        base_handler, hooks, is_async=False
-                    )
-                    sig = signature(prepared)
-                    path_types = {p: sig.parameters[p].annotation for p in path_params}
 
                     def adapted(
                         request: WSGIRequest,
-                        _incant=self.framework_incant.incant,
                         _fra=_framework_return_adapter,
                         _ea=exc_adapter,
-                        _prepared=prepared,
+                        _handler=adapted,
                         _path_params=path_params,
                         _path_types=path_types,
                         _req_ct=req_ct,
+                        _rn=name,
+                        _rm=method,
                         **kwargs: Any,
                     ) -> FrameworkResponse:
                         if (
@@ -185,99 +192,55 @@ class DjangoApp(BaseApp):
                             return FrameworkResponse(
                                 f"invalid content type (expected {_req_ct})", status=415
                             )
+                        path_args = {
+                            p: (
+                                self.converter.structure(kwargs[p], path_type)
+                                if (path_type := _path_types[p])
+                                not in (str, Signature.empty)
+                                else kwargs[p]
+                            )
+                            for p in _path_params
+                        }
                         try:
-                            path_args = {
-                                p: (
-                                    self.converter.structure(kwargs[p], path_type)
-                                    if (path_type := _path_types[p])
-                                    not in (str, Signature.empty)
-                                    else kwargs[p]
-                                )
-                                for p in _path_params
-                            }
-                            return _incant(_prepared, request, **path_args)
+                            return _handler(request, _rn, _rm, **path_args)
                         except ResponseException as exc:
                             return _fra(_ea(exc))
 
                 else:
-                    prepared = self.framework_incant.compose(
-                        base_handler, hooks, is_async=False
-                    )
-                    sig = signature(prepared)
-                    path_types = {p: sig.parameters[p].annotation for p in path_params}
 
-                    if ra == identity:
-
-                        def adapted(
-                            request: WSGIRequest,
-                            _incant=self.framework_incant.incant,
-                            _fra=_framework_return_adapter,
-                            _ea=exc_adapter,
-                            _prepared=prepared,
-                            _path_params=path_params,
-                            _path_types=path_types,
-                            _req_ct=req_ct,
-                            **kwargs: Any,
-                        ) -> FrameworkResponse:
-                            if (
-                                _req_ct is not None
-                                and request.headers.get("content-type") != _req_ct
-                            ):
-                                return FrameworkResponse(
-                                    f"invalid content type (expected {_req_ct})",
-                                    status=415,
-                                )
-                            path_args = {
-                                p: (
-                                    self.converter.structure(kwargs[p], path_type)
-                                    if (path_type := _path_types[p])
-                                    not in (str, Signature.empty)
-                                    else kwargs[p]
-                                )
-                                for p in _path_params
-                            }
-                            try:
-                                return _fra(_incant(_prepared, request, **path_args))
-                            except ResponseException as exc:
-                                return _fra(_ea(exc))
-
-                    else:
-
-                        def adapted(  # type: ignore
-                            request: WSGIRequest,
-                            _incant=self.framework_incant.incant,
-                            _ra=ra,
-                            _fra=_framework_return_adapter,
-                            _ea=exc_adapter,
-                            _prepared=prepared,
-                            _path_params=path_params,
-                            _path_types=path_types,
-                            _req_ct=req_ct,
-                            **kwargs: Any,
-                        ) -> FrameworkResponse:
-                            if (
-                                _req_ct is not None
-                                and request.headers.get("content-type") != _req_ct
-                            ):
-                                return FrameworkResponse(
-                                    f"invalid content type (expected {_req_ct})",
-                                    status=415,
-                                )
-                            path_args = {
-                                p: (
-                                    self.converter.structure(kwargs[p], path_type)
-                                    if (path_type := _path_types[p])
-                                    not in (str, Signature.empty)
-                                    else kwargs[p]
-                                )
-                                for p in _path_params
-                            }
-                            try:
-                                return _fra(
-                                    _ra(_incant(_prepared, request, **path_args))
-                                )
-                            except ResponseException as exc:
-                                return _fra(_ea(exc))
+                    def adapted(
+                        request: WSGIRequest,
+                        _ra=ra,
+                        _fra=_framework_return_adapter,
+                        _ea=exc_adapter,
+                        _handler=adapted,
+                        _path_params=path_params,
+                        _path_types=path_types,
+                        _req_ct=req_ct,
+                        _rn=name,
+                        _rm=method,
+                        **kwargs: Any,
+                    ) -> FrameworkResponse:
+                        if (
+                            _req_ct is not None
+                            and request.headers.get("content-type") != _req_ct
+                        ):
+                            return FrameworkResponse(
+                                f"invalid content type (expected {_req_ct})", status=415
+                            )
+                        path_args = {
+                            p: (
+                                self.converter.structure(kwargs[p], path_type)
+                                if (path_type := _path_types[p])
+                                not in (str, Signature.empty)
+                                else kwargs[p]
+                            )
+                            for p in _path_params
+                        }
+                        try:
+                            return _fra(_ra(_handler(request, _rn, _rm, **path_args)))
+                        except ResponseException as exc:
+                            return _fra(_ea(exc))
 
                 per_method_adapted[method] = adapted
 
@@ -306,7 +269,7 @@ class DjangoApp(BaseApp):
         return res
 
 
-App = DjangoApp
+App: TypeAlias = DjangoApp
 
 
 def make_header_dependency(

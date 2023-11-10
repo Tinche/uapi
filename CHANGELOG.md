@@ -15,6 +15,7 @@ The **third number** is for emergencies when we need to start branches for older
 ### Changed
 
 - Add the initial header implementation.
+- Function composition (dependency injection) is now documented.
 - Endpoints can be excluded from OpenAPI generation by passing them to `App.make_openapi_spec(exclude=...)` or `App.serve_openapi(exclude=...)`.
 - Initial implementation of OpenAPI security schemas, supporting the `apikey` type in Redis session backend.
 - Update the Elements OpenAPI UI to better handle cookies.
