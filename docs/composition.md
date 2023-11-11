@@ -10,9 +10,9 @@ _uapi_ includes a number of composition rules by default, but users and third-pa
 
 Path and query parameters can be provided to handlers and middleware, see [](handlers.md#query-parameters) and [](handlers.md#path-parameters) for details.
 
-## Headers
+## Headers and Cookies
 
-Headers can be provided to handlers and middleware, see [](handlers.md#headers) for details.
+Headers and cookies can be provided to handlers and middleware, see [](handlers.md#headers) and see [](handlers.md#cookies) for details.
 
 ## JSON Payloads as _attrs_ Classes
 
