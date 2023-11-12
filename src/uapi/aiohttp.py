@@ -1,14 +1,15 @@
+from asyncio import sleep
 from collections.abc import Callable
 from functools import partial
 from inspect import Parameter, Signature, signature
 from logging import Logger
 from typing import Any, ClassVar, TypeAlias, TypeVar
-from asyncio import sleep
 
-from aiohttp.web import Request as FrameworkRequest, AppRunner
-from aiohttp.web import Response, RouteTableDef, TCPSite
+from aiohttp.web import AppRunner
+from aiohttp.web import Request as FrameworkRequest
+from aiohttp.web import Response, RouteTableDef
 from aiohttp.web import StreamResponse as FrameworkResponse
-from aiohttp.web import access_logger
+from aiohttp.web import TCPSite, access_logger
 from aiohttp.web_app import Application
 from attrs import Factory, define
 from cattrs import Converter
