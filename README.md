@@ -21,7 +21,7 @@ Using _uapi_ enables you to:
 - write and use reusable and **powerful middleware**, which integrates with the OpenAPI schema.
 - **integrate** with existing apps based on [Django](https://docs.djangoproject.com/en/stable/), [Starlette](https://www.starlette.io/), [Flask](https://flask.palletsprojects.com), [Quart](https://pgjones.gitlab.io/quart/) or [aiohttp](https://docs.aiohttp.org).
 
-Here's a simple taste:
+Here's a simple taste (install Flask and gunicorn first):
 
 ```python3
 from uapi.flask import App
@@ -43,7 +43,7 @@ app.run(__name__)  # Now open http://localhost:8000/elements
 - [**PyPI**](https://pypi.org/project/uapi/)
 - [**Source Code**](https://github.com/Tinche/uapi)
 - [**Documentation**](https://uapi.threeofwands.com)
-- [**Changelog**](https://github.com/Tinche/uapi/blob/main/docs/changelog.md)
+- [**Changelog**](https://uapi.threeofwands.com/en/latest/changelog.html)
 
 ## License
 
