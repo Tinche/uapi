@@ -30,6 +30,7 @@ The **third number** is for emergencies when we need to start branches for older
 - OpenAPI `operationId` properties for operations are now generated from handler names.
 - OpenAPI summaries and descriptions are now supported, and can be overridden.
 - `aiohttp.web.StreamResponse` is now handled as the root class of aiohttp responses.
+- {meth}`uapi.aiohttp.AiohttpApp.run` now uses the [aiohttp App runners](https://docs.aiohttp.org/en/stable/web_advanced.html#application-runners) internally.
 - _uapi_ is now tested against Flask 3.
 - _uapi_ is now tested against Python 3.12.
 

@@ -3,11 +3,12 @@ from functools import partial
 from inspect import Parameter, Signature, signature
 from logging import Logger
 from typing import Any, ClassVar, TypeAlias, TypeVar
+from asyncio import sleep
 
-from aiohttp.web import Request as FrameworkRequest
-from aiohttp.web import Response, RouteTableDef
+from aiohttp.web import Request as FrameworkRequest, AppRunner
+from aiohttp.web import Response, RouteTableDef, TCPSite
 from aiohttp.web import StreamResponse as FrameworkResponse
-from aiohttp.web import _run_app, access_logger
+from aiohttp.web import access_logger
 from aiohttp.web_app import Application
 from attrs import Factory, define
 from cattrs import Converter
@@ -229,20 +230,28 @@ class AiohttpApp(BaseApp):
         handle_signals: bool = True,
         shutdown_timeout: float = 60,
         access_log: Logger | None = access_logger,
-        print: Callable[..., None] | None = print,
+        handler_cancellation: bool = False,
     ):
+        """Start serving this app.
+
+        If `handle_signals` is `False`, cancel the task running this to shut down.
+
+        :param handle_signals: Whether to let the underlying server handle signals.
+        """
         app = Application()
         app.add_routes(self.to_framework_routes())
-
-        await _run_app(
+        runner = AppRunner(
             app,
-            port=port,
-            host=host,
             handle_signals=handle_signals,
-            shutdown_timeout=shutdown_timeout,
             access_log=access_log,
-            print=print,
+            handler_cancellation=handler_cancellation,
         )
+        await runner.setup()
+        site = TCPSite(runner, host, port, shutdown_timeout=shutdown_timeout)
+        await site.start()
+
+        while True:
+            await sleep(3600)
 
 
 App: TypeAlias = AiohttpApp
