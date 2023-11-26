@@ -1,10 +1,8 @@
 """Status code classes for return values."""
-from collections.abc import Mapping
 from functools import cache
-from types import MappingProxyType
 from typing import Generic, Literal, TypeAlias, TypeVar
 
-from attrs import define, frozen
+from attrs import Factory, define, frozen
 
 __all__ = [
     "Ok",
@@ -24,13 +22,13 @@ R = TypeVar("R")
 S = TypeVar("S")
 
 
-Headers: TypeAlias = Mapping[str, str]
+Headers: TypeAlias = dict[str, str]
 
 
 @define(order=False)
 class BaseResponse(Generic[S, R]):
     ret: R
-    headers: Headers = MappingProxyType({})
+    headers: Headers = Factory(dict)
 
     @classmethod
     def status_code(cls) -> int:
@@ -54,7 +52,6 @@ class Created(BaseResponse[Literal[201], R]):
 
 @frozen
 class NoContent(BaseResponse[Literal[204], None]):
-    headers: Headers = MappingProxyType({})
     ret: None = None
 
     @classmethod

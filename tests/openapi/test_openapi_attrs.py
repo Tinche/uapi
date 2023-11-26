@@ -2,10 +2,10 @@
 from uapi.base import App
 from uapi.openapi import (
     ArraySchema,
-    InlineType,
     MediaType,
     OneOfSchema,
     OpenAPI,
+    Parameter,
     Reference,
     RequestBody,
     Schema,
@@ -313,7 +313,7 @@ def test_generic_model(app: App) -> None:
         Schema.Type.OBJECT,
         properties={
             "a": Schema(Schema.Type.INTEGER),
-            "b": ArraySchema(InlineType(Schema.Type.INTEGER)),
+            "b": ArraySchema(Schema(Schema.Type.INTEGER)),
         },
         required=["a"],
     )
@@ -406,14 +406,14 @@ def test_sum_types_model(app: App) -> None:
             "inner": OneOfSchema(
                 [
                     Reference("#/components/schemas/SumTypesRequestInner"),
-                    InlineType(Schema.Type.NULL),
+                    Schema(Schema.Type.NULL),
                 ]
             ),
             "opt_string": OneOfSchema(
-                [InlineType(Schema.Type.STRING), InlineType(Schema.Type.NULL)]
+                [Schema(Schema.Type.STRING), Schema(Schema.Type.NULL)]
             ),
             "opt_def_string": OneOfSchema(
-                [InlineType(Schema.Type.STRING), InlineType(Schema.Type.NULL)]
+                [Schema(Schema.Type.STRING), Schema(Schema.Type.NULL)]
             ),
         },
         required=["inner", "opt_string"],
@@ -429,7 +429,7 @@ def test_sum_types_model(app: App) -> None:
             "inner": OneOfSchema(
                 [
                     Reference("#/components/schemas/SumTypesResponseInner"),
-                    InlineType(Schema.Type.NULL),
+                    Schema(Schema.Type.NULL),
                 ]
             )
         },
@@ -472,4 +472,58 @@ def test_dictionary_models(app: App) -> None:
             )
         },
         required=["dict_field"],
+    )
+
+
+def test_model_with_datetime(app: App) -> None:
+    """Models with datetimes are properly added to the spec."""
+    spec: OpenAPI = app.make_openapi_spec()
+
+    op = spec.paths["/datetime-models"]
+    assert op is not None
+    assert op.get is None
+    assert op.post is not None
+    assert op.put is None
+    assert op.delete is None
+    assert op.patch is None
+
+    assert op.post.parameters == [
+        Parameter(
+            "req_query_datetime",
+            Parameter.Kind.QUERY,
+            schema=Schema(Schema.Type.STRING, format="date-time"),
+            required=True,
+        ),
+        Parameter(
+            "query_datetime",
+            Parameter.Kind.QUERY,
+            schema=OneOfSchema(
+                [
+                    Schema(Schema.Type.STRING, format="date-time"),
+                    Schema(Schema.Type.NULL),
+                ]
+            ),
+        ),
+    ]
+    assert op.post.requestBody == RequestBody(
+        {
+            "application/json": MediaType(
+                Reference("#/components/schemas/ModelWithDatetime")
+            )
+        },
+        required=True,
+    )
+    assert op.post.responses["200"].content["application/json"] == MediaType(
+        Reference("#/components/schemas/ModelWithDatetime")
+    )
+
+    assert spec.components.schemas["ModelWithDatetime"] == Schema(
+        Schema.Type.OBJECT,
+        properties={
+            "a": Schema(Schema.Type.STRING, format="date-time"),
+            "b": Schema(Schema.Type.STRING, format="date"),
+            "c": Schema(Schema.Type.STRING, format="date-time"),
+            "d": Schema(Schema.Type.STRING, format="date"),
+        },
+        required=["a", "b"],
     )
