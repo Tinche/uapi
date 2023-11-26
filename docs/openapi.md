@@ -9,11 +9,11 @@ app = App()
 
 # Register your routes here
 
-# Generate the schema, if you want to access it directly
-spec = app.make_openapi_spec()
-
 # Serve the schema at /openapi.json by default
 app.serve_openapi()
+
+# Generate the schema, if you want to access it directly
+spec = app.make_openapi_spec()
 ```
 
 Additionally, _uapi_ also supports serving several OpenAPI documentation viewers:
@@ -27,15 +27,25 @@ app.serve_elements()
 The documentation viewer will be available at its default URL.
 
 ```{seealso}
-{py:meth}`App.serve_swaggerui() <uapi.base.App.serve_swaggerui>`
+{meth}`App.serve_swaggerui() <uapi.base.App.serve_swaggerui>`
 
-{py:meth}`App.serve_redoc() <uapi.base.App.serve_redoc>`
+{meth}`App.serve_redoc() <uapi.base.App.serve_redoc>`
 
-{py:meth}`App.serve_elements() <uapi.base.App.serve_elements>`
+{meth}`App.serve_elements() <uapi.base.App.serve_elements>`
 ```
 
 What is referred to as _handlers_ in _uapi_, OpenAPI refers to as _operations_.
 This document uses the _uapi_ nomenclature by default.
+
+_uapi_ comes with OpenAPI schema support for the following types:
+
+- strings
+- integers
+- booleans
+- floats (`type: number, format: double`)
+- bytes (`type: string, format: binary`)
+- dates (`type: string, format: date`)
+- datetimes (`type: string, format: date-time`)
 
 ## Handler Summaries and Descriptions
 
@@ -54,7 +64,7 @@ def summary_transformer(handler: Callable, name: str) -> str:
 app.serve_openapi(summary_transformer=summary_transformer)
 ```
 
-Handler descriptions are generated from handler docstrings by default. 
+Handler descriptions are generated from handler docstrings by default.
 This can again be customized by supplying your own description transformer, with the same signature as the summary transformer.
 
 ```python
