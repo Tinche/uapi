@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
 from typing import Generic, Literal, TypeVar
 
 from attrs import Factory, define
@@ -43,8 +43,8 @@ class ModelWithDatetime:
 
     a: datetime
     b: date
-    c: datetime = datetime.now(UTC)
-    d: date = datetime.now(UTC).date()
+    c: datetime = datetime.now(timezone.utc)
+    d: date = datetime.now(timezone.utc).date()
 
 
 T = TypeVar("T")
