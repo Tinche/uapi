@@ -280,10 +280,7 @@ def build_operation(
             if is_union_type(arg_type):
                 refs: list[Reference | Schema] = []
                 for union_member in arg_type.__args__:
-                    if has(union_member):
-                        ref = f"#/components/schemas/{components[union_member]}"
-                        refs.append(Reference(ref))
-                    elif union_member is NoneType:
+                    if union_member is NoneType:
                         refs.append(Schema(Schema.Type.NULL))
                     elif union_member in PYTHON_PRIMITIVES_TO_OPENAPI:
                         refs.append(PYTHON_PRIMITIVES_TO_OPENAPI[union_member])
