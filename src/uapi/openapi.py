@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
+from datetime import date, datetime
 from enum import Enum, unique
 from inspect import Parameter as InspectParameter
 from inspect import signature
@@ -49,11 +50,6 @@ class Reference:
 
 
 @frozen
-class InlineType:
-    type: Schema.Type
-
-
-@frozen
 class Schema:
     @unique
     class Type(Enum):
@@ -75,18 +71,18 @@ class Schema:
 
 @frozen
 class ArraySchema:
-    items: InlineType | Reference
+    items: Schema | Reference
     type: Literal[Schema.Type.ARRAY] = Schema.Type.ARRAY
 
 
 @frozen
 class OneOfSchema:
-    oneOf: list[Reference | InlineType]
+    oneOf: Sequence[Reference | Schema]
 
 
 @frozen
 class MediaType:
-    schema: Schema | OneOfSchema | Reference
+    schema: Schema | OneOfSchema | ArraySchema | Reference
 
 
 @frozen
@@ -178,6 +174,8 @@ PYTHON_PRIMITIVES_TO_OPENAPI: Final = {
     bool: Schema(Schema.Type.BOOLEAN),
     float: Schema(Schema.Type.NUMBER, format="double"),
     bytes: Schema(Schema.Type.STRING, format="binary"),
+    date: Schema(Schema.Type.STRING, format="date"),
+    datetime: Schema(Schema.Type.STRING, format="date-time"),
 }
 
 
@@ -279,14 +277,27 @@ def build_operation(
 
             request_body_required = arg_param.default is InspectParameter.empty
         else:
+            if is_union_type(arg_type):
+                refs: list[Reference | Schema] = []
+                for union_member in arg_type.__args__:
+                    if has(union_member):
+                        ref = f"#/components/schemas/{components[union_member]}"
+                        refs.append(Reference(ref))
+                    elif union_member is NoneType:
+                        refs.append(Schema(Schema.Type.NULL))
+                    elif union_member in PYTHON_PRIMITIVES_TO_OPENAPI:
+                        refs.append(PYTHON_PRIMITIVES_TO_OPENAPI[union_member])
+                param_schema: OneOfSchema | Schema = OneOfSchema(refs)
+            else:
+                param_schema = PYTHON_PRIMITIVES_TO_OPENAPI.get(
+                    arg_param.annotation, PYTHON_PRIMITIVES_TO_OPENAPI[str]
+                )
             params.append(
                 Parameter(
                     arg,
                     Parameter.Kind.QUERY,
                     arg_param.default is InspectParameter.empty,
-                    PYTHON_PRIMITIVES_TO_OPENAPI.get(
-                        arg_param.annotation, PYTHON_PRIMITIVES_TO_OPENAPI[str]
-                    ),
+                    param_schema,
                 )
             )
 
@@ -496,7 +507,7 @@ def _gather_attrs_components(
         counter += 1
     components[type] = name
     mapping = _make_generic_mapping(type) if is_generic(type) else {}
-    for a in fields(type):  # type: ignore
+    for a in fields(type):
         if a.type is None:
             continue
         a_type = mapping.get(a.type, a.type)
@@ -624,7 +635,7 @@ def _build_attrs_schema(
     name = names[type]
     mapping = _make_generic_mapping(type) if is_generic(type) else {}
     required = []
-    for a in fields(type):  # type: ignore
+    for a in fields(type):
         if a.type is None:
             continue
 
@@ -650,7 +661,7 @@ def _build_attrs_schema(
                     _build_attrs_schema(arg, names, res)
                 schema = ArraySchema(Reference(ref))
             elif arg in PYTHON_PRIMITIVES_TO_OPENAPI:
-                schema = ArraySchema(InlineType(PYTHON_PRIMITIVES_TO_OPENAPI[arg].type))
+                schema = ArraySchema(Schema(PYTHON_PRIMITIVES_TO_OPENAPI[arg].type))
         elif getattr(a_type, "__origin__", None) is dict:
             val_arg = a_type.__args__[1]
 
@@ -666,7 +677,7 @@ def _build_attrs_schema(
         elif is_literal(a_type):
             schema = Schema(Schema.Type.STRING, enum=list(a_type.__args__))
         elif is_union_type(a_type):
-            refs: list[Reference | InlineType] = []
+            refs: list[Reference | Schema] = []
             for arg in a_type.__args__:
                 if has(arg):
                     ref = f"#/components/schemas/{names[arg]}"
@@ -674,9 +685,9 @@ def _build_attrs_schema(
                         _build_attrs_schema(arg, names, res)
                     refs.append(Reference(ref))
                 elif arg is NoneType:
-                    refs.append(InlineType(Schema.Type.NULL))
+                    refs.append(Schema(Schema.Type.NULL))
                 elif arg in PYTHON_PRIMITIVES_TO_OPENAPI:
-                    refs.append(InlineType(PYTHON_PRIMITIVES_TO_OPENAPI[arg].type))
+                    refs.append(PYTHON_PRIMITIVES_TO_OPENAPI[arg])
             schema = OneOfSchema(refs)
         else:
             continue
@@ -702,13 +713,13 @@ def structure_schemas(val, _):
 
 
 def structure_inlinetype_ref(val, _):
-    return converter.structure(val, InlineType if "type" in val else Reference)
+    return converter.structure(val, Schema if "type" in val else Reference)
 
 
 converter.register_structure_hook(
-    Schema | ArraySchema | OneOfSchema | Reference, structure_schemas
+    Schema | OneOfSchema | ArraySchema | Reference, structure_schemas
 )
-converter.register_structure_hook(InlineType | Reference, structure_inlinetype_ref)
+converter.register_structure_hook(Schema | Reference, structure_inlinetype_ref)
 converter.register_structure_hook(
     Parameter, make_dict_structure_fn(Parameter, converter, kind=override(rename="in"))
 )

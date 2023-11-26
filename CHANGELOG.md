@@ -10,7 +10,13 @@ The **third number** is for emergencies when we need to start branches for older
 
 <!-- changelog follows -->
 
-## [v23.1.0](https://github.com/tinche/uapi/compare/v22.1.0...HEAD) - UNRELEASED
+## [v23.2.0](https://github.com/tinche/uapi/compare/v23.1.0...HEAD) - UNRELEASED
+
+### Changed
+
+- [`datetime.datetime`](https://docs.python.org/3/library/datetime.html#datetime-objects) and [`datetime.date`](https://docs.python.org/3/library/datetime.html#date-objects) are now supported in the OpenAPI schema, both in models and handler parameters.
+
+## [v23.1.0](https://github.com/tinche/uapi/compare/v22.1.0...v23.1.0) - 2023-11-12
 
 ### Changed
 

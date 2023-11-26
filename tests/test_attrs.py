@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from json import dumps
 
 from cattrs import unstructure
@@ -134,3 +135,29 @@ async def test_dictionary_models(server) -> None:
                 "b": {"an_int": 1, "a_string": "1", "a_float": 1.0},
             }
         }
+
+
+async def test_datetime_models(server) -> None:
+    """datetime and date models work."""
+    a_val = "2020-01-01T00:00:00+00:00"
+    b_val = "2020-01-01"
+    test_time = datetime.now(UTC).isoformat()
+
+    async with AsyncClient() as client:
+        resp = await client.post(
+            f"http://localhost:{server}/datetime-models",
+            json={"a": a_val, "b": b_val, "c": a_val, "d": b_val},
+            params={"req_query_datetime": test_time},
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"a": a_val, "b": b_val, "c": test_time, "d": b_val}
+
+        now = datetime.now(UTC).isoformat()
+
+        resp = await client.post(
+            f"http://localhost:{server}/datetime-models",
+            json={"a": a_val, "b": b_val, "c": a_val, "d": b_val},
+            params={"query_datetime": now, "req_query_datetime": test_time},
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"a": now, "b": b_val, "c": test_time, "d": b_val}

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, TypeAlias, TypeVar
 
 from uapi import Cookie, Header, Method, ReqBody, ResponseException, RouteName
@@ -8,6 +9,7 @@ from uapi.status import Created, Forbidden, NoContent, Ok
 
 from .models import (
     GenericModel,
+    ModelWithDatetime,
     ModelWithDict,
     ModelWithLiteral,
     NestedModel,
@@ -209,6 +211,17 @@ def configure_base_async(app: App) -> None:
     ) -> ModelWithDict:
         return ModelWithDict(payload)
 
+    @app.post("/datetime-models")
+    async def datetime_models(
+        payload: ReqBody[ModelWithDatetime],
+        req_query_datetime: datetime,
+        query_datetime: datetime | None = None,
+    ) -> ModelWithDatetime:
+        payload.c = req_query_datetime
+        if query_datetime is not None:
+            payload.a = query_datetime
+        return payload
+
     @app.get("/excluded")
     async def excluded() -> str:
         """This should be excluded from OpenAPI."""
@@ -408,6 +421,17 @@ def configure_base_sync(app: App) -> None:
     @app.post("/dictionary-models")
     def dictionary_models(payload: ReqBody[dict[str, SimpleModel]]) -> ModelWithDict:
         return ModelWithDict(payload)
+
+    @app.post("/datetime-models")
+    def datetime_models(
+        payload: ReqBody[ModelWithDatetime],
+        req_query_datetime: datetime,
+        query_datetime: datetime | None = None,
+    ) -> ModelWithDatetime:
+        payload.c = req_query_datetime
+        if query_datetime is not None:
+            payload.a = query_datetime
+        return payload
 
     @app.get("/excluded")
     def excluded() -> str:

@@ -1,3 +1,4 @@
+from datetime import UTC, date, datetime
 from typing import Generic, Literal, TypeVar
 
 from attrs import Factory, define
@@ -34,6 +35,16 @@ class ResponseModel:
 @define
 class ModelWithLiteral:
     a: Literal["a", "b", "c"] = "a"
+
+
+@define
+class ModelWithDatetime:
+    """Contains a datetime."""
+
+    a: datetime
+    b: date
+    c: datetime = datetime.now(UTC)
+    d: date = datetime.now(UTC).date()
 
 
 T = TypeVar("T")
