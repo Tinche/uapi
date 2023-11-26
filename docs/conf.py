@@ -23,6 +23,8 @@ author = "Tin Tvrtkovic"
 
 # The full version, including alpha/beta/rc tags
 release = v("uapi")
+if "dev" in release:
+    release = version = "UNRELEASED"
 
 
 # -- General configuration ---------------------------------------------------
@@ -56,7 +58,7 @@ html_static_path = ["_static"]
 html_css_files = ["custom.css"]
 html_theme_options = {
     "light_css_variables": {
-        "font-stack": "Roboto, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji",
+        "font-stack": "Inter,sans-serif",
         "font-stack--monospace": "'Ubuntu Mono', monospace",
         "code-font-size": "90%",
         "color-highlight-on-target": "transparent",
@@ -65,3 +67,5 @@ html_theme_options = {
 }
 
 myst_heading_anchors = 3
+autodoc_typehints = "description"
+autoclass_content = "both"
