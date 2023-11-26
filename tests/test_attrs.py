@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from json import dumps
 
 from cattrs import unstructure
@@ -141,7 +141,7 @@ async def test_datetime_models(server) -> None:
     """datetime and date models work."""
     a_val = "2020-01-01T00:00:00+00:00"
     b_val = "2020-01-01"
-    test_time = datetime.now(UTC).isoformat()
+    test_time = datetime.now(timezone.utc).isoformat()
 
     async with AsyncClient() as client:
         resp = await client.post(
@@ -152,7 +152,7 @@ async def test_datetime_models(server) -> None:
         assert resp.status_code == 200
         assert resp.json() == {"a": a_val, "b": b_val, "c": test_time, "d": b_val}
 
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         resp = await client.post(
             f"http://localhost:{server}/datetime-models",
