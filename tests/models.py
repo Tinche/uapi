@@ -14,6 +14,15 @@ class SimpleModel:
 
 
 @define
+class SimpleModelNoDefaults:
+    """A simple dummy model with no defaults."""
+
+    an_int: int
+    a_string: str
+    a_float: float
+
+
+@define
 class NestedModel:
     """A nested model."""
 

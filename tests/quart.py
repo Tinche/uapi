@@ -1,5 +1,4 @@
 from quart import Response, request
-
 from uapi import Method, ResponseException, RouteName
 from uapi.quart import App
 from uapi.status import NoContent

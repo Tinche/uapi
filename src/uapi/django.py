@@ -5,6 +5,8 @@ from typing import Any, ClassVar, TypeAlias, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
+from incant import Hook, Incanter
+
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpRequest as FrameworkRequest
 from django.http import HttpResponse as FrameworkResponse
@@ -12,7 +14,6 @@ from django.urls import URLPattern
 from django.urls import path as django_path
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from incant import Hook, Incanter
 
 from . import ResponseException
 from .base import App as BaseApp
@@ -27,16 +28,18 @@ from .requests import (
     ReqBytes,
     attrs_body_factory,
     get_cookie_name,
+    get_form_type,
     get_header_type,
     get_req_body_attrs,
+    is_form,
     is_header,
     is_req_body_attrs,
 )
 from .responses import dict_to_headers, make_exception_adapter, make_return_adapter
-from .status import BaseResponse, get_status_code
+from .status import BadRequest, BaseResponse, get_status_code
 from .types import Method, RouteName, RouteTags
 
-__all__ = ["App"]
+__all__ = ["App", "DjangoApp"]
 
 C = TypeVar("C")
 
@@ -92,6 +95,10 @@ def make_django_incanter(converter: Converter) -> Incanter:
     res.register_hook(lambda p: p.annotation is ReqBytes, request_bytes)
     res.register_hook_factory(
         is_req_body_attrs, partial(attrs_body_factory, converter=converter)
+    )
+
+    res.register_hook_factory(
+        is_form, lambda p: _make_form_dependency(get_form_type(p), converter)
     )
 
     # RouteNames and methods get an empty hook, so the parameter propagates to the base incanter.
@@ -322,6 +329,20 @@ def make_cookie_dependency(cookie_name: str, default=Signature.empty):
         return _request.COOKIES.get(cookie_name, default)
 
     return read_cookie_opt
+
+
+def _make_form_dependency(
+    type: type[C], converter: Converter
+) -> Callable[[FrameworkRequest], C]:
+    handler = converter._structure_func.dispatch(type)
+
+    def read_form(_request: FrameworkRequest) -> C:
+        try:
+            return handler(_request.POST, type)
+        except Exception as exc:
+            raise ResponseException(BadRequest("invalid payload")) from exc
+
+    return read_form
 
 
 def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:

@@ -1,9 +1,9 @@
 from asyncio import Event
 
-from flask import Response, request
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 
+from flask import Response, request
 from uapi import ResponseException
 from uapi.flask import App
 from uapi.status import NoContent

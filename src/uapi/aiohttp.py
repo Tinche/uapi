@@ -1,20 +1,19 @@
 from asyncio import sleep
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from functools import partial
 from inspect import Parameter, Signature, signature
 from logging import Logger
 from typing import Any, ClassVar, TypeAlias, TypeVar
 
-from aiohttp.web import AppRunner
-from aiohttp.web import Request as FrameworkRequest
-from aiohttp.web import Response, RouteTableDef
-from aiohttp.web import StreamResponse as FrameworkResponse
-from aiohttp.web import TCPSite, access_logger
-from aiohttp.web_app import Application
 from attrs import Factory, define
 from cattrs import Converter
 from incant import Hook, Incanter
 from multidict import CIMultiDict
+
+from aiohttp.web import AppRunner, Response, RouteTableDef, TCPSite, access_logger
+from aiohttp.web import Request as FrameworkRequest
+from aiohttp.web import StreamResponse as FrameworkResponse
+from aiohttp.web_app import Application
 
 from . import ResponseException
 from .base import App as BaseApp
@@ -24,13 +23,15 @@ from .requests import (
     ReqBytes,
     attrs_body_factory,
     get_cookie_name,
+    get_form_type,
     get_header_type,
     get_req_body_attrs,
+    is_form,
     is_header,
     is_req_body_attrs,
 )
 from .responses import dict_to_headers, make_exception_adapter, make_return_adapter
-from .status import BaseResponse, get_status_code
+from .status import BadRequest, BaseResponse, get_status_code
 from .types import Method, RouteName
 
 __all__ = ["App", "AiohttpApp"]
@@ -81,6 +82,19 @@ def make_aiohttp_incanter(converter: Converter) -> Incanter:
         lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
 
+    async def request_bytes(_request: FrameworkRequest) -> bytes:
+        return await _request.read()
+
+    res.register_hook(lambda p: p.annotation is ReqBytes, request_bytes)
+
+    res.register_hook_factory(
+        is_req_body_attrs, partial(attrs_body_factory, converter=converter)
+    )
+
+    res.register_hook_factory(
+        is_form, lambda p: _make_form_dependency(get_form_type(p), converter)
+    )
+
     # RouteNames and methods get an empty hook, so the parameter propagates to the base incanter.
     res.hook_factory_registry.insert(
         0, Hook(lambda p: p.annotation in (RouteName, Method), None)
@@ -100,18 +114,6 @@ class AiohttpApp(BaseApp):
     @staticmethod
     def _path_param_parser(p: str) -> tuple[str, list[str]]:
         return (p, parse_curly_path_params(p))
-
-    def __attrs_post_init__(self) -> None:
-        async def request_bytes(_request: FrameworkRequest) -> bytes:
-            return await _request.read()
-
-        self.framework_incant.register_hook(
-            lambda p: p.annotation is ReqBytes, request_bytes
-        )
-
-        self.framework_incant.register_hook_factory(
-            is_req_body_attrs, partial(attrs_body_factory, converter=self.converter)
-        )
 
     def to_framework_routes(self) -> RouteTableDef:
         r = RouteTableDef()
@@ -309,6 +311,20 @@ def make_cookie_dependency(cookie_name: str, default=Signature.empty):
         return _request.cookies.get(cookie_name, default)
 
     return read_opt_cookie
+
+
+def _make_form_dependency(
+    type: type[C], converter: Converter
+) -> Callable[[FrameworkRequest], Coroutine[None, None, C]]:
+    handler = converter._structure_func.dispatch(type)
+
+    async def read_form(_request: FrameworkRequest) -> C:
+        try:
+            return handler(await _request.post(), type)
+        except Exception as exc:
+            raise ResponseException(BadRequest("invalid payload")) from exc
+
+    return read_form
 
 
 def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:

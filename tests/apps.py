@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, TypeAlias, TypeVar
 
-from uapi import Cookie, Header, Method, ReqBody, ResponseException, RouteName
+from uapi import Cookie, FormBody, Header, Method, ReqBody, ResponseException, RouteName
 from uapi.base import App
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.requests import HeaderSpec, JsonBodyLoader
@@ -18,6 +18,7 @@ from .models import (
     ResponseGenericModelListInner,
     ResponseModel,
     SimpleModel,
+    SimpleModelNoDefaults,
     SumTypesRequestModel,
     SumTypesResponseModel,
 )
@@ -52,6 +53,11 @@ def configure_base_async(app: App) -> None:
     @app.get("/response-bytes", tags=["query"])
     async def response_bytes() -> bytes:
         return b"2"
+
+    # Forms.
+    @app.post("/form")
+    async def post_form(form: FormBody[SimpleModelNoDefaults]) -> str:
+        return form.a_string
 
     @app.get("/get/model")
     async def get_model() -> NestedModel:
@@ -269,6 +275,11 @@ def configure_base_sync(app: App) -> None:
     @app.get("/response-bytes", tags=["query"])
     def response_bytes() -> bytes:
         return b"2"
+
+    # Forms.
+    @app.post("/form")
+    def post_form(form: FormBody[SimpleModelNoDefaults]) -> str:
+        return form.a_string
 
     @app.get("/get/model")
     def get_model() -> NestedModel:

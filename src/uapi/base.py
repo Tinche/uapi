@@ -14,13 +14,11 @@ from .openapi import (
     DescriptionTransformer,
     OpenAPI,
     SummaryTransformer,
-)
-from .openapi import converter as openapi_converter
-from .openapi import (
     default_description_transformer,
     default_summary_transformer,
     make_openapi_spec,
 )
+from .openapi import converter as openapi_converter
 from .status import Ok
 from .types import Method, RouteName, RouteTags
 

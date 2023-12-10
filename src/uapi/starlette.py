@@ -1,5 +1,5 @@
 from asyncio import create_task, sleep
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from contextlib import suppress
 from functools import partial
 from inspect import Parameter, Signature, signature
@@ -8,6 +8,7 @@ from typing import Any, ClassVar, TypeAlias, TypeVar
 from attrs import Factory, define
 from cattrs import Converter
 from incant import Hook, Incanter
+
 from starlette.applications import Starlette
 from starlette.requests import Request as FrameworkRequest
 from starlette.responses import Response as FrameworkResponse
@@ -20,16 +21,18 @@ from .requests import (
     ReqBytes,
     attrs_body_factory,
     get_cookie_name,
+    get_form_type,
     get_header_type,
     get_req_body_attrs,
+    is_form,
     is_header,
     is_req_body_attrs,
 )
 from .responses import make_exception_adapter, make_return_adapter
-from .status import BaseResponse, Headers, get_status_code
+from .status import BadRequest, BaseResponse, Headers, get_status_code
 from .types import Method, RouteName
 
-__all__ = ["App"]
+__all__ = ["App", "StarletteApp"]
 
 C = TypeVar("C")
 
@@ -84,6 +87,10 @@ def make_starlette_incanter(converter: Converter) -> Incanter:
 
     res.register_hook_factory(
         is_req_body_attrs, partial(attrs_body_factory, converter=converter)
+    )
+
+    res.register_hook_factory(
+        is_form, lambda p: _make_form_dependency(get_form_type(p), converter)
     )
 
     # RouteNames and methods get an empty hook, so the parameter propagates to the base incanter.
@@ -318,6 +325,20 @@ def extract_cookies(headers: Headers) -> tuple[dict[str, str], list[str]]:
         else:
             h[k] = v
     return h, cookies
+
+
+def _make_form_dependency(
+    type: type[C], converter: Converter
+) -> Callable[[FrameworkRequest], Coroutine[None, None, C]]:
+    handler = converter._structure_func.dispatch(type)
+
+    async def read_form(_request: FrameworkRequest) -> C:
+        try:
+            return handler(await _request.form(), type)
+        except Exception as exc:
+            raise ResponseException(BadRequest("invalid payload")) from exc
+
+    return read_form
 
 
 def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:
