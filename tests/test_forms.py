@@ -26,7 +26,7 @@ async def test_wrong_content_type(server):
 
         # All frameworks currently silently supply an empty form dictionary,
         # which makes the structuring fail.
-        assert resp.status_code == 500
+        assert resp.status_code == 400
 
 
 async def test_validation_failure(server):
