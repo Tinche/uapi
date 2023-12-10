@@ -4,7 +4,7 @@ _uapi_ ships with several useful addons.
 
 ## Redis Async Sessions
 
-```{note}
+```{tip}
 This addon handles server-side sessions, which are anonymous by default.
 If you're looking for login functionality, see [uapi.login](#uapilogin) which builds on top of sessions.
 ```
@@ -22,7 +22,7 @@ session_store = configure_async_sessions(app, await create_pool(...))
 ```
 
 Once configured, handlers may declare a parameter of type {class}`uapi.sessions.redis.AsyncSession`.
-The session object is a `dict[str, str]` subclass, and it needs to have the {meth}`uapi.sessions.redis.AsyncSession.update_session()` coroutine called to actually store the session.
+The session object is a `dict[str, str]` subclass, and it needs to have the {meth}`uapi.sessions.redis.AsyncSession.update_session()` coroutine awaited to persist the session.
 
 ```python
 async def my_session_handler(session: AsyncSession) -> None:
@@ -35,9 +35,9 @@ If this is the case, the `session_arg_param_name` argument can be used to custom
 
 ```python
 another_session_store = configure_async_sessions(
-    app, 
-    redis, 
-    cookie_name="another_session_cookie", 
+    app,
+    redis,
+    cookie_name="another_session_cookie",
     session_arg_param_name="another_session",
 )
 
@@ -48,10 +48,10 @@ async def a_different_handler(another_session: AsyncSession) -> None:
 
 ## uapi.login
 
-The {meth}`uapi.login.configure_async_login` addon enables login/logout for _uapi_ apps.
+The {meth}`uapi.login <uapi.login.configure_async_login>` addon enables login/logout for _uapi_ apps.
 
 The _login_ addon requires a configured session store.
-Then, assuming our user IDs are ints:
+Then, assuming the user IDs are ints, apply the addon and store the {class}`login_manager <uapi.login.AsyncLoginManager>` somewhere:
 
 ```python
 from uapi.login import configure_async_login
@@ -82,9 +82,18 @@ async def requires_logged_in_user(current_user_id: int) -> None:
 
 An unauthenticated request will be denied with a `Forbidden` response.
 
-A user can be logged out using {meth}`uapi.login.AsyncLoginManager.logout`.
+A user can be logged out using {meth}`AsyncLoginManager.logout() <uapi.login.AsyncLoginManager.logout>`.
 
 ```python
 async def logout_user() -> None:
     await login_manager.logout(user_id)
+```
+
+```{admonition} Security
+:class: danger
+
+The Redis Async session store uses cookies with the _SameSite_ attribute set to _lax_ by default,
+providing a degree of protection against cross-site request forgery when using [forms](handlers.md#forms).
+
+[Extra care](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) should be provided to the login endpoint.
 ```

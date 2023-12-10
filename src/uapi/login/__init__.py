@@ -15,6 +15,7 @@ T2 = TypeVar("T2")
 
 @frozen
 class AsyncLoginManager(Generic[T]):
+    #: The session store used for the sessions.
     async_session_store: AsyncRedisSessionStore
 
     async def logout(self, user_id: T) -> None:

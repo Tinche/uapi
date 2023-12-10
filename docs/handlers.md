@@ -340,6 +340,14 @@ Consequently, receiving form data is only supported in `post` routes.
 
 When a form payload cannot be successfully structured, a `400 Bad Request` response is returned.
 
+```{admonition} Security
+:class: danger
+
+Using just forms by themselves opens the application to the possibility of a [cross-site request forgery](https://owasp.org/www-community/attacks/csrf) attack.
+
+Consider employing [one or more prevention strategies](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) or using [JSON endpoints](handlers.md#json-request-bodies).
+```
+
 Multipart forms are not yet supported.
 Forms containing nested objects aren't supported due to the complexities of encoding; in these cases JSON endpoints should be preferred.
 
