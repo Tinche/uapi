@@ -175,21 +175,27 @@ class App:
 
         self.route(path, openapi_handler)
 
-    def serve_swaggerui(self, path: str = "/swaggerui"):
+    def serve_swaggerui(
+        self, path: str = "/swaggerui", openapi_path: str = "/openapi.json"
+    ):
         """Start serving the Swagger UI at the given path."""
         from .openapi_ui import swaggerui
 
+        fixed_path = swaggerui.replace("$OPENAPIURL", openapi_path)
+
         def swaggerui_handler() -> Ok[str]:
-            return Ok(swaggerui, {"content-type": "text/html"})
+            return Ok(fixed_path, {"content-type": "text/html"})
 
         self.route(path, swaggerui_handler)
 
-    def serve_redoc(self, path: str = "/redoc"):
+    def serve_redoc(self, path: str = "/redoc", openapi_path: str = "/openapi.json"):
         """Start serving the ReDoc UI at the given path."""
         from .openapi_ui import redoc
 
+        fixed_path = redoc.replace("$OPENAPIURL", openapi_path)
+
         def redoc_handler() -> Ok[str]:
-            return Ok(redoc, {"content-type": "text/html"})
+            return Ok(fixed_path, {"content-type": "text/html"})
 
         self.route(path, redoc_handler)
 

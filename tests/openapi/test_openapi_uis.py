@@ -15,6 +15,8 @@ async def openapi_renderer_app(unused_tcp_port_factory: Callable[..., int]):
     app = App()
 
     app.serve_openapi(path="/openapi_test.json")
+    app.serve_swaggerui(openapi_path="/openapi_test.json")
+    app.serve_redoc(openapi_path="/openapi_test.json")
     app.serve_elements(openapi_path="/openapi_test.json")
 
     shutdown_event = Event()
@@ -32,3 +34,21 @@ async def test_elements(openapi_renderer_app: int) -> None:
 
     assert resp.status == 200
     assert 'apiDescriptionUrl="/openapi_test.json"' in (await resp.text())
+
+
+async def test_swagger(openapi_renderer_app: int) -> None:
+    """SwaggerUI is served properly."""
+    async with ClientSession() as session:
+        resp = await session.get(f"http://localhost:{openapi_renderer_app}/swaggerui")
+
+    assert resp.status == 200
+    assert 'url: "/openapi_test.json"' in (await resp.text())
+
+
+async def test_redoc(openapi_renderer_app: int) -> None:
+    """Redoc is served properly."""
+    async with ClientSession() as session:
+        resp = await session.get(f"http://localhost:{openapi_renderer_app}/redoc")
+
+    assert resp.status == 200
+    assert "spec-url='/openapi_test.json'" in (await resp.text())
