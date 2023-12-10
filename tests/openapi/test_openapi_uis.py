@@ -2,8 +2,8 @@ from asyncio import Event, create_task
 from collections.abc import Callable
 
 import pytest
-from aiohttp import ClientSession
 
+from aiohttp import ClientSession
 from uapi.flask import App
 
 from ..flask import run_on_flask

@@ -16,7 +16,12 @@ from cattrs._compat import is_generic, is_literal, is_union_type
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
-from .requests import get_cookie_name, maybe_header_type, maybe_req_body_type
+from .requests import (
+    get_cookie_name,
+    maybe_form_type,
+    maybe_header_type,
+    maybe_req_body_type,
+)
 from .responses import get_status_code_results
 from .status import BaseResponse
 from .types import Method, PathParamParser, RouteName, RouteTags, is_subclass
@@ -276,6 +281,13 @@ def build_operation(
                 )
 
             request_body_required = arg_param.default is InspectParameter.empty
+        elif arg_type is not InspectParameter.empty and (
+            form_type := maybe_form_type(arg_param)
+        ):
+            # A body form.
+            request_bodies["application/x-www-form-urlencoded"] = MediaType(
+                Reference(f"#/components/schemas/{components[form_type]}")
+            )
         else:
             if is_union_type(arg_type):
                 refs: list[Reference | Schema] = []
@@ -556,6 +568,15 @@ def gather_endpoint_components(
                 val_arg = arg_type.__args__[1]  # type: ignore[attr-defined]
                 if has(val_arg):
                     _gather_attrs_components(val_arg, components)
+        elif arg.annotation is not InspectParameter.empty and (
+            form_type := maybe_form_type(arg)
+        ):
+            name = form_type.__name__
+            counter = 0
+            while name in components.values():
+                name = f"{form_type.__name__}{counter}"
+                counter += 1
+            _gather_attrs_components(form_type, components)
     if (ret_type := sig.return_annotation) is not InspectParameter.empty:
         for _, r in get_status_code_results(ret_type):
             if has(r) and not is_subclass(r, BaseResponse) and r not in components:

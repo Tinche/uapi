@@ -15,6 +15,8 @@ The **third number** is for emergencies when we need to start branches for older
 ### Changed
 
 - [`datetime.datetime`](https://docs.python.org/3/library/datetime.html#datetime-objects) and [`datetime.date`](https://docs.python.org/3/library/datetime.html#date-objects) are now supported in the OpenAPI schema, both in models and handler parameters.
+- Simple forms are now supported using {class}`uapi.ReqForm`. [Learn more](handlers.md#forms).
+- _uapi_ now sorts imports using Ruff.
 
 ## [v23.1.0](https://github.com/tinche/uapi/compare/v22.1.0...v23.1.0) - 2023-11-12
 

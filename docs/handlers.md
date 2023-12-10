@@ -17,20 +17,22 @@ async def index() -> None:
 app.route("/", index, methods=["GET"])
 ```
 
+A _route_ is a combination of a _path_, an HTTP _method_, a _handler_, and a _route name_.
+
 We **strongly recommend** not using async handlers with Flask or Django unless you know what you're doing, even though (technically) all supported frameworks support both sync and async handlers.
 
-## Handler Names
+## Route Names
 
-Each handler is registered under a certain _name_.
-The name is a simple string identifying the handler, and defaults to the name of the handler function or coroutine.
-Names are propagated to the underlying frameworks, where they have framework-specific purposes.
+Each route is registered under a certain _name_.
+The name is a simple string identifying the route, and defaults to the name of the handler function or coroutine.
+Names are propagated to the underlying frameworks where they have framework-specific purposes.
 
 Names are also used in the generated OpenAPI schema:
 
-- to generate the operation summary
-- as the `operationId` Operation property property
+- to generate the [Operation](https://swagger.io/specification/#operation-object) summary
+- as the `operationId` Operation property
 
-Names should be unique across handlers and methods, so if you want to register the same handler for two methods you will need to specify one of the names manually.
+Names should be unique across routes, so if you want to register the same handler for two routes you will need to specify one of the names manually.
 
 ```python
 @app.get("/")
@@ -44,7 +46,7 @@ async def multipurpose_handler() -> None:
 ### Query Parameters
 
 To receive query parameters, annotate a handler parameter with any type that hasn't been overriden and is not a [path parameter](handlers.md#path-parameters).
-The {py:class}`App <uapi.base.App>`'s dependency injection system is configured to fulfill handler parameters from query parameters by default; directly when annotated as strings or Any or through the App's converter if any other type.
+The {class}`App <uapi.base.App>`'s dependency injection system is configured to fulfill handler parameters from query parameters by default; directly when annotated as strings or Any or through the App's converter if any other type.
 Query parameters may have default values.
 
 Query params will be present in the [OpenAPI schema](openapi.md); parameters with defaults will be rendered as `required=False`.
@@ -304,7 +306,45 @@ async def sets_cookies() -> Ok[str]
 ```
 
 ```{tip}
-Since {meth}`uapi.cookies.set_cookie` returns a header mapping, multiple cookies can be set by using the `|` operator.
+Since {meth}`uapi.cookies.set_cookie` returns a dictionary, multiple cookies can be set by using the `|` operator.
+```
+
+### Forms
+
+Form data can be modeled as an _attrs_ class and declared as a `FormBody` parameter in the handler.
+
+```python
+from attrs import define
+
+@define
+class ArticleForm:
+    article_id: str
+
+@app.post("/article")
+async def create_article(article: FormBody[Article]) -> None:
+    # `article` is an instance of `Article`
+    ...
+```
+
+```{note}
+A parameter annotated as a `FormBody[T]` will be equivalent to `T` in the function body.
+
+`FormBody[T]` is an easier way of saying `typing.Annotated[T, FormSpec()]`, and `typing.Annotated` is a way to add metadata to a type.
+```
+
+All underlying frameworks expect the `content-type` to be set to `application/x-www-form-urlencoded`, which browsers set by default.
+If a different `content-type` header is set all frameworks silently supply an empty form payload; whether this succeeds or not depends on whether all form model fields have default values.
+
+Only [`post`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#method) forms are currently supported; for `get` forms see [](handlers.md#query-parameters).
+Consequently, receiving form data is only supported in `post` routes.
+
+When a form payload cannot be successfully structured, a `400 Bad Request` response is returned.
+
+Multipart forms are not yet supported.
+Forms containing nested objects aren't supported due to the complexities of encoding; in these cases JSON endpoints should be preferred.
+
+```{note}
+Starlette requires an extra package, `python-multipart`, to be installed before forms can be handled.
 ```
 
 ### Framework-specific Request Objects

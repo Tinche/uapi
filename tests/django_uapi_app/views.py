@@ -1,6 +1,5 @@
 from django.http import HttpRequest as Request
 from django.http import HttpResponse as Response
-
 from uapi import Method, ResponseException, RouteName
 from uapi.django import App
 from uapi.status import NoContent

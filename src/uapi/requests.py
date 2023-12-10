@@ -5,16 +5,11 @@ from typing import Annotated, Any, NewType, TypeAlias, TypeVar
 from attrs import frozen, has
 from cattrs import Converter
 from cattrs._compat import get_args, is_annotated
-
-from .responses import ResponseException
-from .status import BadRequest, BaseResponse
-
-try:
-    from orjson import loads
-except ImportError:
-    from json import loads
+from orjson import loads
 
 from . import Cookie
+from .responses import ResponseException
+from .status import BadRequest, BaseResponse
 
 T = TypeVar("T")
 RequestLoaderPredicate: TypeAlias = Callable[[Parameter], bool]
@@ -37,8 +32,16 @@ class HeaderSpec:
     name: str | Callable[[str], str] = lambda n: n.replace("_", "-")
 
 
+@frozen
+class FormSpec:
+    """Metadata for loading forms."""
+
+
 ReqBody = Annotated[T, JsonBodyLoader()]
 ReqBytes = NewType("ReqBytes", bytes)
+
+#: A form in the request body.
+FormBody: TypeAlias = Annotated[T, FormSpec()]
 
 #: A header dependency.
 Header: TypeAlias = Annotated[T, HeaderSpec()]
@@ -78,6 +81,29 @@ def get_header_type(p: Parameter) -> tuple[type, HeaderSpec]:
 
 def is_header(p: Parameter) -> bool:
     return maybe_header_type(p) is not None
+
+
+def maybe_form_type(p: Parameter) -> type | None:
+    """Get the underlying form type, is present."""
+    t = p.annotation
+    if is_annotated(t):
+        args = get_args(t)
+        if args:
+            for arg in args[1:]:
+                if isinstance(arg, FormSpec):
+                    return args[0]
+    return None
+
+
+def get_form_type(p: Parameter) -> type:
+    if (r := maybe_form_type(p)) is None:
+        raise Exception("No form info found")
+    return r
+
+
+def is_form(p: Parameter) -> bool:
+    """Is this parameter a form?"""
+    return maybe_form_type(p) is not None
 
 
 def attrs_body_factory(

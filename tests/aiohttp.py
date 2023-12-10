@@ -1,5 +1,4 @@
 from aiohttp.web import Request, Response
-
 from uapi import Method, ResponseException, RouteName
 from uapi.aiohttp import App
 from uapi.status import NoContent
