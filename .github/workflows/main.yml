@@ -78,7 +78,7 @@ jobs:
           echo "total=$TOTAL" >> $GITHUB_ENV
 
           # Report again and fail if under the threshold.
-          python -Im coverage report --fail-under=96
+          python -Im coverage report --fail-under=97
 
       - name: "Upload HTML report."
         uses: "actions/upload-artifact@v3"
