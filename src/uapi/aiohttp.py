@@ -124,6 +124,7 @@ class AiohttpApp(BaseApp):
                 signature(handler, eval_str=True).return_annotation,
                 FrameworkResponse,
                 self.converter,
+                self._shorthands,
             )
             path_params = parse_curly_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]

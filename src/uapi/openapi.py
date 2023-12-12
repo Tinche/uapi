@@ -2,29 +2,33 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date, datetime
 from enum import Enum, unique
 from inspect import Parameter as InspectParameter
 from inspect import signature
 from types import NoneType
-from typing import Final, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, get_args
 
 from attrs import NOTHING, AttrsInstance, Factory, fields, frozen, has
 from cattrs import override
 from cattrs._compat import is_generic, is_literal, is_union_type
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
+from incant import is_subclass
 
+from ._shorthands import can_shorthand_handle
 from .requests import (
     get_cookie_name,
     maybe_form_type,
     maybe_header_type,
     maybe_req_body_type,
 )
-from .responses import get_status_code_results
-from .status import BaseResponse
-from .types import Method, PathParamParser, RouteName, RouteTags, is_subclass
+from .status import BaseResponse, get_status_code
+from .types import Method, PathParamParser, RouteName, RouteTags
+
+if TYPE_CHECKING:
+    from .shorthands import ResponseShorthand
 
 converter = make_converter(omit_if_default=True)
 
@@ -193,6 +197,7 @@ def build_operation(
     path_param_parser: PathParamParser,
     framework_req_cls: type | None,
     framework_resp_cls: type | None,
+    shorthands: Iterable[type[ResponseShorthand]],
     security_schemas: Mapping[str, ApiKeySecurityScheme],
     summary_transformer: SummaryTransformer,
     description_transformer: DescriptionTransformer,
@@ -317,44 +322,36 @@ def build_operation(
         statuses = get_status_code_results(ret_type)
         responses = {}
         for status_code, result_type in statuses:
-            if result_type is str:
-                responses[str(status_code)] = Response(
-                    "OK",
-                    {
-                        "text/plain": MediaType(
-                            PYTHON_PRIMITIVES_TO_OPENAPI[result_type]
-                        )
-                    },
-                )
-            elif result_type is bytes:
-                responses[str(status_code)] = Response(
-                    "OK",
-                    {
-                        "application/octet-stream": MediaType(
-                            PYTHON_PRIMITIVES_TO_OPENAPI[result_type]
-                        )
-                    },
-                )
-            elif result_type in (None, NoneType):
-                responses[str(status_code)] = Response("No content")
-            elif has(result_type):
-                responses[str(status_code)] = Response(
-                    "OK",
-                    {
-                        "application/json": MediaType(
-                            Reference(f"#/components/schemas/{components[result_type]}")
-                        )
-                    },
-                )
+            for shorthand in shorthands:
+                if can_shorthand_handle(result_type, shorthand):
+                    shorthand_resp = shorthand.make_openapi_response()
+                    if shorthand_resp is not None:
+                        responses[str(status_code)] = shorthand_resp
+                    break
             else:
-                responses[str(status_code)] = Response(
-                    "OK",
-                    {
-                        "application/json": MediaType(
-                            PYTHON_PRIMITIVES_TO_OPENAPI[result_type]
-                        )
-                    },
-                )
+                if has(result_type):
+                    responses[str(status_code)] = Response(
+                        "OK",
+                        {
+                            "application/json": MediaType(
+                                Reference(
+                                    f"#/components/schemas/{components[result_type]}"
+                                )
+                            )
+                        },
+                    )
+                elif result_type in (None, NoneType):
+                    # Simply no content.
+                    responses[str(status_code)] = Response("No content")
+                else:
+                    responses[str(status_code)] = Response(
+                        "OK",
+                        {
+                            "application/json": MediaType(
+                                PYTHON_PRIMITIVES_TO_OPENAPI[result_type]
+                            )
+                        },
+                    )
     req_body = None
     if request_bodies:
         req_body = RequestBody(request_bodies, required=request_body_required)
@@ -386,6 +383,7 @@ def build_pathitem(
     path_param_parser: PathParamParser,
     framework_req_cls: type | None,
     framework_resp_cls: type | None,
+    shorthands: Iterable[type[ResponseShorthand]],
     security_schemas: Mapping[str, ApiKeySecurityScheme],
     summary_transformer: SummaryTransformer,
     description_transformer: DescriptionTransformer,
@@ -401,6 +399,7 @@ def build_pathitem(
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
+            shorthands,
             security_schemas,
             summary_transformer,
             description_transformer,
@@ -416,6 +415,7 @@ def build_pathitem(
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
+            shorthands,
             security_schemas,
             summary_transformer,
             description_transformer,
@@ -431,6 +431,7 @@ def build_pathitem(
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
+            shorthands,
             security_schemas,
             summary_transformer,
             description_transformer,
@@ -446,6 +447,7 @@ def build_pathitem(
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
+            shorthands,
             security_schemas,
             summary_transformer,
             description_transformer,
@@ -461,6 +463,7 @@ def build_pathitem(
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
+            shorthands,
             security_schemas,
             summary_transformer,
             description_transformer,
@@ -475,6 +478,7 @@ def routes_to_paths(
     path_param_parser: PathParamParser,
     framework_req_cls: type | None,
     framework_resp_cls: type | None,
+    shorthands: Iterable[type[ResponseShorthand]],
     security_schemas: Mapping[str, ApiKeySecurityScheme],
     summary_transformer: SummaryTransformer,
     description_transformer: DescriptionTransformer,
@@ -495,6 +499,7 @@ def routes_to_paths(
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
+            shorthands,
             security_schemas,
             summary_transformer,
             description_transformer,
@@ -610,6 +615,7 @@ def make_openapi_spec(
     version: str = "1.0",
     framework_req_cls: type | None = None,
     framework_resp_cls: type | None = None,
+    shorthands: Iterable[type[ResponseShorthand]] = [],
     security_schemes: list[ApiKeySecurityScheme] = [],
     summary_transformer: SummaryTransformer = default_summary_transformer,
     description_transformer: DescriptionTransformer = default_description_transformer,
@@ -626,6 +632,7 @@ def make_openapi_spec(
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
+            shorthands,
             c.securitySchemes,
             summary_transformer,
             description_transformer,
@@ -716,6 +723,34 @@ def _build_attrs_schema(
     res[name] = Schema(
         type=Schema.Type.OBJECT, properties=properties, required=required
     )
+
+
+def return_type_to_statuses(t: type) -> dict[int, Any]:
+    per_status: dict[int, Any] = {}
+    for typ in get_args(t) if is_union_type(t) else [t]:
+        if is_subclass(typ, BaseResponse) or is_subclass(
+            getattr(typ, "__origin__", None), BaseResponse
+        ):
+            if hasattr(typ, "__origin__"):
+                status = get_status_code(typ.__origin__)
+                typ = typ.__args__[0]
+            else:
+                status = get_status_code(typ)
+                typ = type(None)
+        elif typ in (None, NoneType):
+            status = 204
+        else:
+            status = 200
+        if status in per_status:
+            per_status[status] = per_status[status] | typ
+        else:
+            per_status[status] = typ
+    return per_status
+
+
+def get_status_code_results(t: type) -> list[tuple[int, Any]]:
+    """Normalize a supported return type into (status code, type)."""
+    return list(return_type_to_statuses(t).items())
 
 
 def structure_schemas(val, _):

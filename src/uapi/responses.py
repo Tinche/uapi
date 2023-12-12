@@ -1,50 +1,37 @@
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from inspect import Signature
 from types import MappingProxyType, NoneType
 from typing import Any, TypeVar, get_args
 
-from attrs import define, has
+from attrs import has
 from cattrs import Converter
 from cattrs._compat import is_union_type
 from incant import is_subclass
+from orjson import dumps
 
-from .status import BaseResponse, Headers, NoContent, Ok, get_status_code
-
-try:
-    from orjson import dumps
-except ImportError:
-    from json import dumps  # type: ignore
-
-__all__ = ["dumps", "return_type_to_statuses", "get_status_code_results"]
+from ._shorthands import can_shorthand_handle
+from .shorthands import ResponseShorthand
+from .status import BaseResponse, Headers, NoContent, Ok, ResponseException
 
 empty_dict: Mapping[str, str] = MappingProxyType({})
 
 
-@define
-class ResponseException(Exception):
-    """An exception that is converted into an HTTP response."""
-
-    response: BaseResponse
-
-
-def no_content(_, _nc: NoContent = NoContent()) -> NoContent:
-    return _nc
-
-
 def make_return_adapter(
-    return_type: Any, framework_response_cls: type, converter: Converter
-) -> Callable[..., BaseResponse] | None:
+    return_type: Any,
+    framework_response_cls: type,
+    converter: Converter,
+    shorthands: Iterable[type[ResponseShorthand]],
+) -> Callable[[Any], BaseResponse] | None:
     if return_type is Signature.empty or is_subclass(
         return_type, framework_response_cls
     ):
         # You're on your own, buddy.
         return None
-    if return_type is None:
-        return no_content
-    if return_type is bytes:
-        return lambda r: Ok(r, {"content-type": "application/octet-stream"})
-    if return_type is str:
-        return lambda r: Ok(r, {"content-type": "text/plain"})
+    for shorthand in shorthands:
+        can_handle = can_shorthand_handle(return_type, shorthand)
+        if can_handle:
+            return shorthand.response_adapter
+
     if is_subclass(return_type, BaseResponse):
         return identity
     if is_subclass(getattr(return_type, "__origin__", None), BaseResponse) and has(
@@ -92,34 +79,6 @@ def make_exception_adapter(
         )
 
     return adapt_exception
-
-
-def return_type_to_statuses(t: type) -> dict[int, Any]:
-    per_status: dict[int, Any] = {}
-    for typ in get_args(t) if is_union_type(t) else [t]:
-        if is_subclass(typ, BaseResponse) or is_subclass(
-            getattr(typ, "__origin__", None), BaseResponse
-        ):
-            if hasattr(typ, "__origin__"):
-                status = get_status_code(typ.__origin__)
-                typ = typ.__args__[0]
-            else:
-                status = get_status_code(typ)
-                typ = type(None)
-        elif typ in (None, NoneType):
-            status = 204
-        else:
-            status = 200
-        if status in per_status:
-            per_status[status] = per_status[status] | typ
-        else:
-            per_status[status] = typ
-    return per_status
-
-
-def get_status_code_results(t: type) -> list[tuple[int, Any]]:
-    """Normalize a supported return type into (status code, type)."""
-    return list(return_type_to_statuses(t).items())
 
 
 T = TypeVar("T")

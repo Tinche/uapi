@@ -1,9 +1,9 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from functools import partial
 from types import NoneType
-from typing import ClassVar
+from typing import Any, ClassVar, Final, TypeVar
 
-from attrs import Factory, define
+from attrs import Factory, define, field
 from cattrs import Converter
 from cattrs.preconf.orjson import make_converter
 from incant import Incanter
@@ -19,18 +19,28 @@ from .openapi import (
     make_openapi_spec,
 )
 from .openapi import converter as openapi_converter
+from .shorthands import (
+    BytesShorthand,
+    NoneShorthand,
+    ResponseShorthand,
+    StrShorthand,
+    T_co,
+)
 from .status import Ok
 from .types import Method, RouteName, RouteTags
 
-
-def make_base_incanter() -> Incanter:
-    """Create the base (non-framework) incanter."""
-    return Incanter()
+__all__ = ["App"]
 
 
 @define
 class OpenAPISecuritySpec:
     security_scheme: ApiKeySecurityScheme
+
+
+C = TypeVar("C")
+H = TypeVar("H", bound=Callable[..., Any])
+
+default_shorthands: Final = (NoneShorthand, StrShorthand, BytesShorthand)
 
 
 @define
@@ -46,12 +56,15 @@ class App:
     converter: Converter = Factory(make_converter)
 
     #: The incanter used to compose handlers and middleware.
-    incant: Incanter = Factory(make_base_incanter)
+    incant: Incanter = Factory(Incanter)
 
     _route_map: dict[
         tuple[Method, str], tuple[Callable, RouteName, RouteTags]
     ] = Factory(dict)
     _openapi_security: list[OpenAPISecuritySpec] = Factory(list)
+    _shorthands: Sequence[type[ResponseShorthand]] = field(
+        default=default_shorthands, init=False
+    )
     _framework_req_cls: ClassVar[type] = NoneType
     _framework_resp_cls: ClassVar[type] = NoneType
 
@@ -63,13 +76,17 @@ class App:
     def route(
         self,
         path: str,
-        handler,
-        methods: Sequence[Method] = ["GET"],
+        handler: H,
+        methods: Iterable[Method] = {"GET"},
         name: str | None = None,
         tags: RouteTags = (),
-    ):
+    ) -> H:
         """Register routes. This is not a decorator.
 
+        :param path: The URL path on which to serve the handler.
+        :param handler: The handler to route to.
+        :param methods: The HTTP methods on which to serve the handler.
+        :param name: The route name. If not provided, will use the handler name.
         :param tags: The OpenAPI tags to apply.
         """
         if name is None:
@@ -78,26 +95,54 @@ class App:
             self._route_map[(method, path)] = (handler, RouteName(name), tags)
         return handler
 
-    def get(self, path: str, name: str | None = None, tags: RouteTags = ()):
+    def get(
+        self, path: str, name: str | None = None, tags: RouteTags = ()
+    ) -> Callable[[H], Any]:
         return partial(self.route, path, name=name, methods=["GET"], tags=tags)
 
-    def post(self, path: str, name: str | None = None, tags: RouteTags = ()):
+    def post(
+        self, path: str, name: str | None = None, tags: RouteTags = ()
+    ) -> Callable[[H], Any]:
         return partial(self.route, path, name=name, methods=["POST"], tags=tags)
 
-    def put(self, path: str, name: str | None = None, tags: RouteTags = ()):
+    def put(
+        self, path: str, name: str | None = None, tags: RouteTags = ()
+    ) -> Callable[[H], Any]:
         return partial(self.route, path, name=name, methods=["PUT"], tags=tags)
 
-    def patch(self, path: str, name: str | None = None, tags: RouteTags = ()):
+    def patch(
+        self, path: str, name: str | None = None, tags: RouteTags = ()
+    ) -> Callable[[H], Any]:
         return partial(self.route, path, name=name, methods=["PATCH"], tags=tags)
 
-    def delete(self, path: str, name: str | None = None, tags: RouteTags = ()):
+    def delete(
+        self, path: str, name: str | None = None, tags: RouteTags = ()
+    ) -> Callable[[H], Any]:
         return partial(self.route, path, name=name, methods=["DELETE"], tags=tags)
 
-    def head(self, path: str, name: str | None = None, tags: RouteTags = ()):
+    def head(
+        self, path: str, name: str | None = None, tags: RouteTags = ()
+    ) -> Callable[[H], Any]:
         return partial(self.route, path, name=name, methods=["HEAD"], tags=tags)
 
-    def options(self, path: str, name: str | None = None, tags: RouteTags = ()):
+    def options(
+        self, path: str, name: str | None = None, tags: RouteTags = ()
+    ) -> Callable[[H], Any]:
         return partial(self.route, path, name=name, methods=["OPTIONS"], tags=tags)
+
+    def add_response_shorthand(self, shorthand: type[ResponseShorthand[T_co]]) -> "App":
+        """Add a response shorthand to the App.
+
+        Response shorthands enable additional return types for handlers.
+
+        The type will be matched by identity and an `is_subclass` check.
+
+        :param type: The type to add to possible handler return annotations.
+        :param response_adapter: A callable, used to convert a value of the new type
+            into a `BaseResponse`.
+        """
+        self._shorthands = (*self._shorthands, shorthand)
+        return self
 
     def route_app(
         self, app: "App", prefix: str | None = None, name_prefix: str | None = None
@@ -121,6 +166,8 @@ class App:
         """
         Create the OpenAPI spec for the registered routes.
 
+        :param title: The OpenAPI info title.
+        :param version: The OpenAPI info version.
         :param exclude: A set of route names to exclude from the spec.
         :param summary_transformer: A function to map handlers and
             route names to OpenAPI PathItem summary strings.
@@ -140,6 +187,7 @@ class App:
             version,
             self._framework_req_cls,
             self._framework_resp_cls,
+            self._shorthands,
             [s.security_scheme for s in self._openapi_security],
             summary_transformer,
             description_transformer,
