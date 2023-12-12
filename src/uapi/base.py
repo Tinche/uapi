@@ -9,15 +9,14 @@ from cattrs.preconf.orjson import make_converter
 from incant import Incanter
 from orjson import dumps
 
-from .openapi import (
-    ApiKeySecurityScheme,
+from ._openapi import (
     DescriptionTransformer,
-    OpenAPI,
     SummaryTransformer,
     default_description_transformer,
     default_summary_transformer,
     make_openapi_spec,
 )
+from .openapi import ApiKeySecurityScheme, OpenAPI
 from .openapi import converter as openapi_converter
 from .shorthands import (
     BytesShorthand,
