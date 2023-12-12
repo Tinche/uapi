@@ -1,6 +1,6 @@
 """Tests for response shorthands."""
 from asyncio import create_task
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from httpx import AsyncClient
@@ -18,7 +18,7 @@ async def test_custom_shorthand(unused_tcp_port: int) -> None:
 
     @app.get("/")
     async def datetime_handler() -> datetime:
-        return datetime(2000, 1, 1, 0, 0, 0, 0, tzinfo=UTC)
+        return datetime(2000, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
 
     class DatetimeShorthand(ResponseShorthand[datetime]):
         @staticmethod
