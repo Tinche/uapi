@@ -216,18 +216,6 @@ def build_operation(
                             )
                         },
                     )
-                elif result_type in (None, NoneType):
-                    # Simply no content.
-                    responses[str(status_code)] = Response("No content")
-                else:
-                    responses[str(status_code)] = Response(
-                        "OK",
-                        {
-                            "application/json": MediaType(
-                                PYTHON_PRIMITIVES_TO_OPENAPI[result_type]
-                            )
-                        },
-                    )
     req_body = None
     if request_bodies:
         req_body = RequestBody(request_bodies, required=request_body_required)
