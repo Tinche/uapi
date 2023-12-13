@@ -7,7 +7,7 @@ from uapi.quart import App
 from ..test_shorthands import DatetimeShorthand
 
 
-def test_no_openapi():
+def test_no_openapi() -> None:
     """Shorthands without OpenAPI support work."""
     app = App()
 
@@ -24,7 +24,7 @@ def test_no_openapi():
     assert spec.paths["/"].get.responses == {}
 
 
-def test_has_openapi():
+def test_has_openapi() -> None:
     """Shorthands without OpenAPI support work."""
 
     class OpenAPIDateTime(DatetimeShorthand):

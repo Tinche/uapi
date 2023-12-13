@@ -13,7 +13,6 @@ from attrs import NOTHING, AttrsInstance, fields, has
 from cattrs._compat import is_generic, is_literal, is_union_type
 from incant import is_subclass
 
-from ._shorthands import can_shorthand_handle
 from .openapi import (
     AnySchema,
     ApiKeySecurityScheme,
@@ -34,7 +33,7 @@ from .requests import (
     maybe_header_type,
     maybe_req_body_type,
 )
-from .shorthands import ResponseShorthand
+from .shorthands import ResponseShorthand, can_shorthand_handle
 from .status import BaseResponse, get_status_code
 from .types import Method, PathParamParser, RouteName, RouteTags
 

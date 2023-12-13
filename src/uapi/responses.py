@@ -9,8 +9,7 @@ from cattrs._compat import is_union_type
 from incant import is_subclass
 from orjson import dumps
 
-from ._shorthands import can_shorthand_handle
-from .shorthands import ResponseShorthand
+from .shorthands import ResponseShorthand, can_shorthand_handle
 from .status import BaseResponse, Headers, NoContent, Ok, ResponseException
 
 empty_dict: Mapping[str, str] = MappingProxyType({})
