@@ -1,3 +1,4 @@
+from types import NoneType
 from typing import Any, Literal, Protocol, TypeVar
 
 from incant import is_subclass
@@ -10,12 +11,12 @@ T_co = TypeVar("T_co", covariant=True)
 
 class ResponseShorthand(Protocol[T_co]):
     @staticmethod
-    def response_adapter(value: Any) -> BaseResponse:
+    def response_adapter(value: Any) -> BaseResponse:  # pragma: no cover
         """Convert a value of this type into a base response."""
         ...
 
     @staticmethod
-    def is_union_member(value: Any) -> bool:
+    def is_union_member(value: Any) -> bool:  # pragma: no cover
         """Return whether the actual value of a union is this type.
 
         Used when handlers return unions of types.
@@ -55,7 +56,7 @@ class NoneShorthand(ResponseShorthand[None]):
 
     @staticmethod
     def can_handle(type: Any) -> bool | Literal["check_type"]:
-        return type is None
+        return type in (None, NoneType)
 
 
 class StrShorthand(ResponseShorthand[str]):

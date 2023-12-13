@@ -10,22 +10,27 @@ from incant import is_subclass
 from orjson import dumps
 
 from .shorthands import ResponseShorthand, can_shorthand_handle
-from .status import BaseResponse, Headers, NoContent, Ok, ResponseException
+from .status import BaseResponse, Headers, Ok, ResponseException
 
 empty_dict: Mapping[str, str] = MappingProxyType({})
 
 
-def make_return_adapter(
+def make_response_adapter(
     return_type: Any,
     framework_response_cls: type,
     converter: Converter,
     shorthands: Iterable[type[ResponseShorthand]],
 ) -> Callable[[Any], BaseResponse] | None:
+    """Potentially create a function to adapt the return type to
+    something uapi understands.
+    """
+    # breakpoint()
     if return_type is Signature.empty or is_subclass(
         return_type, framework_response_cls
     ):
         # You're on your own, buddy.
         return None
+
     for shorthand in shorthands:
         can_handle = can_shorthand_handle(return_type, shorthand)
         if can_handle:
@@ -33,6 +38,7 @@ def make_return_adapter(
 
     if is_subclass(return_type, BaseResponse):
         return identity
+
     if is_subclass(getattr(return_type, "__origin__", None), BaseResponse) and has(
         inner := return_type.__args__[0]
     ):
@@ -40,6 +46,7 @@ def make_return_adapter(
             dumps(converter.unstructure(r.ret, unstructure_as=inner)),
             r.headers | {"content-type": "application/json"},
         )
+
     # attrs classes (but not ours)
     if has(return_type) and not is_subclass(
         getattr(return_type, "__origin__", None), BaseResponse
@@ -48,16 +55,44 @@ def make_return_adapter(
             dumps(converter.unstructure(r, unstructure_as=return_type)),
             {"content-type": "application/json"},
         )
-    if is_union_type(return_type) and all(
-        is_subclass(getattr(a, "__origin__", a), BaseResponse)
-        and (a is NoContent or has(get_args(a)[0]) or get_args(a)[0] is NoneType)
-        for a in get_args(return_type)
-    ):
-        return lambda r: r.__class__(
-            ret=dumps(converter.unstructure(r.ret)) if r.ret is not None else None,
-            headers=r.headers | {"content-type": "application/json"},
+
+    if is_union_type(return_type):
+        return _make_union_response_adapter(
+            get_args(return_type), converter, shorthands
         )
     return identity
+
+
+def _make_union_response_adapter(
+    types: tuple[Any],
+    converter: Converter,
+    shorthands: Iterable[type[ResponseShorthand]],
+) -> Callable[[Any], BaseResponse] | None:
+    # First, we check if any shorthands match.
+    shorthand_checks = []
+    for member in types:
+        for shorthand in shorthands:
+            if can_shorthand_handle(member, shorthand):
+                shorthand_checks.append(shorthand)
+                break
+
+    if not shorthand_checks:
+        # No shorthands, it's all BaseResponses.
+        return lambda val: val.__class__(
+            ret=dumps(converter.unstructure(val.ret)),
+            headers=val.headers | {"content-type": "application/json"},
+        )
+
+    def response_adapter(val: Any, _shs=shorthand_checks) -> BaseResponse:
+        for sh in _shs:
+            if sh.is_union_member(val):
+                return sh.response_adapter(val)
+        return val.__class__(
+            ret=dumps(converter.unstructure(val.ret)),
+            headers=val.headers | {"content-type": "application/json"},
+        )
+
+    return response_adapter
 
 
 def make_exception_adapter(

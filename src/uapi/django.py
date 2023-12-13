@@ -35,7 +35,7 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import dict_to_headers, make_exception_adapter, make_return_adapter
+from .responses import dict_to_headers, make_exception_adapter, make_response_adapter
 from .status import BadRequest, BaseResponse, get_status_code
 from .types import Method, RouteName, RouteTags
 
@@ -149,7 +149,7 @@ class DjangoApp(BaseApp):
             path = path.removeprefix("/")
             per_method_adapted = {}
             for method, (handler, name, _) in methods_and_handlers.items():
-                ra = make_return_adapter(
+                ra = make_response_adapter(
                     signature(handler, eval_str=True).return_annotation,
                     FrameworkResponse,
                     self.converter,

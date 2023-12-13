@@ -28,7 +28,7 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import make_exception_adapter, make_return_adapter
+from .responses import make_exception_adapter, make_response_adapter
 from .status import BadRequest, BaseResponse, Headers, get_status_code
 from .types import Method, RouteName
 
@@ -118,7 +118,7 @@ class StarletteApp(BaseApp):
         exc_adapter = make_exception_adapter(self.converter)
 
         for (method, path), (handler, name, _) in self._route_map.items():
-            ra = make_return_adapter(
+            ra = make_response_adapter(
                 signature(handler, eval_str=True).return_annotation,
                 FrameworkResponse,
                 self.converter,
