@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterable, Mapping
 from inspect import Signature
-from types import MappingProxyType, NoneType
+from types import MappingProxyType
 from typing import Any, TypeVar, get_args
 
 from attrs import has
@@ -79,7 +79,7 @@ def _make_union_response_adapter(
     if not shorthand_checks:
         # No shorthands, it's all BaseResponses.
         return lambda val: val.__class__(
-            ret=dumps(converter.unstructure(val.ret)),
+            ret=dumps(converter.unstructure(val.ret)) if val.ret is not None else None,
             headers=val.headers | {"content-type": "application/json"},
         )
 
@@ -88,7 +88,7 @@ def _make_union_response_adapter(
             if sh.is_union_member(val):
                 return sh.response_adapter(val)
         return val.__class__(
-            ret=dumps(converter.unstructure(val.ret)),
+            ret=dumps(converter.unstructure(val.ret)) if val.ret is not None else None,
             headers=val.headers | {"content-type": "application/json"},
         )
 
