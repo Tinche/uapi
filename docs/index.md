@@ -10,6 +10,7 @@ handlers.md
 composition.md
 openapi.md
 addons.md
+response_shorthands.md
 changelog.md
 indices.md
 modules.rst

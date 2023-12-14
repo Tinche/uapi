@@ -35,7 +35,11 @@ def test_has_openapi() -> None:
         def make_openapi_response() -> Response | None:
             return Response(
                 "DESC",
-                {"test": MediaType(Schema(Schema.Type.STRING, format="datetime"))},
+                {
+                    "application/date": MediaType(
+                        Schema(Schema.Type.STRING, format="datetime")
+                    )
+                },
             )
 
     app = App()

@@ -451,7 +451,7 @@ Whether the response contains the `content-type` header is up to the underlying 
 Flask, Quart and Django add a `text/html` content type by default.
 ```
 
-A longer equivalent, with the added benefit of being able to specify response headers, is returning the {py:class}`NoContent <uapi.status.NoContent>` response explicitly.
+A longer equivalent, with the added benefit of being able to specify response headers, is returning the {class}`NoContent <uapi.status.NoContent>` response explicitly.
 
 ```python
 from uapi.status import NoContent
@@ -461,6 +461,9 @@ async def delete_article() -> NoContent:
     # Perform side-effects.
     return NoContent(headers={"key": "value"})
 ```
+
+_This functionality is handled by {class}`NoneShorthand <uapi.shorthands.NoneShorthand>`._
+
 
 ### Strings and Bytes `(200 OK)`
 
@@ -473,6 +476,8 @@ async def get_article_image() -> bytes:
 ```
 
 For strings, the `content-type` header is set to `text/plain`, and for bytes to `application/octet-stream`.
+
+_This functionality is handled by {class}`StrShorthand <uapi.shorthands.StrShorthand>` and {class}`BytesShorthand <uapi.shorthands.BytesShorthand>`._
 
 ### _attrs_ Classes
 
@@ -492,6 +497,11 @@ class Article:
 async def get_article() -> Article:
     ...
 ```
+
+### Custom Response Shorthands
+
+The `str`, `bytes` or `None` return types are examples of _response shorthands_.
+Custom response shorthands can be defined and added to apps; [see the Response Shorthands section for the details](response_shorthands.md).
 
 ### _uapi_ Status Code Classes
 

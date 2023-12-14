@@ -6,10 +6,14 @@ from incant import is_subclass
 from .openapi import MediaType, Response, Schema
 from .status import BaseResponse, NoContent, Ok
 
+__all__ = ["ResponseShorthand", "NoneShorthand", "StrShorthand", "BytesShorthand"]
+
 T_co = TypeVar("T_co", covariant=True)
 
 
 class ResponseShorthand(Protocol[T_co]):
+    """The base protocol for response shorthands."""
+
     @staticmethod
     def response_adapter(value: Any) -> BaseResponse:  # pragma: no cover
         """Convert a value of this type into a base response."""
@@ -42,6 +46,11 @@ class ResponseShorthand(Protocol[T_co]):
 
 
 class NoneShorthand(ResponseShorthand[None]):
+    """Support for handlers returning `None`.
+
+    The response code is set to 204, and the content type is left unset.
+    """
+
     @staticmethod
     def response_adapter(_: Any, _nc=NoContent()) -> BaseResponse:
         return _nc
@@ -60,6 +69,11 @@ class NoneShorthand(ResponseShorthand[None]):
 
 
 class StrShorthand(ResponseShorthand[str]):
+    """Support for handlers returning `str`.
+
+    The response code is set to 200 and the content type is set to `text/plain`.
+    """
+
     @staticmethod
     def response_adapter(value: Any) -> BaseResponse:
         return Ok(value, headers={"content-type": "text/plain"})
@@ -74,6 +88,12 @@ class StrShorthand(ResponseShorthand[str]):
 
 
 class BytesShorthand(ResponseShorthand[bytes]):
+    """Support for handlers returning `bytes`.
+
+    The response code is set to 200 and the content type is set to
+    `application/octet-stream`.
+    """
+
     @staticmethod
     def response_adapter(value: Any) -> BaseResponse:
         return Ok(value, headers={"content-type": "application/octet-stream"})
