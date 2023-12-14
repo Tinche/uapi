@@ -51,7 +51,7 @@ class ArraySchema:
 
 @frozen
 class OneOfSchema:
-    oneOf: Sequence[Reference | Schema]
+    oneOf: Sequence[Reference | Schema | ArraySchema]
 
 
 @frozen
@@ -167,6 +167,16 @@ converter.register_structure_hook(
 )
 converter.register_structure_hook(
     Reference, make_dict_structure_fn(Reference, converter, ref=override(rename="$ref"))
+)
+converter.register_structure_hook(
+    Schema | ArraySchema | Reference,
+    lambda v, _: converter.structure(v, Reference)
+    if "$ref" in v
+    else (
+        converter.structure(v, ArraySchema)
+        if "items" in v
+        else converter.structure(v, Schema)
+    ),
 )
 converter.register_structure_hook(
     bool | Schema | Reference,

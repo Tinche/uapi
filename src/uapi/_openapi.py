@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date, datetime
 from inspect import Parameter as InspectParameter
 from inspect import signature
@@ -18,6 +18,7 @@ from .openapi import (
     ApiKeySecurityScheme,
     ArraySchema,
     MediaType,
+    MediaTypeName,
     OneOfSchema,
     OpenAPI,
     Parameter,
@@ -26,6 +27,7 @@ from .openapi import (
     Response,
     Schema,
     SecurityRequirement,
+    StatusCodeType,
 )
 from .requests import (
     get_cookie_name,
@@ -79,9 +81,10 @@ def build_operation(
     description_transformer: DescriptionTransformer,
     tags: list[str],
 ) -> OpenAPI.PathItem.Operation:
+    """Convert a route into an operation."""
     request_bodies = {}
     request_body_required = False
-    responses = {"200": Response(description="OK")}
+    responses: dict[StatusCodeType, Response] = {"200": Response(description="OK")}
     params: list[Parameter] = []
     sig = signature(handler, eval_str=True)
     path_params = path_param_parser(path)[1]
@@ -198,24 +201,35 @@ def build_operation(
         statuses = get_status_code_results(ret_type)
         responses = {}
         for status_code, result_type in statuses:
-            for shorthand in shorthands:
-                if can_shorthand_handle(result_type, shorthand):
-                    shorthand_resp = shorthand.make_openapi_response()
-                    if shorthand_resp is not None:
-                        responses[str(status_code)] = shorthand_resp
-                    break
-            else:
-                if has(result_type):
-                    responses[str(status_code)] = Response(
-                        "OK",
-                        {
-                            "application/json": MediaType(
-                                Reference(
-                                    f"#/components/schemas/{components[result_type]}"
-                                )
+            rs = []
+            rts = (
+                [result_type]
+                if not is_union_type(result_type)
+                else get_args(result_type)
+            )
+            for rt in rts:
+                for shorthand in shorthands:
+                    if can_shorthand_handle(rt, shorthand):
+                        shorthand_resp = shorthand.make_openapi_response()
+                        if shorthand_resp is not None:
+                            rs.append(shorthand_resp)
+                        break
+                else:
+                    if has(rt):
+                        rs.append(
+                            Response(
+                                "OK",
+                                {
+                                    "application/json": MediaType(
+                                        Reference(
+                                            f"#/components/schemas/{components[rt]}"
+                                        )
+                                    )
+                                },
                             )
-                        },
-                    )
+                        )
+                if rs:
+                    responses[str(status_code)] = _coalesce_responses(rs)
     req_body = None
     if request_bodies:
         req_body = RequestBody(request_bodies, required=request_body_required)
@@ -237,6 +251,25 @@ def build_operation(
         tags,
         name,
         description_transformer(original_handler, name),
+    )
+
+
+def _coalesce_responses(rs: Sequence[Response]) -> Response:
+    first_resp = rs[0]
+    content: dict[MediaTypeName, list[Schema | ArraySchema | Reference]] = {}
+    for r in rs:
+        for mtn, mt in r.content.items():
+            if isinstance(mt.schema, OneOfSchema):
+                content.setdefault(mtn, []).extend(mt.schema.oneOf)
+            else:
+                content.setdefault(mtn, []).append(mt.schema)
+
+    return Response(
+        first_resp.description,
+        {
+            k: MediaType(v[0]) if len(v) == 1 else MediaType(OneOfSchema(v))
+            for k, v in content.items()
+        },
     )
 
 
