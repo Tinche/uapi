@@ -28,7 +28,7 @@ def test_no_openapi() -> None:
 
 
 def test_has_openapi() -> None:
-    """Shorthands without OpenAPI support work."""
+    """Shorthands with OpenAPI support work."""
 
     class OpenAPIDateTime(DatetimeShorthand):
         @staticmethod
@@ -120,6 +120,62 @@ def test_unions_same_content_type() -> None:
                 "text/plain": MediaType(
                     OneOfSchema(
                         [Schema(Schema.Type.STRING), Schema(Schema.Type.BOOLEAN)]
+                    )
+                )
+            },
+        )
+    }
+
+
+def test_unions_same_content_type_oneof() -> None:
+    """Content types coalesce."""
+
+    class MyStr:
+        pass
+
+    class CustomShorthand(ResponseShorthand[MyStr]):
+        @staticmethod
+        def response_adapter(value: Any) -> BaseResponse:
+            return Ok(value)
+
+        @staticmethod
+        def is_union_member(value: Any) -> bool:
+            return isinstance(value, str)
+
+        @staticmethod
+        def make_openapi_response() -> Response | None:
+            return Response(
+                "OK",
+                {
+                    "text/plain": MediaType(
+                        OneOfSchema(
+                            [Schema(Schema.Type.BOOLEAN), Schema(Schema.Type.NULL)]
+                        )
+                    )
+                },
+            )
+
+    app = App().add_response_shorthand(CustomShorthand)
+
+    @app.get("/")
+    async def index() -> str | MyStr:
+        return ""
+
+    spec = app.make_openapi_spec()
+
+    op = spec.paths["/"].get
+    assert op is not None
+    assert op.responses == {
+        "200": Response(
+            "OK",
+            content={
+                "text/plain": MediaType(
+                    OneOfSchema(
+                        [
+                            Schema(Schema.Type.STRING),
+                            Schema(Schema.Type.BOOLEAN),
+                            Schema(Schema.Type.NULL),
+                        ]
                     )
                 )
             },

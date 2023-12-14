@@ -1,4 +1,9 @@
 """Test the OpenAPI schema generation for attrs classes."""
+from typing import TypeAlias
+
+from attrs import define
+
+from uapi import ReqBody
 from uapi.base import App
 from uapi.openapi import (
     ArraySchema,
@@ -526,4 +531,42 @@ def test_model_with_datetime(app: App) -> None:
             "d": Schema(Schema.Type.STRING, format="date"),
         },
         required=["a", "b"],
+    )
+
+
+def test_same_name_models() -> None:
+    """Models with the same name are handled."""
+
+    @define
+    class Model1:
+        a: int
+
+    Model2: TypeAlias = Model1
+
+    @define
+    class Model1:  # type: ignore
+        b: float
+
+    app = App()
+
+    @app.get("/")
+    def handler1() -> Model1:
+        return Model1(1.0)  # type: ignore
+
+    @app.get("/2")
+    def handler2(m: ReqBody[Model2]) -> None:
+        return None
+
+    spec = app.make_openapi_spec()
+
+    assert spec.components.schemas
+    assert spec.components.schemas["Model1"] == Schema(
+        Schema.Type.OBJECT,
+        properties={"b": Schema(Schema.Type.NUMBER, format="double")},
+        required=["b"],
+    )
+    assert spec.components.schemas["Model12"] == Schema(
+        Schema.Type.OBJECT,
+        properties={"a": Schema(Schema.Type.INTEGER)},
+        required=["a"],
     )

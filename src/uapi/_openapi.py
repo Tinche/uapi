@@ -456,14 +456,6 @@ def gather_endpoint_components(
             and (arg_type := type_and_loader[0]) not in components
         ):
             if has(arg_type):
-                if is_generic(arg_type):
-                    name = _make_generic_name(arg_type)
-                else:
-                    name = arg_type.__name__
-                counter = 0
-                while name in components.values():
-                    name = f"{arg_type.__name__}{counter}"
-                    counter += 1
                 _gather_attrs_components(arg_type, components)
             else:
                 # It's a dict.
@@ -473,11 +465,6 @@ def gather_endpoint_components(
         elif arg.annotation is not InspectParameter.empty and (
             form_type := maybe_form_type(arg)
         ):
-            name = form_type.__name__
-            counter = 0
-            while name in components.values():
-                name = f"{form_type.__name__}{counter}"
-                counter += 1
             _gather_attrs_components(form_type, components)
     if (ret_type := sig.return_annotation) is not InspectParameter.empty:
         for _, r in get_status_code_results(ret_type):
