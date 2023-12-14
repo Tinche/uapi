@@ -519,7 +519,7 @@ async def get_article() -> Ok[Article]:
 
 ### Returning Multiple Status Codes
 
-If your handler can return multiple status codes, use a union of _uapi_ response types.
+Use a union of _uapi_ response types if your handler can return multiple status codes.
 
 All responses defined this way will be rendered in the OpenAPI schema.
 
@@ -532,8 +532,8 @@ async def user_profile() -> Ok[Profile] | NoContent:
 ### _uapi_ ResponseExceptions
 
 Any raised instances of {class}`uapi.ResponseException` will be caught and transformed into a proper response.
-Like any exception, ResponseExceptions short-circuit handlers so they can be useful for validation and middleware.
-In other cases, simply returning a response instead is cheaper and usually more type-safe.
+Like any exception, `ResponseExceptions` short-circuit handlers so they can be useful for validation and middleware.
+In other cases, simply returning a response is faster and usually more type-safe.
 
 ResponseExceptions contain instances of _uapi_ status code classes and so can return rich response data, just like any normal response.
 
@@ -549,7 +549,7 @@ async def get_article() -> Ok[Article]:
     ...
 ```
 
-Since exceptions don't show up in the handler signature, they won't be present in the generated OpenAPI schema.
+Since exceptions don't show up in the handler signature they won't be present in the generated OpenAPI schema.
 If you need them to, you can add the actual response type into the handler response signature as part of a union:
 
 ```python
