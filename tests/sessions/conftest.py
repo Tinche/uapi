@@ -77,7 +77,7 @@ async def secure_cookie_session_app(
             await t
 
     elif request.param == "flask":
-        flask_app = FlaskApp()
+        flask_app = FlaskApp[None]()
         configure_secure_session_app(flask_app)
         shutdown_event = Event()
         t = create_task(run_on_flask(flask_app, unused_tcp_port, shutdown_event))
