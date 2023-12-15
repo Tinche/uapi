@@ -218,7 +218,7 @@ class DjangoApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
         return res
 
 
-App: TypeAlias = DjangoApp
+App: TypeAlias = DjangoApp[FrameworkResponse]
 
 
 def _make_django_incanter(converter: Converter) -> Incanter:

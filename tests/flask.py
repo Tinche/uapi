@@ -5,7 +5,7 @@ from hypercorn.config import Config
 
 from flask import Response, request
 from uapi import ResponseException
-from uapi.flask import App
+from uapi.flask import App, FlaskApp
 from uapi.status import NoContent
 from uapi.types import Method, RouteName
 
@@ -73,7 +73,7 @@ def make_app() -> App:
     return app
 
 
-async def run_on_flask(app: App, port: int, shutdown_event: Event):
+async def run_on_flask(app: FlaskApp, port: int, shutdown_event: Event):
     config = Config()
     config.bind = [f"localhost:{port}"]
 
