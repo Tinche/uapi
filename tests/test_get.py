@@ -89,4 +89,5 @@ async def test_user_response_class(server):
     async with AsyncClient() as client:
         resp = await client.get(f"http://localhost:{server}/throttled")
         assert resp.status_code == 429
-        assert resp.headers["content-length"] == "0"
+        # Django omits the content-length
+        assert resp.headers.get("content-length", "0") == "0"

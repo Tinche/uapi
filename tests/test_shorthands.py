@@ -3,13 +3,22 @@ from asyncio import create_task
 from datetime import datetime, timezone
 from typing import Any
 
+import pytest
 from httpx import AsyncClient
 
-from uapi.quart import App
+from uapi.aiohttp import AiohttpApp
+from uapi.django import DjangoApp
+from uapi.flask import FlaskApp
+from uapi.quart import App, QuartApp
 from uapi.shorthands import ResponseShorthand
+from uapi.starlette import StarletteApp
 from uapi.status import BaseResponse, Created, Ok
 
+from .aiohttp import run_on_aiohttp
+from .django import run_on_django
+from .flask import run_on_flask
 from .quart import run_on_quart
+from .starlette import run_on_starlette
 
 
 class DatetimeShorthand(ResponseShorthand[datetime]):
@@ -22,15 +31,34 @@ class DatetimeShorthand(ResponseShorthand[datetime]):
         return isinstance(value, datetime)
 
 
-async def test_custom_shorthand(unused_tcp_port: int) -> None:
+@pytest.mark.parametrize(
+    "app_type", [QuartApp, AiohttpApp, StarletteApp, FlaskApp, DjangoApp]
+)
+async def test_custom_shorthand(
+    unused_tcp_port: int,
+    app_type: type[QuartApp]
+    | type[AiohttpApp]
+    | type[StarletteApp]
+    | type[FlaskApp]
+    | type[DjangoApp],
+) -> None:
     """Custom shorthands work."""
-    app = App().add_response_shorthand(DatetimeShorthand)
+    app = app_type[None]().add_response_shorthand(DatetimeShorthand)  # type: ignore
 
     @app.get("/")
-    async def datetime_handler() -> datetime:
+    def datetime_handler() -> datetime:
         return datetime(2000, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
 
-    t = create_task(run_on_quart(app, unused_tcp_port))
+    if app_type is QuartApp:
+        t = create_task(run_on_quart(app, unused_tcp_port))
+    elif app_type is AiohttpApp:
+        t = create_task(run_on_aiohttp(app, unused_tcp_port))
+    elif app_type is StarletteApp:
+        t = create_task(run_on_starlette(app, unused_tcp_port))
+    elif app_type is FlaskApp:
+        t = create_task(run_on_flask(app, unused_tcp_port))
+    elif app_type is DjangoApp:
+        t = create_task(run_on_django(app, unused_tcp_port))
 
     try:
         async with AsyncClient() as client:

@@ -1,5 +1,6 @@
-from asyncio import Event, create_task
+from asyncio import CancelledError, create_task
 from collections.abc import Callable
+from contextlib import suppress
 
 import pytest
 
@@ -19,13 +20,12 @@ async def openapi_renderer_app(unused_tcp_port_factory: Callable[..., int]):
     app.serve_redoc(openapi_path="/openapi_test.json")
     app.serve_elements(openapi_path="/openapi_test.json")
 
-    shutdown_event = Event()
-
-    t = create_task(run_on_flask(app, unused_tcp_port, shutdown_event))
+    t = create_task(run_on_flask(app, unused_tcp_port))
     yield unused_tcp_port
 
-    shutdown_event.set()
-    await t
+    t.cancel()
+    with suppress(CancelledError):
+        await t
 
 
 async def test_elements(openapi_renderer_app: int) -> None:

@@ -1,4 +1,4 @@
-from asyncio import CancelledError, Event, create_task
+from asyncio import CancelledError, create_task
 from collections.abc import Callable
 from contextlib import suppress
 
@@ -76,15 +76,14 @@ async def secure_cookie_session_app(
         t.cancel()
         with suppress(CancelledError):
             await t
-
     elif request.param == "flask":
         flask_app = FlaskApp()
         configure_secure_session_app(flask_app)
-        shutdown_event = Event()
-        t = create_task(run_on_flask(flask_app, unused_tcp_port, shutdown_event))
+        t = create_task(run_on_flask(flask_app, unused_tcp_port))
         yield unused_tcp_port
-        shutdown_event.set()
-        await t
+        t.cancel()
+        with suppress(CancelledError):
+            await t
     elif request.param == "quart":
         quart_app = QuartApp()
         configure_secure_session_app(quart_app)

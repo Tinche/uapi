@@ -115,6 +115,7 @@ ignore = [
     "B006",   # trust me
     "B008",   # can't get it to work with extend-immutable-calls
     "N818",   # Exceptions
+    "RUF006", # Buggy for now
     "RUF013", # False implicit optionals
 ]
 
