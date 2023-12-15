@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from functools import partial
 from inspect import Signature, signature
-from typing import Any, ClassVar, TypeAlias, TypeVar
+from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -37,69 +37,15 @@ from .types import Method, RouteName
 __all__ = ["App", "FlaskApp"]
 
 C = TypeVar("C")
-
-
-def make_flask_incanter(converter: Converter) -> Incanter:
-    """Create the framework incanter for Flask."""
-    res = Incanter()
-
-    res.register_hook_factory(
-        lambda _: True,
-        lambda p: lambda: converter.structure(
-            request.args[p.name]
-            if p.default is Signature.empty
-            else request.args.get(p.name, p.default),
-            p.annotation,
-        ),
-    )
-    res.register_hook_factory(
-        lambda p: p.annotation in (Signature.empty, str),
-        lambda p: lambda: request.args[p.name]
-        if p.default is Signature.empty
-        else request.args.get(p.name, p.default),
-    )
-    res.register_hook_factory(
-        is_header,
-        lambda p: make_header_dependency(
-            *get_header_type(p), p.name, converter, p.default
-        ),
-    )
-    res.register_hook_factory(
-        lambda p: get_cookie_name(p.annotation, p.name) is not None,
-        lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
-    )
-
-    def request_bytes() -> bytes:
-        return request.data
-
-    res.register_hook(lambda p: p.annotation is ReqBytes, request_bytes)
-
-    res.register_hook_factory(
-        is_req_body_attrs, partial(attrs_body_factory, converter=converter)
-    )
-
-    res.register_hook_factory(
-        is_form, lambda p: _make_form_dependency(get_form_type(p), converter)
-    )
-
-    # RouteNames and methods get an empty hook, so the parameter propagates to the base incanter.
-    res.hook_factory_registry.insert(
-        0, Hook(lambda p: p.annotation in (RouteName, Method), None)
-    )
-
-    return res
+C_contra = TypeVar("C_contra", contravariant=True)
 
 
 @define
-class FlaskApp(BaseApp):
+class FlaskApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
     framework_incant: Incanter = Factory(
-        lambda self: make_flask_incanter(self.converter), takes_self=True
+        lambda self: _make_flask_incanter(self.converter), takes_self=True
     )
     _framework_resp_cls: ClassVar[type] = FrameworkResponse
-
-    @staticmethod
-    def _path_param_parser(p: str) -> tuple[str, list[str]]:
-        return (strip_path_param_prefix(angle_to_curly(p)), parse_curly_path_params(p))
 
     def to_framework_app(self, import_name: str) -> Flask:
         f = Flask(import_name)
@@ -200,11 +146,66 @@ class FlaskApp(BaseApp):
     def run(self, import_name: str, port: int = 8000):
         self.to_framework_app(import_name).run(port=port)
 
+    @staticmethod
+    def _path_param_parser(p: str) -> tuple[str, list[str]]:
+        return (strip_path_param_prefix(angle_to_curly(p)), parse_curly_path_params(p))
 
-App: TypeAlias = FlaskApp
+
+App: TypeAlias = FlaskApp[FrameworkResponse]
 
 
-def make_header_dependency(
+def _make_flask_incanter(converter: Converter) -> Incanter:
+    """Create the framework incanter for Flask."""
+    res = Incanter()
+
+    res.register_hook_factory(
+        lambda _: True,
+        lambda p: lambda: converter.structure(
+            request.args[p.name]
+            if p.default is Signature.empty
+            else request.args.get(p.name, p.default),
+            p.annotation,
+        ),
+    )
+    res.register_hook_factory(
+        lambda p: p.annotation in (Signature.empty, str),
+        lambda p: lambda: request.args[p.name]
+        if p.default is Signature.empty
+        else request.args.get(p.name, p.default),
+    )
+    res.register_hook_factory(
+        is_header,
+        lambda p: _make_header_dependency(
+            *get_header_type(p), p.name, converter, p.default
+        ),
+    )
+    res.register_hook_factory(
+        lambda p: get_cookie_name(p.annotation, p.name) is not None,
+        lambda p: _make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
+    )
+
+    def request_bytes() -> bytes:
+        return request.data
+
+    res.register_hook(lambda p: p.annotation is ReqBytes, request_bytes)
+
+    res.register_hook_factory(
+        is_req_body_attrs, partial(attrs_body_factory, converter=converter)
+    )
+
+    res.register_hook_factory(
+        is_form, lambda p: _make_form_dependency(get_form_type(p), converter)
+    )
+
+    # RouteNames and methods get an empty hook, so the parameter propagates to the base incanter.
+    res.hook_factory_registry.insert(
+        0, Hook(lambda p: p.annotation in (RouteName, Method), None)
+    )
+
+    return res
+
+
+def _make_header_dependency(
     type: type,
     headerspec: HeaderSpec,
     name: str,
@@ -243,7 +244,7 @@ def make_header_dependency(
     return read_opt_conv_header
 
 
-def make_cookie_dependency(cookie_name: str, default=Signature.empty):
+def _make_cookie_dependency(cookie_name: str, default=Signature.empty):
     if default is Signature.empty:
 
         def read_cookie() -> str:

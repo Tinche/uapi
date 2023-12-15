@@ -24,13 +24,11 @@ class DatetimeShorthand(ResponseShorthand[datetime]):
 
 async def test_custom_shorthand(unused_tcp_port: int) -> None:
     """Custom shorthands work."""
-    app = App()
+    app = App().add_response_shorthand(DatetimeShorthand)
 
     @app.get("/")
     async def datetime_handler() -> datetime:
         return datetime(2000, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
-
-    app.add_response_shorthand(DatetimeShorthand)
 
     t = create_task(run_on_quart(app, unused_tcp_port))
 

@@ -12,13 +12,11 @@ from ..test_shorthands import DatetimeShorthand
 
 def test_no_openapi() -> None:
     """Shorthands without OpenAPI support work."""
-    app = App()
+    app = App().add_response_shorthand(DatetimeShorthand)
 
     @app.get("/")
     async def datetime_handler() -> datetime:
         return datetime(2000, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
-
-    app.add_response_shorthand(DatetimeShorthand)
 
     spec = app.make_openapi_spec()
 
@@ -38,13 +36,11 @@ def test_has_openapi() -> None:
                 {"test": MediaType(Schema(Schema.Type.STRING, format="datetime"))},
             )
 
-    app = App()
+    app = App().add_response_shorthand(OpenAPIDateTime)
 
     @app.get("/")
     async def datetime_handler() -> datetime:
         return datetime(2000, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
-
-    app.add_response_shorthand(OpenAPIDateTime)
 
     spec = app.make_openapi_spec()
 

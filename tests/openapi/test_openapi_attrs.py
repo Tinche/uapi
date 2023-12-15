@@ -547,7 +547,7 @@ def test_same_name_models() -> None:
     class Model1:  # type: ignore
         b: float
 
-    app = App()
+    app = App[None]()
 
     @app.get("/")
     def handler1() -> Model1:

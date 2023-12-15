@@ -6,7 +6,7 @@ import pytest
 
 from uapi.aiohttp import App as AiohttpApp
 from uapi.cookies import CookieSettings
-from uapi.flask import App as FlaskApp
+from uapi.flask import FlaskApp
 from uapi.quart import App as QuartApp
 from uapi.sessions import Session, configure_secure_sessions
 from uapi.starlette import App as StarletteApp

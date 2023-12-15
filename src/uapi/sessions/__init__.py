@@ -4,7 +4,7 @@ from typing import Annotated, TypeVar
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
 from .. import Cookie
-from ..base import App
+from ..base import App, AsyncApp
 from ..cookies import CookieSettings, set_cookie
 from ..status import Headers
 
@@ -21,7 +21,7 @@ class Session(dict[str, str]):
 
 
 def configure_secure_sessions(
-    app: App,
+    app: App | AsyncApp,
     secret_key: str,
     cookie_name: str = "session",
     salt: str = "cookie-session",

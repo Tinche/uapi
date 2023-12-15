@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Annotated, TypeVar
 from attrs import frozen
 
 from .. import Cookie, Headers
-from ..base import App, OpenAPISecuritySpec
+from ..base import AsyncApp, OpenAPISecuritySpec
 from ..cookies import CookieSettings, set_cookie
 from ..openapi import ApiKeySecurityScheme
 
@@ -83,7 +83,7 @@ class AsyncRedisSessionStore:
 
 
 def configure_async_sessions(
-    app: App,
+    app: AsyncApp,
     aioredis: "Redis",
     max_age: timedelta = timedelta(days=14),
     cookie_name: str = "session_id",
