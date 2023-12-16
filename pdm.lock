@@ -5,7 +5,7 @@
 groups = ["default", "docs", "lint", "test", "frameworks"]
 strategy = ["cross_platform"]
 lock_version = "4.4.1"
-content_hash = "sha256:9f0ac14d47cdcd76b92cad92b08b24be88141b3bcc346836b0fc2277d22701ec"
+content_hash = "sha256:a15d35d87dbaa62f1b15e8fbfae8b6d56419f3a2425245d7f49e16854e1cd8d9"
 
 [[package]]
 name = "aiofiles"
