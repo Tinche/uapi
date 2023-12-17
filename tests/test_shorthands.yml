@@ -42,13 +42,13 @@
     from datetime import datetime
 
     from uapi.starlette import App
-    from uapi.shorthands import ResponseShorthand
+    from uapi.shorthands import ResponseShorthand, ResponseAdapter
     from uapi.status import BaseResponse
 
     class DatetimeShorthand(ResponseShorthand[datetime]):
       @staticmethod
-      def response_adapter(value: Any) -> BaseResponse:
-        return BaseResponse(None)
+      def response_adapter_factory(type: Any) -> ResponseAdapter:
+        return lambda _: BaseResponse(None)
 
       @staticmethod
       def is_union_member(value: Any) -> bool:
