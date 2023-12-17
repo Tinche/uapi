@@ -10,9 +10,9 @@ from uapi.aiohttp import AiohttpApp
 from uapi.django import DjangoApp
 from uapi.flask import FlaskApp
 from uapi.quart import App, QuartApp
-from uapi.shorthands import ResponseShorthand
+from uapi.shorthands import ResponseAdapter, ResponseShorthand
 from uapi.starlette import StarletteApp
-from uapi.status import BaseResponse, Created, Ok
+from uapi.status import Created, Ok
 
 from .aiohttp import run_on_aiohttp
 from .django import run_on_django
@@ -23,8 +23,8 @@ from .starlette import run_on_starlette
 
 class DatetimeShorthand(ResponseShorthand[datetime]):
     @staticmethod
-    def response_adapter(value: datetime) -> BaseResponse:
-        return Created(value.isoformat())
+    def response_adapter_factory(_) -> ResponseAdapter:
+        return lambda value: Created(value.isoformat())
 
     @staticmethod
     def is_union_member(value: Any) -> bool:

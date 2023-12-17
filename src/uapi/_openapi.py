@@ -3,18 +3,17 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from datetime import date, datetime
 from inspect import Parameter as InspectParameter
 from inspect import signature
 from types import NoneType
-from typing import Any, Final, TypeAlias, get_args
+from typing import Any, TypeAlias, get_args
 
-from attrs import NOTHING, AttrsInstance, fields, has
-from cattrs._compat import is_generic, is_literal, is_union_type
+from attrs import has
+from cattrs._compat import is_union_type
 from incant import is_subclass
 
+from .attrschema import build_attrs_schema
 from .openapi import (
-    AnySchema,
     ApiKeySecurityScheme,
     ArraySchema,
     MediaType,
@@ -26,6 +25,7 @@ from .openapi import (
     RequestBody,
     Response,
     Schema,
+    SchemaBuilder,
     SecurityRequirement,
     StatusCodeType,
 )
@@ -46,17 +46,6 @@ SummaryTransformer: TypeAlias = Callable[[Callable, str], str | None]
 DescriptionTransformer: TypeAlias = Callable[[Callable, str], str | None]
 
 
-PYTHON_PRIMITIVES_TO_OPENAPI: Final = {
-    str: Schema(Schema.Type.STRING),
-    int: Schema(Schema.Type.INTEGER),
-    bool: Schema(Schema.Type.BOOLEAN),
-    float: Schema(Schema.Type.NUMBER, format="double"),
-    bytes: Schema(Schema.Type.STRING, format="binary"),
-    date: Schema(Schema.Type.STRING, format="date"),
-    datetime: Schema(Schema.Type.STRING, format="date-time"),
-}
-
-
 def default_summary_transformer(handler: Callable, name: str) -> str:
     return name.replace("_", " ").title()
 
@@ -71,7 +60,7 @@ def build_operation(
     original_handler: Callable,
     name: str,
     path: str,
-    components: dict[type, str],
+    builder: SchemaBuilder,
     path_param_parser: PathParamParser,
     framework_req_cls: type | None,
     framework_resp_cls: type | None,
@@ -97,7 +86,7 @@ def build_operation(
                 path_param,
                 Parameter.Kind.PATH,
                 True,
-                PYTHON_PRIMITIVES_TO_OPENAPI.get(t),
+                builder.PYTHON_PRIMITIVES_TO_OPENAPI.get(t),
             )
         )
 
@@ -126,8 +115,8 @@ def build_operation(
                     header_name,
                     Parameter.Kind.HEADER,
                     arg_param.default is InspectParameter.empty,
-                    PYTHON_PRIMITIVES_TO_OPENAPI.get(
-                        header_type, PYTHON_PRIMITIVES_TO_OPENAPI[str]
+                    builder.PYTHON_PRIMITIVES_TO_OPENAPI.get(
+                        header_type, builder.PYTHON_PRIMITIVES_TO_OPENAPI[str]
                     ),
                 )
             )
@@ -137,8 +126,8 @@ def build_operation(
                     cookie_name,
                     Parameter.Kind.COOKIE,
                     arg_param.default is InspectParameter.empty,
-                    PYTHON_PRIMITIVES_TO_OPENAPI.get(
-                        arg_param.annotation, PYTHON_PRIMITIVES_TO_OPENAPI[str]
+                    builder.PYTHON_PRIMITIVES_TO_OPENAPI.get(
+                        arg_param.annotation, builder.PYTHON_PRIMITIVES_TO_OPENAPI[str]
                     ),
                 )
             )
@@ -148,16 +137,16 @@ def build_operation(
             req_type, loader = type_and_loader
             if has(req_type):
                 request_bodies[loader.content_type or "*/*"] = MediaType(
-                    Reference(f"#/components/schemas/{components[req_type]}")
+                    builder.reference_for_type(req_type)
                 )
             else:
                 # It's a dict.
                 v_type = req_type.__args__[1]  # type: ignore[attr-defined]
 
                 add_prop: Reference | Schema = (
-                    Reference(f"#/components/schemas/{components[v_type]}")
+                    builder.reference_for_type(v_type)
                     if has(v_type)
-                    else PYTHON_PRIMITIVES_TO_OPENAPI[v_type]
+                    else builder.PYTHON_PRIMITIVES_TO_OPENAPI[v_type]
                 )
 
                 request_bodies[loader.content_type or "*/*"] = MediaType(
@@ -170,7 +159,7 @@ def build_operation(
         ):
             # A body form.
             request_bodies["application/x-www-form-urlencoded"] = MediaType(
-                Reference(f"#/components/schemas/{components[form_type]}")
+                builder.reference_for_type(form_type)
             )
         else:
             if is_union_type(arg_type):
@@ -178,12 +167,12 @@ def build_operation(
                 for union_member in arg_type.__args__:
                     if union_member is NoneType:
                         refs.append(Schema(Schema.Type.NULL))
-                    elif union_member in PYTHON_PRIMITIVES_TO_OPENAPI:
-                        refs.append(PYTHON_PRIMITIVES_TO_OPENAPI[union_member])
+                    elif union_member in builder.PYTHON_PRIMITIVES_TO_OPENAPI:
+                        refs.append(builder.PYTHON_PRIMITIVES_TO_OPENAPI[union_member])
                 param_schema: OneOfSchema | Schema = OneOfSchema(refs)
             else:
-                param_schema = PYTHON_PRIMITIVES_TO_OPENAPI.get(
-                    arg_param.annotation, PYTHON_PRIMITIVES_TO_OPENAPI[str]
+                param_schema = builder.PYTHON_PRIMITIVES_TO_OPENAPI.get(
+                    arg_param.annotation, builder.PYTHON_PRIMITIVES_TO_OPENAPI[str]
                 )
             params.append(
                 Parameter(
@@ -210,24 +199,10 @@ def build_operation(
             for rt in rts:
                 for shorthand in shorthands:
                     if can_shorthand_handle(rt, shorthand):
-                        shorthand_resp = shorthand.make_openapi_response()
+                        shorthand_resp = shorthand.make_openapi_response(rt, builder)
                         if shorthand_resp is not None:
                             rs.append(shorthand_resp)
                         break
-                else:
-                    if has(rt):
-                        rs.append(
-                            Response(
-                                "OK",
-                                {
-                                    "application/json": MediaType(
-                                        Reference(
-                                            f"#/components/schemas/{components[rt]}"
-                                        )
-                                    )
-                                },
-                            )
-                        )
                 if rs:
                     responses[str(status_code)] = _coalesce_responses(rs)
     req_body = None
@@ -276,7 +251,7 @@ def _coalesce_responses(rs: Sequence[Response]) -> Response:
 def build_pathitem(
     path: str,
     path_routes: dict[Method, tuple[Callable, Callable, RouteName, RouteTags]],
-    components: dict[type, str],
+    builder: SchemaBuilder,
     path_param_parser: PathParamParser,
     framework_req_cls: type | None,
     framework_resp_cls: type | None,
@@ -292,7 +267,7 @@ def build_pathitem(
             get_route[1],
             get_route[2],
             path,
-            components,
+            builder,
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
@@ -308,7 +283,7 @@ def build_pathitem(
             post_route[1],
             post_route[2],
             path,
-            components,
+            builder,
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
@@ -324,7 +299,7 @@ def build_pathitem(
             put_route[1],
             put_route[2],
             path,
-            components,
+            builder,
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
@@ -340,7 +315,7 @@ def build_pathitem(
             patch_route[1],
             patch_route[2],
             path,
-            components,
+            builder,
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
@@ -356,7 +331,7 @@ def build_pathitem(
             delete_route[1],
             delete_route[2],
             path,
-            components,
+            builder,
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
@@ -371,7 +346,7 @@ def build_pathitem(
 
 def routes_to_paths(
     routes: Routes,
-    components: dict[type, str],
+    builder: SchemaBuilder,
     path_param_parser: PathParamParser,
     framework_req_cls: type | None,
     framework_resp_cls: type | None,
@@ -392,7 +367,7 @@ def routes_to_paths(
         k: build_pathitem(
             k,
             v,
-            components,
+            builder,
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
@@ -405,91 +380,44 @@ def routes_to_paths(
     }
 
 
-def _gather_attrs_components(
-    type: type[AttrsInstance], components: dict[type, str]
-) -> dict[type, str]:
-    """DFS for attrs components."""
-    if type in components:
-        return components
-    name = type.__name__ if not is_generic(type) else _make_generic_name(type)
-    counter = 2
-    while name in components.values():
-        name = f"{type.__name__}{counter}"
-        counter += 1
-    components[type] = name
-    mapping = _make_generic_mapping(type) if is_generic(type) else {}
-    for a in fields(type):
-        if a.type is None:
-            continue
-        a_type = mapping.get(a.type, a.type)
-        if has(a_type):
-            _gather_attrs_components(a_type, components)
-        elif getattr(a_type, "__origin__", None) is list:
-            arg = a_type.__args__[0]
-            arg = mapping.get(arg, arg)
-            if has(arg):
-                _gather_attrs_components(arg, components)
-        elif getattr(a_type, "__origin__", None) is dict:
-            val_arg = a_type.__args__[1]
-            if has(val_arg):
-                _gather_attrs_components(val_arg, components)
-        elif is_union_type(a_type):
-            for arg in a_type.__args__:
-                if has(arg):
-                    _gather_attrs_components(arg, components)
-    return components
-
-
-def _make_generic_name(type: type) -> str:
-    """Used for generic attrs classes (Generic[int] instead of just Generic)."""
-    return type.__name__ + "[" + ", ".join(t.__name__ for t in type.__args__) + "]"  # type: ignore
-
-
-def gather_endpoint_components(
-    handler: Callable, components: dict[type, str]
-) -> dict[type, str]:
+def gather_endpoint_components(handler: Callable, builder: SchemaBuilder) -> None:
     sig = signature(handler, eval_str=True)
     for arg in sig.parameters.values():
         if (
             arg.annotation is not InspectParameter.empty
             and (type_and_loader := maybe_req_body_type(arg)) is not None
-            and (arg_type := type_and_loader[0]) not in components
+            and (arg_type := type_and_loader[0]) not in builder.names
         ):
             if has(arg_type):
-                _gather_attrs_components(arg_type, components)
+                builder.build_schema_with(arg_type, build_attrs_schema)
             else:
                 # It's a dict.
                 val_arg = arg_type.__args__[1]  # type: ignore[attr-defined]
                 if has(val_arg):
-                    _gather_attrs_components(val_arg, components)
+                    builder.build_schema_with(val_arg, build_attrs_schema)
         elif arg.annotation is not InspectParameter.empty and (
             form_type := maybe_form_type(arg)
         ):
-            _gather_attrs_components(form_type, components)
-    if (ret_type := sig.return_annotation) is not InspectParameter.empty:
-        for _, r in get_status_code_results(ret_type):
-            if has(r) and not is_subclass(r, BaseResponse) and r not in components:
-                _gather_attrs_components(r, components)
-    return components
+            builder.build_schema_with(form_type, build_attrs_schema)
 
 
 def components_to_openapi(
-    routes: Routes, security_schemes: dict[str, ApiKeySecurityScheme] = {}
-) -> tuple[OpenAPI.Components, dict[type, str]]:
+    routes: Routes,
+    builder: SchemaBuilder,
+    security_schemes: dict[str, ApiKeySecurityScheme] = {},
+) -> OpenAPI.Components:
     """Build the components part.
 
     Components are complex structures, like classes, as opposed to primitives like ints.
     """
     # First pass, we build the component registry.
-    components: dict[type, str] = {}
     for handler, *_ in routes.values():
-        gather_endpoint_components(handler, components)
+        gather_endpoint_components(handler, builder)
 
-    res: dict[str, AnySchema | Reference] = {}
-    for component in components:
-        _build_attrs_schema(component, components, res)
+    for component in builder._build_queue:
+        builder.build_schema_with(component, build_attrs_schema)
 
-    return OpenAPI.Components(res, security_schemes), components
+    return OpenAPI.Components(builder.components, security_schemes)
 
 
 def make_openapi_spec(
@@ -504,15 +432,18 @@ def make_openapi_spec(
     summary_transformer: SummaryTransformer = default_summary_transformer,
     description_transformer: DescriptionTransformer = default_description_transformer,
 ) -> OpenAPI:
-    c, components = components_to_openapi(
-        routes, {f"{scheme.in_}/{scheme.name}": scheme for scheme in security_schemes}
+    schema_builder = SchemaBuilder()
+    c = components_to_openapi(
+        routes,
+        schema_builder,
+        {f"{scheme.in_}/{scheme.name}": scheme for scheme in security_schemes},
     )
-    return OpenAPI(
+    res = OpenAPI(
         "3.0.3",
         OpenAPI.Info(title, version),
         routes_to_paths(
             routes,
-            components,
+            schema_builder,
             path_param_parser,
             framework_req_cls,
             framework_resp_cls,
@@ -523,90 +454,10 @@ def make_openapi_spec(
         ),
         c,
     )
-
-
-def _make_generic_mapping(type: type) -> dict:
-    """A mapping of TypeVars to their actual bound types."""
-    res = {}
-
-    for arg, param in zip(type.__args__, type.__origin__.__parameters__, strict=True):  # type: ignore
-        res[param] = arg
-
+    while schema_builder._build_queue:
+        for component in list(schema_builder._build_queue):
+            schema_builder.build_schema_with(component, build_attrs_schema)
     return res
-
-
-def _build_attrs_schema(
-    type: type[AttrsInstance],
-    names: dict[type, str],
-    res: dict[str, AnySchema | Reference],
-) -> None:
-    properties = {}
-    name = names[type]
-    mapping = _make_generic_mapping(type) if is_generic(type) else {}
-    required = []
-    for a in fields(type):
-        if a.type is None:
-            continue
-
-        a_type = a.type
-
-        if a_type in mapping:
-            a_type = mapping[a_type]
-
-        if a_type in PYTHON_PRIMITIVES_TO_OPENAPI:
-            schema: AnySchema | Reference = PYTHON_PRIMITIVES_TO_OPENAPI[a_type]
-        elif has(a_type):
-            ref = f"#/components/schemas/{names[a_type]}"
-            if ref not in res:
-                _build_attrs_schema(a_type, names, res)
-            schema = Reference(ref)
-        elif getattr(a_type, "__origin__", None) is list:
-            arg = a_type.__args__[0]
-            if arg in mapping:
-                arg = mapping[arg]
-            if has(arg):
-                ref = f"#/components/schemas/{names[arg]}"
-                if ref not in res:
-                    _build_attrs_schema(arg, names, res)
-                schema = ArraySchema(Reference(ref))
-            elif arg in PYTHON_PRIMITIVES_TO_OPENAPI:
-                schema = ArraySchema(Schema(PYTHON_PRIMITIVES_TO_OPENAPI[arg].type))
-        elif getattr(a_type, "__origin__", None) is dict:
-            val_arg = a_type.__args__[1]
-
-            if has(val_arg):
-                ref = f"#/components/schemas/{names[val_arg]}"
-                if ref not in res:
-                    _build_attrs_schema(val_arg, names, res)
-                add_prop: Reference | Schema = Reference(ref)
-            else:
-                add_prop = PYTHON_PRIMITIVES_TO_OPENAPI[val_arg]
-
-            schema = Schema(Schema.Type.OBJECT, additionalProperties=add_prop)
-        elif is_literal(a_type):
-            schema = Schema(Schema.Type.STRING, enum=list(a_type.__args__))
-        elif is_union_type(a_type):
-            refs: list[Reference | Schema] = []
-            for arg in a_type.__args__:
-                if has(arg):
-                    ref = f"#/components/schemas/{names[arg]}"
-                    if ref not in res:
-                        _build_attrs_schema(arg, names, res)
-                    refs.append(Reference(ref))
-                elif arg is NoneType:
-                    refs.append(Schema(Schema.Type.NULL))
-                elif arg in PYTHON_PRIMITIVES_TO_OPENAPI:
-                    refs.append(PYTHON_PRIMITIVES_TO_OPENAPI[arg])
-            schema = OneOfSchema(refs)
-        else:
-            continue
-        properties[a.name] = schema
-        if a.default is NOTHING:
-            required.append(a.name)
-
-    res[name] = Schema(
-        type=Schema.Type.OBJECT, properties=properties, required=required
-    )
 
 
 def return_type_to_statuses(t: type) -> dict[int, Any]:

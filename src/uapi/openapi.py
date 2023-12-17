@@ -1,12 +1,14 @@
 # ruff: noqa: N815
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from datetime import date, datetime
 from enum import Enum, unique
-from typing import Literal, TypeAlias
+from typing import Any, ClassVar, Literal, TypeAlias
 
-from attrs import Factory, frozen
+from attrs import Factory, define, field, frozen
 from cattrs import override
+from cattrs._compat import is_generic
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
@@ -142,7 +144,56 @@ class OpenAPI:
     components: Components
 
 
-def structure_schemas(val, _):
+@define
+class SchemaBuilder:
+    """A helper builder for defining OpenAPI/JSON schemas."""
+
+    PYTHON_PRIMITIVES_TO_OPENAPI: ClassVar = {
+        str: Schema(Schema.Type.STRING),
+        int: Schema(Schema.Type.INTEGER),
+        bool: Schema(Schema.Type.BOOLEAN),
+        float: Schema(Schema.Type.NUMBER, format="double"),
+        bytes: Schema(Schema.Type.STRING, format="binary"),
+        date: Schema(Schema.Type.STRING, format="date"),
+        datetime: Schema(Schema.Type.STRING, format="date-time"),
+    }
+
+    names: dict[type, str] = Factory(dict)
+    components: dict[str, AnySchema | Reference] = Factory(dict)
+    _build_queue: list[type] = field(factory=list, init=False)
+
+    def build_schema_with(
+        self, type: Any, hook: Callable[[Any, SchemaBuilder], Schema]
+    ) -> Schema:
+        name = self._name_for(type)
+        self.components[name] = (r := hook(type, self))
+        if type in self._build_queue:
+            self._build_queue.remove(type)
+        return r
+
+    def reference_for_type(self, type: Any) -> Reference | Schema:
+        name = self._name_for(type)
+        if name not in self.components and type not in self._build_queue:
+            self._build_queue.append(type)
+        return Reference(f"#/components/schemas/{name}")
+
+    def _name_for(self, type: Any) -> str:
+        if type not in self.names:
+            name = type.__name__ if not is_generic(type) else _make_generic_name(type)
+            counter = 2
+            while name in self.names.values():
+                name = f"{type.__name__}{counter}"
+                counter += 1
+            self.names[type] = name
+        return self.names[type]
+
+
+def _make_generic_name(type: type) -> str:
+    """Used for generic attrs classes (Generic[int] instead of just Generic)."""
+    return type.__name__ + "[" + ", ".join(t.__name__ for t in type.__args__) + "]"  # type: ignore
+
+
+def _structure_schemas(val, _):
     if "$ref" in val:
         return converter.structure(val, Reference)
     if "oneOf" in val:
@@ -154,14 +205,14 @@ def structure_schemas(val, _):
     return converter.structure(val, Schema)
 
 
-def structure_inlinetype_ref(val, _):
+def _structure_inlinetype_ref(val, _):
     return converter.structure(val, Schema if "type" in val else Reference)
 
 
 converter.register_structure_hook(
-    Schema | OneOfSchema | ArraySchema | Reference, structure_schemas
+    Schema | OneOfSchema | ArraySchema | Reference, _structure_schemas
 )
-converter.register_structure_hook(Schema | Reference, structure_inlinetype_ref)
+converter.register_structure_hook(Schema | Reference, _structure_inlinetype_ref)
 converter.register_structure_hook(
     Parameter, make_dict_structure_fn(Parameter, converter, kind=override(rename="in"))
 )

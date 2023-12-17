@@ -484,7 +484,7 @@ _This functionality is handled by {class}`StrShorthand <uapi.shorthands.StrShort
 Handlers can return an instance of an _attrs_ class.
 The return value with be deserialized into JSON using the App _cattrs_ converter, which can be customized as per the usual _cattrs_ ways.
 
-The status code will be set to `200 OK`, and the content type to `application/json`. The class will be added to the OpenAPI schema.
+The status code will be set to `200 OK` and the content type to `application/json`. The class will be added to the OpenAPI schema.
 
 ```python
 from attrs import define
@@ -500,7 +500,7 @@ async def get_article() -> Article:
 
 ### Custom Response Shorthands
 
-The `str`, `bytes` or `None` return types are examples of _response shorthands_.
+The `str`, `bytes`, `None` and _attrs_ return types are examples of _response shorthands_.
 Custom response shorthands can be defined and added to apps; [see the Response Shorthands section for the details](response_shorthands.md).
 
 ### _uapi_ Status Code Classes

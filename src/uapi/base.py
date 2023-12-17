@@ -24,6 +24,7 @@ from .shorthands import (
     ResponseShorthand,
     StrShorthand,
     T_co,
+    make_attrs_shorthand,
 )
 from .status import BaseResponse, Ok
 from .types import Method, RouteName, RouteTags
@@ -42,6 +43,10 @@ H = TypeVar("H", bound=Callable[..., Any])
 default_shorthands: Final = (NoneShorthand, StrShorthand, BytesShorthand)
 
 
+def make_default_shorthands(converter: Converter) -> Sequence[type[ResponseShorthand]]:
+    return (*default_shorthands, make_attrs_shorthand(converter))
+
+
 @define
 class _AppBase:
     """The common base for sync and async apps."""
@@ -54,7 +59,10 @@ class _AppBase:
     ] = Factory(dict)
     _openapi_security: list[OpenAPISecuritySpec] = Factory(list)
     _shorthands: Sequence[type[ResponseShorthand]] = field(
-        default=default_shorthands, init=False
+        default=Factory(
+            lambda self: make_default_shorthands(self.converter), takes_self=True
+        ),
+        init=False,
     )
     _framework_req_cls: ClassVar[type] = NoneType
     _framework_resp_cls: ClassVar[type] = NoneType

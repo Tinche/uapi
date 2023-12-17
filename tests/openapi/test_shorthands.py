@@ -2,10 +2,10 @@
 from datetime import datetime, timezone
 from typing import Any
 
-from uapi.openapi import MediaType, OneOfSchema, Response, Schema
+from uapi.openapi import MediaType, OneOfSchema, Response, Schema, SchemaBuilder
 from uapi.quart import App
-from uapi.shorthands import ResponseShorthand
-from uapi.status import BaseResponse, Ok
+from uapi.shorthands import ResponseAdapter, ResponseShorthand
+from uapi.status import Ok
 
 from ..test_shorthands import DatetimeShorthand
 
@@ -30,7 +30,7 @@ def test_has_openapi() -> None:
 
     class OpenAPIDateTime(DatetimeShorthand):
         @staticmethod
-        def make_openapi_response() -> Response | None:
+        def make_openapi_response(_, __: SchemaBuilder) -> Response | None:
             return Response(
                 "DESC",
                 {"test": MediaType(Schema(Schema.Type.STRING, format="datetime"))},
@@ -86,17 +86,18 @@ def test_unions_same_content_type() -> None:
 
     class CustomShorthand(ResponseShorthand[MyStr]):
         @staticmethod
-        def response_adapter(value: Any) -> BaseResponse:
-            return Ok(value)
+        def response_adapter_factory(_) -> ResponseAdapter:
+            return lambda value: Ok(value)
 
         @staticmethod
         def is_union_member(value: Any) -> bool:
             return isinstance(value, str)
 
         @staticmethod
-        def make_openapi_response() -> Response | None:
+        def make_openapi_response(_, builder: SchemaBuilder) -> Response | None:
             return Response(
-                "OK", {"text/plain": MediaType(Schema(Schema.Type.BOOLEAN))}
+                "OK",
+                {"text/plain": MediaType(builder.PYTHON_PRIMITIVES_TO_OPENAPI[bool])},
             )
 
     app = App().add_response_shorthand(CustomShorthand)
@@ -131,15 +132,15 @@ def test_unions_same_content_type_oneof() -> None:
 
     class CustomShorthand(ResponseShorthand[MyStr]):
         @staticmethod
-        def response_adapter(value: Any) -> BaseResponse:
-            return Ok(value)
+        def response_adapter_factory(_) -> ResponseAdapter:
+            return lambda value: Ok(value)
 
         @staticmethod
         def is_union_member(value: Any) -> bool:
             return isinstance(value, str)
 
         @staticmethod
-        def make_openapi_response() -> Response | None:
+        def make_openapi_response(_, __: SchemaBuilder) -> Response | None:
             return Response(
                 "OK",
                 {

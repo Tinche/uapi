@@ -1,22 +1,37 @@
+from collections.abc import Callable
 from types import NoneType
-from typing import Any, Literal, Protocol, TypeVar
+from typing import Any, Literal, Protocol, TypeAlias, TypeVar, get_origin
 
+from attrs import AttrsInstance, has
+from cattrs import Converter
 from incant import is_subclass
+from orjson import dumps
 
-from .openapi import MediaType, Response, Schema
+from .attrschema import build_attrs_schema
+from .openapi import MediaType, Response, SchemaBuilder
 from .status import BaseResponse, NoContent, Ok
 
-__all__ = ["ResponseShorthand", "NoneShorthand", "StrShorthand", "BytesShorthand"]
+__all__ = [
+    "ResponseShorthand",
+    "ResponseAdapter",
+    "NoneShorthand",
+    "StrShorthand",
+    "BytesShorthand",
+]
 
 T_co = TypeVar("T_co", covariant=True)
+ResponseAdapter: TypeAlias = Callable[[Any], BaseResponse]
 
 
 class ResponseShorthand(Protocol[T_co]):
     """The base protocol for response shorthands."""
 
     @staticmethod
-    def response_adapter(value: Any) -> BaseResponse:  # pragma: no cover
-        """Convert a value of this type into a base response."""
+    def response_adapter_factory(type: Any) -> ResponseAdapter:  # pragma: no cover
+        """Produce a converter that turns a value of this type into a base response.
+
+        :param type: The actual type being handled by the shorthand.
+        """
         ...
 
     @staticmethod
@@ -28,7 +43,7 @@ class ResponseShorthand(Protocol[T_co]):
         ...
 
     @staticmethod
-    def make_openapi_response() -> Response | None:
+    def make_openapi_response(type: Any, builder: SchemaBuilder) -> Response | None:
         """Produce an OpenAPI response for this shorthand type.
 
         If this isn't overriden, no OpenAPI schema will be generated.
@@ -52,15 +67,18 @@ class NoneShorthand(ResponseShorthand[None]):
     """
 
     @staticmethod
-    def response_adapter(_: Any, _nc=NoContent()) -> BaseResponse:
-        return _nc
+    def response_adapter_factory(_: Any) -> ResponseAdapter:
+        def response_adapter(_, _nc=NoContent()):
+            return _nc
+
+        return response_adapter
 
     @staticmethod
     def is_union_member(value: Any) -> bool:
         return value is None
 
     @staticmethod
-    def make_openapi_response() -> Response:
+    def make_openapi_response(_: Any, __: SchemaBuilder) -> Response:
         return Response("No content")
 
     @staticmethod
@@ -75,16 +93,18 @@ class StrShorthand(ResponseShorthand[str]):
     """
 
     @staticmethod
-    def response_adapter(value: Any) -> BaseResponse:
-        return Ok(value, headers={"content-type": "text/plain"})
+    def response_adapter_factory(type: Any) -> ResponseAdapter:
+        return lambda value: Ok(value, headers={"content-type": "text/plain"})
 
     @staticmethod
     def is_union_member(value: Any) -> bool:
         return isinstance(value, str)
 
     @staticmethod
-    def make_openapi_response() -> Response:
-        return Response("OK", {"text/plain": MediaType(Schema(Schema.Type.STRING))})
+    def make_openapi_response(_: Any, builder: SchemaBuilder) -> Response:
+        return Response(
+            "OK", {"text/plain": MediaType(builder.PYTHON_PRIMITIVES_TO_OPENAPI[str])}
+        )
 
 
 class BytesShorthand(ResponseShorthand[bytes]):
@@ -95,23 +115,61 @@ class BytesShorthand(ResponseShorthand[bytes]):
     """
 
     @staticmethod
-    def response_adapter(value: Any) -> BaseResponse:
-        return Ok(value, headers={"content-type": "application/octet-stream"})
+    def response_adapter_factory(type: Any) -> ResponseAdapter:
+        return lambda value: Ok(
+            value, headers={"content-type": "application/octet-stream"}
+        )
 
     @staticmethod
     def is_union_member(value: Any) -> bool:
         return isinstance(value, bytes)
 
     @staticmethod
-    def make_openapi_response() -> Response:
+    def make_openapi_response(_: Any, builder: SchemaBuilder) -> Response:
         return Response(
             "OK",
             {
                 "application/octet-stream": MediaType(
-                    Schema(Schema.Type.STRING, format="binary")
+                    builder.PYTHON_PRIMITIVES_TO_OPENAPI[bytes]
                 )
             },
         )
+
+
+def make_attrs_shorthand(
+    converter: Converter,
+) -> type[ResponseShorthand[AttrsInstance]]:
+    class AttrsShorthand(ResponseShorthand[AttrsInstance]):
+        """Support for handlers returning _attrs_ classes."""
+
+        @staticmethod
+        def response_adapter_factory(type: Any) -> ResponseAdapter:
+            hook = converter._unstructure_func.dispatch(type)
+            headers = {"content-type": "application/json"}
+
+            def response_adapter(
+                value: AttrsInstance, _h=hook, _hs=headers
+            ) -> Ok[bytes]:
+                return Ok(dumps(_h(value)), _hs)
+
+            return response_adapter
+
+        @staticmethod
+        def is_union_member(value: Any) -> bool:
+            return False
+
+        @staticmethod
+        def make_openapi_response(type: Any, builder: SchemaBuilder) -> Response | None:
+            builder.build_schema_with(type, build_attrs_schema)
+            return Response(
+                "OK", {"application/json": MediaType(builder.reference_for_type(type))}
+            )
+
+        @staticmethod
+        def can_handle(type: Any) -> bool | Literal["check_type"]:
+            return has(type) and not is_subclass(get_origin(type) or type, BaseResponse)
+
+    return AttrsShorthand
 
 
 def get_shorthand_type(shorthand: type[ResponseShorthand]) -> Any:

@@ -10,7 +10,7 @@ from incant import is_subclass
 from orjson import dumps
 
 from .shorthands import ResponseShorthand, can_shorthand_handle
-from .status import BaseResponse, Headers, Ok, ResponseException
+from .status import BaseResponse, Headers, ResponseException
 
 empty_dict: Mapping[str, str] = MappingProxyType({})
 
@@ -24,7 +24,6 @@ def make_response_adapter(
     """Potentially create a function to adapt the return type to
     something uapi understands.
     """
-    # breakpoint()
     if return_type is Signature.empty or is_subclass(
         return_type, framework_response_cls
     ):
@@ -34,7 +33,7 @@ def make_response_adapter(
     for shorthand in shorthands:
         can_handle = can_shorthand_handle(return_type, shorthand)
         if can_handle:
-            return shorthand.response_adapter
+            return shorthand.response_adapter_factory(return_type)
 
     if is_subclass(return_type, BaseResponse):
         return identity
@@ -45,15 +44,6 @@ def make_response_adapter(
         return lambda r: return_type(
             dumps(converter.unstructure(r.ret, unstructure_as=inner)),
             r.headers | {"content-type": "application/json"},
-        )
-
-    # attrs classes (but not ours)
-    if has(return_type) and not is_subclass(
-        getattr(return_type, "__origin__", None), BaseResponse
-    ):
-        return lambda r: Ok(
-            dumps(converter.unstructure(r, unstructure_as=return_type)),
-            {"content-type": "application/json"},
         )
 
     if is_union_type(return_type):
@@ -69,11 +59,16 @@ def _make_union_response_adapter(
     shorthands: Iterable[type[ResponseShorthand]],
 ) -> Callable[[Any], BaseResponse] | None:
     # First, we check if any shorthands match.
-    shorthand_checks = []
+    shorthand_checks: list[tuple] = []
     for member in types:
         for shorthand in shorthands:
             if can_shorthand_handle(member, shorthand):
-                shorthand_checks.append(shorthand)
+                shorthand_checks.append(
+                    (
+                        shorthand.is_union_member,
+                        shorthand.response_adapter_factory(member),
+                    )
+                )
                 break
 
     if not shorthand_checks:
@@ -84,12 +79,12 @@ def _make_union_response_adapter(
         )
 
     def response_adapter(val: Any, _shs=shorthand_checks) -> BaseResponse:
-        for sh in _shs:
-            if sh.is_union_member(val):
-                return sh.response_adapter(val)
+        for is_union_member, ra in _shs:
+            if is_union_member(val):
+                return ra(val)
         return val.__class__(
-            ret=dumps(converter.unstructure(val.ret)) if val.ret is not None else None,
-            headers=val.headers | {"content-type": "application/json"},
+            dumps(converter.unstructure(val.ret)) if val.ret is not None else None,
+            val.headers | {"content-type": "application/json"},
         )
 
     return response_adapter

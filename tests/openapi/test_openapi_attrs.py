@@ -560,13 +560,15 @@ def test_same_name_models() -> None:
     spec = app.make_openapi_spec()
 
     assert spec.components.schemas
+
+    # This gets picked up first since it's a parameter.
     assert spec.components.schemas["Model1"] == Schema(
-        Schema.Type.OBJECT,
-        properties={"b": Schema(Schema.Type.NUMBER, format="double")},
-        required=["b"],
-    )
-    assert spec.components.schemas["Model12"] == Schema(
         Schema.Type.OBJECT,
         properties={"a": Schema(Schema.Type.INTEGER)},
         required=["a"],
+    )
+    assert spec.components.schemas["Model12"] == Schema(
+        Schema.Type.OBJECT,
+        properties={"b": Schema(Schema.Type.NUMBER, format="double")},
+        required=["b"],
     )
