@@ -6,16 +6,16 @@ from datetime import date, datetime
 from enum import Enum, unique
 from typing import Any, ClassVar, Literal, TypeAlias
 
-from attrs import Factory, define, field, frozen
+from attrs import Factory, define, field, frozen, has
 from cattrs import override
-from cattrs._compat import is_generic
+from cattrs._compat import get_args, is_generic, is_sequence
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
 converter = make_converter(omit_if_default=True)
 
 # MediaTypeNames are like `application/json`.
-MediaTypeName = str
+MediaTypeName: TypeAlias = str
 # HTTP status codes
 StatusCodeType: TypeAlias = str
 
@@ -46,19 +46,34 @@ class Schema:
 
 
 @frozen
+class IntegerSchema:
+    format: Literal[None, "int32", "int64"] = None
+    minimum: int | None = None
+    maximum: int | None = None
+    exclusiveMinimum: bool = False
+    exclusiveMaximum: bool = False
+    multipleOf: int | None = None
+    enum: list[int] = Factory(list)
+    type: Literal[Schema.Type.INTEGER] = Schema.Type.INTEGER
+
+
+@frozen
 class ArraySchema:
-    items: Schema | Reference
+    items: Schema | IntegerSchema | Reference
     type: Literal[Schema.Type.ARRAY] = Schema.Type.ARRAY
 
 
 @frozen
 class OneOfSchema:
-    oneOf: Sequence[Reference | Schema | ArraySchema]
+    oneOf: Sequence[AnySchema | Reference]
+
+
+AnySchema = Schema | IntegerSchema | ArraySchema | OneOfSchema
 
 
 @frozen
 class MediaType:
-    schema: Schema | OneOfSchema | ArraySchema | Reference
+    schema: AnySchema | Reference
 
 
 @frozen
@@ -79,10 +94,7 @@ class Parameter:
     name: str
     kind: Kind
     required: bool = False
-    schema: Schema | Reference | OneOfSchema | None = None
-
-
-AnySchema = Schema | ArraySchema | OneOfSchema
+    schema: AnySchema | Reference | None = None
 
 
 @frozen
@@ -144,13 +156,17 @@ class OpenAPI:
     components: Components
 
 
+Predicate: TypeAlias = Callable[[Any], bool]
+BuildHook: TypeAlias = Callable[[Any, "SchemaBuilder"], AnySchema]
+
+
 @define
 class SchemaBuilder:
     """A helper builder for defining OpenAPI/JSON schemas."""
 
     PYTHON_PRIMITIVES_TO_OPENAPI: ClassVar = {
         str: Schema(Schema.Type.STRING),
-        int: Schema(Schema.Type.INTEGER),
+        int: IntegerSchema(),
         bool: Schema(Schema.Type.BOOLEAN),
         float: Schema(Schema.Type.NUMBER, format="double"),
         bytes: Schema(Schema.Type.STRING, format="binary"),
@@ -160,18 +176,37 @@ class SchemaBuilder:
 
     names: dict[type, str] = Factory(dict)
     components: dict[str, AnySchema | Reference] = Factory(dict)
+    build_rules: list[tuple[Predicate, BuildHook]] = Factory(
+        lambda self: self.default_build_rules(), takes_self=True
+    )
     _build_queue: list[type] = field(factory=list, init=False)
 
-    def build_schema_with(
-        self, type: Any, hook: Callable[[Any, SchemaBuilder], Schema]
-    ) -> Schema:
+    def build_schema_with(self, type: Any, hook: BuildHook) -> AnySchema:
+        """Build the schema for `type` using the provided hook, bypassing rules."""
         name = self._name_for(type)
         self.components[name] = (r := hook(type, self))
         if type in self._build_queue:
             self._build_queue.remove(type)
         return r
 
-    def reference_for_type(self, type: Any) -> Reference | Schema:
+    def build_schema_from_rules(self, type: Any) -> AnySchema:
+        for pred, hook in self.build_rules:  # noqa: B007
+            if pred(type):
+                break
+        else:
+            raise Exception(f"Can't handle {type}")
+
+        name = self._name_for(type)
+        self.components[name] = (r := hook(type, self))
+        if type in self._build_queue:
+            self._build_queue.remove(type)
+        return r
+
+    def get_schema_for_type(self, type: Any) -> Reference | Schema:
+        # First check inline types.
+        if type in self.PYTHON_PRIMITIVES_TO_OPENAPI:
+            return self.PYTHON_PRIMITIVES_TO_OPENAPI[type]
+
         name = self._name_for(type)
         if name not in self.components and type not in self._build_queue:
             self._build_queue.append(type)
@@ -186,6 +221,24 @@ class SchemaBuilder:
                 counter += 1
             self.names[type] = name
         return self.names[type]
+
+    @classmethod
+    def default_build_rules(cls) -> list[tuple[Predicate, BuildHook]]:
+        """Set up the default build rules."""
+        from .attrschema import build_attrs_schema
+
+        def build_sequence_schema(type: Any, builder: SchemaBuilder) -> AnySchema:
+            arg = get_args(type)[0]
+            return ArraySchema(builder.get_schema_for_type(arg))
+
+        return [
+            (
+                cls.PYTHON_PRIMITIVES_TO_OPENAPI.__contains__,
+                lambda t, _: cls.PYTHON_PRIMITIVES_TO_OPENAPI[t],
+            ),
+            (is_sequence, build_sequence_schema),
+            (has, build_attrs_schema),
+        ]
 
 
 def _make_generic_name(type: type) -> str:
@@ -202,22 +255,23 @@ def _structure_schemas(val, _):
     type = Schema.Type(val["type"])
     if type is Schema.Type.ARRAY:
         return converter.structure(val, ArraySchema)
+    if type is Schema.Type.INTEGER:
+        return converter.structure(val, IntegerSchema)
     return converter.structure(val, Schema)
 
 
-def _structure_inlinetype_ref(val, _):
-    return converter.structure(val, Schema if "type" in val else Reference)
+def _structure_schema_or_ref(val, _) -> Schema | IntegerSchema | Reference:
+    if "$ref" in val:
+        return converter.structure(val, Reference)
+    type = Schema.Type(val["type"])
+    if type is Schema.Type.INTEGER:
+        return converter.structure(val, IntegerSchema)
+    return converter.structure(val, Schema)
 
 
+converter.register_structure_hook(AnySchema | Reference, _structure_schemas)
 converter.register_structure_hook(
-    Schema | OneOfSchema | ArraySchema | Reference, _structure_schemas
-)
-converter.register_structure_hook(Schema | Reference, _structure_inlinetype_ref)
-converter.register_structure_hook(
-    Parameter, make_dict_structure_fn(Parameter, converter, kind=override(rename="in"))
-)
-converter.register_structure_hook(
-    Reference, make_dict_structure_fn(Reference, converter, ref=override(rename="$ref"))
+    Schema | IntegerSchema | Reference, _structure_schema_or_ref
 )
 converter.register_structure_hook(
     Schema | ArraySchema | Reference,
@@ -239,6 +293,13 @@ converter.register_structure_hook(
         else converter.structure(v, Schema)
     ),
 )
+converter.register_structure_hook(
+    Parameter, make_dict_structure_fn(Parameter, converter, kind=override(rename="in"))
+)
+converter.register_structure_hook(
+    Reference, make_dict_structure_fn(Reference, converter, ref=override(rename="$ref"))
+)
+
 converter.register_unstructure_hook(
     ApiKeySecurityScheme,
     make_dict_unstructure_fn(
@@ -248,7 +309,6 @@ converter.register_unstructure_hook(
         type=override(omit_if_default=False),
     ),
 )
-
 converter.register_unstructure_hook(
     Reference,
     make_dict_unstructure_fn(Reference, converter, ref=override(rename="$ref")),
@@ -263,5 +323,11 @@ converter.register_unstructure_hook(
     ArraySchema,
     make_dict_unstructure_fn(
         ArraySchema, converter, type=override(omit_if_default=False)
+    ),
+)
+converter.register_unstructure_hook(
+    IntegerSchema,
+    make_dict_unstructure_fn(
+        IntegerSchema, converter, type=override(omit_if_default=False)
     ),
 )

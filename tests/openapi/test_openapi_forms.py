@@ -1,9 +1,10 @@
 """Forms work with the OpenAPI schema."""
 from uapi.base import App
-from uapi.openapi import MediaType, Reference, RequestBody, Schema
+from uapi.openapi import IntegerSchema, MediaType, Reference, RequestBody, Schema
 
 
 def test_forms(app: App):
+    """Simple forms work."""
     spec = app.make_openapi_spec()
 
     pi = spec.paths["/form"]
@@ -21,7 +22,7 @@ def test_forms(app: App):
     assert spec.components.schemas["SimpleModelNoDefaults"] == Schema(
         Schema.Type.OBJECT,
         {
-            "an_int": Schema(Schema.Type.INTEGER),
+            "an_int": IntegerSchema(),
             "a_string": Schema(Schema.Type.STRING),
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },

@@ -41,23 +41,21 @@ def build_attrs_schema(type: Any, builder: SchemaBuilder) -> Schema:
         if a_type in builder.PYTHON_PRIMITIVES_TO_OPENAPI:
             schema: AnySchema | Reference = builder.PYTHON_PRIMITIVES_TO_OPENAPI[a_type]
         elif has(a_type):
-            schema = builder.reference_for_type(a_type)
+            schema = builder.get_schema_for_type(a_type)
         elif getattr(a_type, "__origin__", None) is list:
             arg = a_type.__args__[0]
             if arg in mapping:
                 arg = mapping[arg]
             if has(arg):
-                ref = builder.reference_for_type(arg)
+                ref = builder.get_schema_for_type(arg)
                 schema = ArraySchema(ref)
             elif arg in builder.PYTHON_PRIMITIVES_TO_OPENAPI:
-                schema = ArraySchema(
-                    Schema(builder.PYTHON_PRIMITIVES_TO_OPENAPI[arg].type)
-                )
+                schema = ArraySchema(builder.PYTHON_PRIMITIVES_TO_OPENAPI[arg])
         elif getattr(a_type, "__origin__", None) is dict:
             val_arg = a_type.__args__[1]
 
             if has(val_arg):
-                add_prop: Reference | Schema = builder.reference_for_type(val_arg)
+                add_prop: Reference | Schema = builder.get_schema_for_type(val_arg)
             else:
                 add_prop = builder.PYTHON_PRIMITIVES_TO_OPENAPI[val_arg]
 
@@ -68,7 +66,7 @@ def build_attrs_schema(type: Any, builder: SchemaBuilder) -> Schema:
             refs: list[Reference | Schema] = []
             for arg in a_type.__args__:
                 if has(arg):
-                    refs.append(builder.reference_for_type(arg))
+                    refs.append(builder.get_schema_for_type(arg))
                 elif arg is NoneType:
                     refs.append(Schema(Schema.Type.NULL))
                 elif arg in builder.PYTHON_PRIMITIVES_TO_OPENAPI:

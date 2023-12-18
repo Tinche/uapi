@@ -2,7 +2,7 @@
 from httpx import AsyncClient
 
 from uapi.base import App
-from uapi.openapi import OpenAPI, Parameter, Response, Schema, converter
+from uapi.openapi import IntegerSchema, OpenAPI, Parameter, Response, Schema, converter
 
 
 async def test_get_index(server_with_openapi: int) -> None:
@@ -43,7 +43,7 @@ def test_get_path_param(app: App) -> None:
             name="path_id",
             kind=Parameter.Kind.PATH,
             required=True,
-            schema=Schema(Schema.Type.INTEGER),
+            schema=IntegerSchema(),
         )
     ]
     assert len(op.get.responses) == 1
@@ -64,7 +64,7 @@ def test_get_query_int(app: App) -> None:
             name="page",
             kind=Parameter.Kind.QUERY,
             required=True,
-            schema=Schema(Schema.Type.INTEGER),
+            schema=IntegerSchema(),
         )
     ]
     assert len(op.get.responses) == 1
@@ -82,7 +82,7 @@ def test_get_query_default(app: App) -> None:
             name="page",
             kind=Parameter.Kind.QUERY,
             required=False,
-            schema=Schema(Schema.Type.INTEGER),
+            schema=IntegerSchema(),
         )
     ]
     assert len(op.get.responses) == 1

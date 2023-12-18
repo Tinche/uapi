@@ -12,10 +12,9 @@ from attrs import has
 from cattrs._compat import is_union_type
 from incant import is_subclass
 
-from .attrschema import build_attrs_schema
 from .openapi import (
+    AnySchema,
     ApiKeySecurityScheme,
-    ArraySchema,
     MediaType,
     MediaTypeName,
     OneOfSchema,
@@ -137,14 +136,14 @@ def build_operation(
             req_type, loader = type_and_loader
             if has(req_type):
                 request_bodies[loader.content_type or "*/*"] = MediaType(
-                    builder.reference_for_type(req_type)
+                    builder.get_schema_for_type(req_type)
                 )
             else:
                 # It's a dict.
                 v_type = req_type.__args__[1]  # type: ignore[attr-defined]
 
                 add_prop: Reference | Schema = (
-                    builder.reference_for_type(v_type)
+                    builder.get_schema_for_type(v_type)
                     if has(v_type)
                     else builder.PYTHON_PRIMITIVES_TO_OPENAPI[v_type]
                 )
@@ -159,7 +158,7 @@ def build_operation(
         ):
             # A body form.
             request_bodies["application/x-www-form-urlencoded"] = MediaType(
-                builder.reference_for_type(form_type)
+                builder.get_schema_for_type(form_type)
             )
         else:
             if is_union_type(arg_type):
@@ -168,7 +167,7 @@ def build_operation(
                     if union_member is NoneType:
                         refs.append(Schema(Schema.Type.NULL))
                     elif union_member in builder.PYTHON_PRIMITIVES_TO_OPENAPI:
-                        refs.append(builder.PYTHON_PRIMITIVES_TO_OPENAPI[union_member])
+                        refs.append(builder.get_schema_for_type(union_member))
                 param_schema: OneOfSchema | Schema = OneOfSchema(refs)
             else:
                 param_schema = builder.PYTHON_PRIMITIVES_TO_OPENAPI.get(
@@ -231,7 +230,7 @@ def build_operation(
 
 def _coalesce_responses(rs: Sequence[Response]) -> Response:
     first_resp = rs[0]
-    content: dict[MediaTypeName, list[Schema | ArraySchema | Reference]] = {}
+    content: dict[MediaTypeName, list[AnySchema | Reference]] = {}
     for r in rs:
         for mtn, mt in r.content.items():
             if isinstance(mt.schema, OneOfSchema):
@@ -389,16 +388,16 @@ def gather_endpoint_components(handler: Callable, builder: SchemaBuilder) -> Non
             and (arg_type := type_and_loader[0]) not in builder.names
         ):
             if has(arg_type):
-                builder.build_schema_with(arg_type, build_attrs_schema)
+                builder.get_schema_for_type(arg_type)
             else:
                 # It's a dict.
                 val_arg = arg_type.__args__[1]  # type: ignore[attr-defined]
                 if has(val_arg):
-                    builder.build_schema_with(val_arg, build_attrs_schema)
+                    builder.get_schema_for_type(val_arg)
         elif arg.annotation is not InspectParameter.empty and (
             form_type := maybe_form_type(arg)
         ):
-            builder.build_schema_with(form_type, build_attrs_schema)
+            builder.get_schema_for_type(form_type)
 
 
 def components_to_openapi(
@@ -415,7 +414,7 @@ def components_to_openapi(
         gather_endpoint_components(handler, builder)
 
     for component in builder._build_queue:
-        builder.build_schema_with(component, build_attrs_schema)
+        builder.get_schema_for_type(component)
 
     return OpenAPI.Components(builder.components, security_schemes)
 
@@ -456,7 +455,7 @@ def make_openapi_spec(
     )
     while schema_builder._build_queue:
         for component in list(schema_builder._build_queue):
-            schema_builder.build_schema_with(component, build_attrs_schema)
+            schema_builder.build_schema_from_rules(component)
     return res
 
 

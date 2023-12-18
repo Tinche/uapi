@@ -7,7 +7,6 @@ from cattrs import Converter
 from incant import is_subclass
 from orjson import dumps
 
-from .attrschema import build_attrs_schema
 from .openapi import MediaType, Response, SchemaBuilder
 from .status import BaseResponse, NoContent, Ok
 
@@ -160,9 +159,8 @@ def make_attrs_shorthand(
 
         @staticmethod
         def make_openapi_response(type: Any, builder: SchemaBuilder) -> Response | None:
-            builder.build_schema_with(type, build_attrs_schema)
             return Response(
-                "OK", {"application/json": MediaType(builder.reference_for_type(type))}
+                "OK", {"application/json": MediaType(builder.get_schema_for_type(type))}
             )
 
         @staticmethod
