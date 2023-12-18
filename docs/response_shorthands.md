@@ -24,23 +24,26 @@ class DatetimeShorthand(ResponseShorthand[datetime]):
 Note that the shorthand is generic over the type we want to enable.
 This protocol contains four static methods (functions); two mandatory ones and two optional ones.
 
-The first function we need to override is {meth}`ResponseShorthand.response_adapter`.
-This functions needs to convert an instance of our type (`datetime`) into a _uapi_ [status code class](handlers.md#uapi-status-code-classes), so _uapi_ can adapt the value for the underlying framework.
+The first function we need to override is {meth}`ResponseShorthand.response_adapter_factory`.
+This function needs to produce an adapter which converts an instance of our type (`datetime`) into a _uapi_ [status code class](handlers.md#uapi-status-code-classes), so _uapi_ can adapt the value for the underlying framework.
 
+{emphasize-lines="6-8"}
 ```python
+from uapi.shorthands import ResponseAdapter
 from uapi.status import BaseResponse, Ok
 
 class DatetimeShorthand(ResponseShorthand[datetime]):
 
     @staticmethod
-    def response_adapter(value: Any) -> BaseResponse:
-        return Ok(value.isoformat(), headers={"content-type": "date"})
+    def response_adapter_factory(type: Any) -> ResponseAdapter:
+        return lambda value: Ok(value.isoformat(), headers={"content-type": "date"})
 ```
 
 The second function is {meth}`ResponseShorthand.is_union_member`.
 This function is used to recognize if a return value is an instance of the shorthand type when the return type is a union.
 For example, if the return type is `datetime | str`, uapi needs to be able to detect and handle both cases.
 
+{emphasize-lines="3-5"}
 ```python
 class DatetimeShorthand(ResponseShorthand[datetime]):
 
@@ -52,6 +55,7 @@ class DatetimeShorthand(ResponseShorthand[datetime]):
 With these two functions we have a minimal shorthand implementation.
 We can add it to an app to be able to use it:
 
+{emphasize-lines="5"}
 ```
 from uapi.starlette import App  # Or any other app
 
@@ -69,6 +73,7 @@ To enable OpenAPI integration we need to implement one more function, {meth}`Res
 
 This function returns the [OpenAPI response definition](https://swagger.io/specification/#responses-object) for the shorthand.
 
+{emphasize-lines="5-10"}
 ```python
 from uapi.openapi import MediaType, Response, Schema
 
@@ -91,6 +96,7 @@ For example, the default {class}`NoneShorthand <NoneShorthand>` shorthand wouldn
 
 Here's what a dummy implementation would look like for our `DatetimeShorthand`.
 
+{emphasize-lines="3-5"}
 ```python
 class DatetimeShorthand(ResponseShorthand[datetime]):
 

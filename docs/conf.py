@@ -67,5 +67,6 @@ html_theme_options = {
 }
 
 myst_heading_anchors = 3
+myst_enable_extensions = ["attrs_block"]
 autodoc_typehints = "description"
 autoclass_content = "both"
