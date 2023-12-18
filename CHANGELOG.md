@@ -14,11 +14,17 @@ The **third number** is for emergencies when we need to start branches for older
 
 ### Changed
 
+- Return types of handlers are now type-checked.
+  ([#57](https://github.com/Tinche/uapi/pull/57))
+- Introduce [Response Shorthands](https://uapi.threeofwands.com/en/latest/response_shorthands.html), port the `str`, `bytes`, `None` and _attrs_ response types to them.
+  ([#57](https://github.com/Tinche/uapi/pull/57))
 - [`datetime.datetime`](https://docs.python.org/3/library/datetime.html#datetime-objects) and [`datetime.date`](https://docs.python.org/3/library/datetime.html#date-objects) are now supported in the OpenAPI schema, both in models and handler parameters.
   ([#53](https://github.com/Tinche/uapi/pull/53))
 - Simple forms are now supported using `uapi.ReqForm[T]`. [Learn more](handlers.md#forms).
   ([#54](https://github.com/Tinche/uapi/pull/54))
 - _uapi_ now sorts imports using Ruff.
+- _uapi_ is now tested against Mypy.
+  ([#57](https://github.com/Tinche/uapi/pull/57))
 
 ## [v23.1.0](https://github.com/tinche/uapi/compare/v22.1.0...v23.1.0) - 2023-11-12
 
