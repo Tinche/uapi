@@ -10,7 +10,7 @@ The **third number** is for emergencies when we need to start branches for older
 
 <!-- changelog follows -->
 
-# [v23.3.0](https://github.com/tinche/uapi/compare/v23.2.0...HEAD) - UNRELEASED
+## [v23.3.0](https://github.com/tinche/uapi/compare/v23.2.0...v23.3.0) - 2023-12-20
 
 ### Changed
 
