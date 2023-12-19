@@ -519,7 +519,7 @@ async def get_article() -> Ok[Article]:
 
 ### Returning Multiple Status Codes
 
-Use a union of _uapi_ response types if your handler can return multiple status codes.
+Use a union of _uapi_ response types and shorthands if your handler can return multiple status codes.
 
 All responses defined this way will be rendered in the OpenAPI schema.
 
