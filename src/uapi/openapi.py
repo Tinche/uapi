@@ -40,7 +40,7 @@ class Schema:
     type: Type
     properties: dict[str, AnySchema | Reference] | None = None
     format: str | None = None
-    additionalProperties: bool | Schema | Reference = False
+    additionalProperties: bool | Schema | IntegerSchema | Reference = False
     enum: list[str] | None = None
     required: list[str] = Factory(list)
 
@@ -164,7 +164,7 @@ BuildHook: TypeAlias = Callable[[Any, "SchemaBuilder"], AnySchema]
 class SchemaBuilder:
     """A helper builder for defining OpenAPI/JSON schemas."""
 
-    PYTHON_PRIMITIVES_TO_OPENAPI: ClassVar = {
+    PYTHON_PRIMITIVES_TO_OPENAPI: ClassVar[dict[type, Schema | IntegerSchema]] = {
         str: Schema(Schema.Type.STRING),
         int: IntegerSchema(),
         bool: Schema(Schema.Type.BOOLEAN),
@@ -194,7 +194,9 @@ class SchemaBuilder:
             self._build_queue.remove(type)
         return r
 
-    def get_schema_for_type(self, type: Any) -> Reference | Schema | ArraySchema:
+    def get_schema_for_type(
+        self, type: Any
+    ) -> Reference | Schema | IntegerSchema | ArraySchema:
         # First check inline types.
         if type in self.PYTHON_PRIMITIVES_TO_OPENAPI:
             return self.PYTHON_PRIMITIVES_TO_OPENAPI[type]
@@ -286,13 +288,17 @@ converter.register_structure_hook(
     ),
 )
 converter.register_structure_hook(
-    bool | Schema | Reference,
+    bool | Schema | IntegerSchema | Reference,
     lambda v, _: v
     if isinstance(v, bool)
     else (
         converter.structure(v, Reference)
         if "$ref" in v
-        else converter.structure(v, Schema)
+        else (
+            converter.structure(v, IntegerSchema)
+            if v["type"] == "integer"
+            else converter.structure(v, Schema)
+        )
     ),
 )
 converter.register_structure_hook(

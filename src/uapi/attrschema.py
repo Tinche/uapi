@@ -5,7 +5,14 @@ from typing import Any
 from attrs import NOTHING, fields, has
 from cattrs._compat import is_generic, is_literal, is_union_type
 
-from .openapi import AnySchema, OneOfSchema, Reference, Schema, SchemaBuilder
+from .openapi import (
+    AnySchema,
+    ArraySchema,
+    OneOfSchema,
+    Reference,
+    Schema,
+    SchemaBuilder,
+)
 
 
 def _make_generic_mapping(type: type) -> dict:
@@ -43,16 +50,15 @@ def build_attrs_schema(type: Any, builder: SchemaBuilder) -> Schema:
         elif getattr(a_type, "__origin__", None) is dict:
             val_arg = a_type.__args__[1]
 
-            if has(val_arg):
-                add_prop: Reference | Schema = builder.get_schema_for_type(val_arg)
-            else:
-                add_prop = builder.PYTHON_PRIMITIVES_TO_OPENAPI[val_arg]
+            add_prop = builder.get_schema_for_type(val_arg)
+            if isinstance(add_prop, ArraySchema):
+                raise Exception("Arrays in additional properties not supported.")
 
             schema = Schema(Schema.Type.OBJECT, additionalProperties=add_prop)
         elif is_literal(a_type):
             schema = Schema(Schema.Type.STRING, enum=list(a_type.__args__))
         elif is_union_type(a_type):
-            refs: list[Reference | Schema] = []
+            refs: list[Reference | AnySchema] = []
             for arg in a_type.__args__:
                 if has(arg):
                     refs.append(builder.get_schema_for_type(arg))

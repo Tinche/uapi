@@ -15,6 +15,8 @@ from incant import is_subclass
 from .openapi import (
     AnySchema,
     ApiKeySecurityScheme,
+    ArraySchema,
+    IntegerSchema,
     MediaType,
     MediaTypeName,
     OneOfSchema,
@@ -142,11 +144,10 @@ def build_operation(
                 # It's a dict.
                 v_type = req_type.__args__[1]  # type: ignore[attr-defined]
 
-                add_prop: Reference | Schema = (
-                    builder.get_schema_for_type(v_type)
-                    if has(v_type)
-                    else builder.PYTHON_PRIMITIVES_TO_OPENAPI[v_type]
-                )
+                add_prop = builder.get_schema_for_type(v_type)
+
+                if isinstance(add_prop, ArraySchema):
+                    raise Exception("Arrayschema not supported.")
 
                 request_bodies[loader.content_type or "*/*"] = MediaType(
                     Schema(Schema.Type.OBJECT, additionalProperties=add_prop)
@@ -162,13 +163,13 @@ def build_operation(
             )
         else:
             if is_union_type(arg_type):
-                refs: list[Reference | Schema] = []
+                refs: list[Reference | Schema | IntegerSchema] = []
                 for union_member in arg_type.__args__:
                     if union_member is NoneType:
                         refs.append(Schema(Schema.Type.NULL))
                     elif union_member in builder.PYTHON_PRIMITIVES_TO_OPENAPI:
-                        refs.append(builder.get_schema_for_type(union_member))
-                param_schema: OneOfSchema | Schema = OneOfSchema(refs)
+                        refs.append(builder.PYTHON_PRIMITIVES_TO_OPENAPI[union_member])
+                param_schema: OneOfSchema | Schema | IntegerSchema = OneOfSchema(refs)
             else:
                 param_schema = builder.PYTHON_PRIMITIVES_TO_OPENAPI.get(
                     arg_param.annotation, builder.PYTHON_PRIMITIVES_TO_OPENAPI[str]
