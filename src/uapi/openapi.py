@@ -181,14 +181,6 @@ class SchemaBuilder:
     )
     _build_queue: list[type] = field(factory=list, init=False)
 
-    def build_schema_with(self, type: Any, hook: BuildHook) -> AnySchema:
-        """Build the schema for `type` using the provided hook, bypassing rules."""
-        name = self._name_for(type)
-        self.components[name] = (r := hook(type, self))
-        if type in self._build_queue:
-            self._build_queue.remove(type)
-        return r
-
     def build_schema_from_rules(self, type: Any) -> AnySchema:
         for pred, hook in self.build_rules:  # noqa: B007
             if pred(type):
@@ -202,10 +194,17 @@ class SchemaBuilder:
             self._build_queue.remove(type)
         return r
 
-    def get_schema_for_type(self, type: Any) -> Reference | Schema:
+    def get_schema_for_type(self, type: Any) -> Reference | Schema | ArraySchema:
         # First check inline types.
         if type in self.PYTHON_PRIMITIVES_TO_OPENAPI:
             return self.PYTHON_PRIMITIVES_TO_OPENAPI[type]
+        if is_sequence(type):
+            # Arrays get created inline.
+            arg = get_args(type)[0]
+            inner = self.get_schema_for_type(arg)
+            if not isinstance(inner, ArraySchema):
+                return ArraySchema(inner)
+            raise Exception("Nested arrays are unsupported.")
 
         name = self._name_for(type)
         if name not in self.components and type not in self._build_queue:
@@ -229,7 +228,10 @@ class SchemaBuilder:
 
         def build_sequence_schema(type: Any, builder: SchemaBuilder) -> AnySchema:
             arg = get_args(type)[0]
-            return ArraySchema(builder.get_schema_for_type(arg))
+            inner = builder.get_schema_for_type(arg)
+            if isinstance(inner, ArraySchema):
+                raise Exception("Nested arrays are unsupported.")
+            return ArraySchema(inner)
 
         return [
             (
