@@ -18,6 +18,8 @@ The **third number** is for emergencies when we need to start branches for older
   ([#57](https://github.com/Tinche/uapi/pull/57))
 - Introduce [Response Shorthands](https://uapi.threeofwands.com/en/latest/response_shorthands.html), port the `str`, `bytes`, `None` and _attrs_ response types to them.
   ([#57](https://github.com/Tinche/uapi/pull/57))
+- Unions containing shorthands and _uapi_ response classes (and any combination of these) are now better supported.
+  ([#57](https://github.com/Tinche/uapi/pull/57))
 - [`datetime.datetime`](https://docs.python.org/3/library/datetime.html#datetime-objects) and [`datetime.date`](https://docs.python.org/3/library/datetime.html#date-objects) are now supported in the OpenAPI schema, both in models and handler parameters.
   ([#53](https://github.com/Tinche/uapi/pull/53))
 - Simple forms are now supported using `uapi.ReqForm[T]`. [Learn more](handlers.md#forms).
