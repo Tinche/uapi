@@ -229,13 +229,13 @@ def _make_quart_incanter(converter: Converter) -> Incanter:
     )
     res.register_hook_factory(
         is_header,
-        lambda p: make_header_dependency(
+        lambda p: _make_header_dependency(
             *get_header_type(p), p.name, converter, p.default
         ),
     )
     res.register_hook_factory(
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
-        lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
+        lambda p: _make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
 
     async def request_bytes() -> bytes:
@@ -259,7 +259,7 @@ def _make_quart_incanter(converter: Converter) -> Incanter:
     return res
 
 
-def make_header_dependency(
+def _make_header_dependency(
     type: type,
     headerspec: HeaderSpec,
     name: str,
@@ -297,7 +297,7 @@ def make_header_dependency(
     return read_opt_conv_header
 
 
-def make_cookie_dependency(cookie_name: str, default=Signature.empty):
+def _make_cookie_dependency(cookie_name: str, default=Signature.empty):
     if default is Signature.empty:
 
         def read_cookie() -> str:

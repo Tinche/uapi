@@ -253,13 +253,13 @@ def _make_starlette_incanter(converter: Converter) -> Incanter:
     )
     res.register_hook_factory(
         is_header,
-        lambda p: make_header_dependency(
+        lambda p: _make_header_dependency(
             *get_header_type(p), p.name, converter, p.default
         ),
     )
     res.register_hook_factory(
         lambda p: get_cookie_name(p.annotation, p.name) is not None,
-        lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
+        lambda p: _make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
     )
 
     async def request_bytes(_request: FrameworkRequest) -> bytes:
@@ -283,7 +283,7 @@ def _make_starlette_incanter(converter: Converter) -> Incanter:
     return res
 
 
-def make_header_dependency(
+def _make_header_dependency(
     type: type,
     headerspec: HeaderSpec,
     name: str,
@@ -321,7 +321,7 @@ def make_header_dependency(
     return read_opt_conv_header
 
 
-def make_cookie_dependency(cookie_name: str, default=Signature.empty):
+def _make_cookie_dependency(cookie_name: str, default=Signature.empty):
     if default is Signature.empty:
 
         def read_cookie(_request: FrameworkRequest) -> str:
@@ -335,7 +335,7 @@ def make_cookie_dependency(cookie_name: str, default=Signature.empty):
     return read_cookie_opt
 
 
-def extract_cookies(headers: Headers) -> tuple[dict[str, str], list[str]]:
+def _extract_cookies(headers: Headers) -> tuple[dict[str, str], list[str]]:
     h = {}
     cookies = []
     for k, v in headers.items():
@@ -362,7 +362,7 @@ def _make_form_dependency(
 
 def _framework_return_adapter(resp: BaseResponse) -> FrameworkResponse:
     if resp.headers:
-        headers, cookies = extract_cookies(resp.headers)
+        headers, cookies = _extract_cookies(resp.headers)
         res = FrameworkResponse(
             resp.ret or b"", get_status_code(resp.__class__), headers  # type: ignore
         )

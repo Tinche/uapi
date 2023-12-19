@@ -146,6 +146,10 @@ def configure_base_async(app: AsyncApp) -> None:
     async def header_default(test_header: Header[str | None] = None) -> str:
         return test_header or "default"
 
+    @app.get("/header-nonstring")
+    async def non_str_header_no_default(test_header: Header[int]) -> str:
+        return str(test_header)
+
     @app.get("/header-renamed")
     async def header_renamed(
         test_header: Annotated[str, HeaderSpec("test_header")]
@@ -365,6 +369,10 @@ def configure_base_sync(app: App) -> None:
     @app.put("/header-default")
     def header_default(test_header: Header[str | None] = None) -> str:
         return test_header or "default"
+
+    @app.get("/header-nonstring")
+    def non_str_header_no_default(test_header: Header[int]) -> str:
+        return str(test_header)
 
     @app.get("/header-renamed")
     def header_renamed(test_header: Annotated[str, HeaderSpec("test_header")]) -> str:

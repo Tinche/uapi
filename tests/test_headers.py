@@ -47,6 +47,16 @@ async def test_header_with_default(server: int) -> None:
         assert resp.text == "1"
 
 
+async def test_nonstring_header(server: int) -> None:
+    """Non-string headers without defaults work properly."""
+    async with AsyncClient() as client:
+        resp = await client.get(
+            f"http://localhost:{server}/header-nonstring", headers={"test-header": "1"}
+        )
+        assert resp.status_code == 200
+        assert resp.text == "1"
+
+
 async def test_header_name_override(server: int) -> None:
     """Headers can override their names."""
     async with AsyncClient() as client:
