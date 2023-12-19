@@ -1,0 +1,61 @@
+- case: shorthand_str
+  main: |
+    from uapi.starlette import App
+
+    app = App()
+
+    @app.get("/")
+    async def index() -> str:
+      return ""
+
+- case: shorthand_attrs
+  main: |
+    from attrs import define
+    from uapi.starlette import App
+
+    @define
+    class A:
+      a: int
+
+    app = App()
+
+    @app.get("/")
+    async def index() -> A:
+      return A(1)
+
+- case: shorthand_unsupported
+  main: |
+    from uapi.starlette import App
+    from datetime import datetime
+
+    app = App()
+
+    @app.get("/")
+    async def index() -> datetime:
+      return datetime(2000, 1, 1, 0, 0, 0)
+  out: |
+    main:6: error: Argument 1 has incompatible type "Callable[[], Coroutine[Any, Any, datetime]]"; expected "Callable[..., BaseResponse[Any, Any] | str | bytes | AttrsInstance | Response | Coroutine[None, None, BaseResponse[Any, Any] | str | bytes | AttrsInstance | Response | None] | None]"  [arg-type]
+
+- case: shorthand_added
+  main: |
+    from typing import Any
+    from datetime import datetime
+
+    from uapi.starlette import App
+    from uapi.shorthands import ResponseShorthand, ResponseAdapter
+    from uapi.status import BaseResponse
+
+    class DatetimeShorthand(ResponseShorthand[datetime]):
+      @staticmethod
+      def response_adapter_factory(type: Any) -> ResponseAdapter:
+        return lambda _: BaseResponse(None)
+
+      @staticmethod
+      def is_union_member(value: Any) -> bool:
+        return False
+
+    app = App().add_response_shorthand(DatetimeShorthand)
+
+    @app.get("/")
+    async def index() -> datetime:
+      return datetime(2000, 1, 1, 0, 0, 0)

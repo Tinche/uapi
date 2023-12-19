@@ -10,6 +10,7 @@ handlers.md
 composition.md
 openapi.md
 addons.md
+response_shorthands.md
 changelog.md
 indices.md
 modules.rst
@@ -22,9 +23,9 @@ Using _uapi_ enables you to:
 - write **either async or sync** styles of handlers, depending on the underlying framework used.
 - use and customize a [**function composition** (dependency injection) system](composition.md), based on [incant](https://incant.threeofwands.com).
 - automatically **serialize and deserialize** data through [attrs](https://www.attrs.org/en/stable/) and [cattrs](https://catt.rs).
-- generate and use **OpenAPI** descriptions of your endpoints.
+- generate and use [**OpenAPI**](openapi.md) descriptions of your endpoints.
 - optionally **type-check** your handlers with [Mypy](https://mypy.readthedocs.io/en/stable/).
-- write and use **powerful middleware**.
+- write and use [**powerful middleware**](addons.md), which integrates into the OpenAPI schema.
 - **integrate** with existing apps based on [Django](https://docs.djangoproject.com/en/stable/), [Starlette](https://www.starlette.io/), [Flask](https://flask.palletsprojects.com/en/latest/), [Quart](https://pgjones.gitlab.io/quart/) or [Aiohttp](https://docs.aiohttp.org/en/stable/).
 
 # Installation

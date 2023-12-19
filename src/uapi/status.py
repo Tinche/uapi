@@ -35,6 +35,13 @@ class BaseResponse(Generic[S, R]):
         return cls.__orig_bases__[0].__args__[0].__args__[0]  # type: ignore
 
 
+@define
+class ResponseException(Exception):
+    """An exception that is converted into an HTTP response."""
+
+    response: BaseResponse
+
+
 @cache
 def get_status_code(resp: type[BaseResponse]) -> int:
     return resp.status_code()

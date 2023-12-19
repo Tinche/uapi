@@ -451,7 +451,7 @@ Whether the response contains the `content-type` header is up to the underlying 
 Flask, Quart and Django add a `text/html` content type by default.
 ```
 
-A longer equivalent, with the added benefit of being able to specify response headers, is returning the {py:class}`NoContent <uapi.status.NoContent>` response explicitly.
+A longer equivalent, with the added benefit of being able to specify response headers, is returning the {class}`NoContent <uapi.status.NoContent>` response explicitly.
 
 ```python
 from uapi.status import NoContent
@@ -461,6 +461,9 @@ async def delete_article() -> NoContent:
     # Perform side-effects.
     return NoContent(headers={"key": "value"})
 ```
+
+_This functionality is handled by {class}`NoneShorthand <uapi.shorthands.NoneShorthand>`._
+
 
 ### Strings and Bytes `(200 OK)`
 
@@ -474,12 +477,14 @@ async def get_article_image() -> bytes:
 
 For strings, the `content-type` header is set to `text/plain`, and for bytes to `application/octet-stream`.
 
+_This functionality is handled by {class}`StrShorthand <uapi.shorthands.StrShorthand>` and {class}`BytesShorthand <uapi.shorthands.BytesShorthand>`._
+
 ### _attrs_ Classes
 
 Handlers can return an instance of an _attrs_ class.
 The return value with be deserialized into JSON using the App _cattrs_ converter, which can be customized as per the usual _cattrs_ ways.
 
-The status code will be set to `200 OK`, and the content type to `application/json`. The class will be added to the OpenAPI schema.
+The status code will be set to `200 OK` and the content type to `application/json`. The class will be added to the OpenAPI schema.
 
 ```python
 from attrs import define
@@ -492,6 +497,11 @@ class Article:
 async def get_article() -> Article:
     ...
 ```
+
+### Custom Response Shorthands
+
+The `str`, `bytes`, `None` and _attrs_ return types are examples of _response shorthands_.
+Custom response shorthands can be defined and added to apps; [see the Response Shorthands section for the details](response_shorthands.md).
 
 ### _uapi_ Status Code Classes
 
@@ -509,7 +519,7 @@ async def get_article() -> Ok[Article]:
 
 ### Returning Multiple Status Codes
 
-If your handler can return multiple status codes, use a union of _uapi_ response types.
+Use a union of _uapi_ response types and shorthands if your handler can return multiple status codes.
 
 All responses defined this way will be rendered in the OpenAPI schema.
 
@@ -522,8 +532,8 @@ async def user_profile() -> Ok[Profile] | NoContent:
 ### _uapi_ ResponseExceptions
 
 Any raised instances of {class}`uapi.ResponseException` will be caught and transformed into a proper response.
-Like any exception, ResponseExceptions short-circuit handlers so they can be useful for validation and middleware.
-In other cases, simply returning a response instead is cheaper and usually more type-safe.
+Like any exception, `ResponseExceptions` short-circuit handlers so they can be useful for validation and middleware.
+In other cases, simply returning a response is faster and usually more type-safe.
 
 ResponseExceptions contain instances of _uapi_ status code classes and so can return rich response data, just like any normal response.
 
@@ -539,7 +549,7 @@ async def get_article() -> Ok[Article]:
     ...
 ```
 
-Since exceptions don't show up in the handler signature, they won't be present in the generated OpenAPI schema.
+Since exceptions don't show up in the handler signature they won't be present in the generated OpenAPI schema.
 If you need them to, you can add the actual response type into the handler response signature as part of a union:
 
 ```python

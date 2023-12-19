@@ -1,7 +1,13 @@
 """Test the OpenAPI schema generation for attrs classes."""
+from typing import TypeAlias
+
+from attrs import define
+
+from uapi import ReqBody
 from uapi.base import App
 from uapi.openapi import (
     ArraySchema,
+    IntegerSchema,
     MediaType,
     OneOfSchema,
     OpenAPI,
@@ -39,7 +45,7 @@ def test_get_model(app: App) -> None:
     assert spec.components.schemas["SimpleModel"] == Schema(
         Schema.Type.OBJECT,
         properties={
-            "an_int": Schema(Schema.Type.INTEGER),
+            "an_int": IntegerSchema(),
             "a_string": Schema(Schema.Type.STRING),
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },
@@ -74,7 +80,7 @@ def test_get_model_status(app: App) -> None:
     assert spec.components.schemas["SimpleModel"] == Schema(
         Schema.Type.OBJECT,
         properties={
-            "an_int": Schema(Schema.Type.INTEGER),
+            "an_int": IntegerSchema(),
             "a_string": Schema(Schema.Type.STRING),
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },
@@ -110,7 +116,7 @@ def test_post_model(app: App) -> None:
     assert spec.components.schemas["SimpleModel"] == Schema(
         Schema.Type.OBJECT,
         properties={
-            "an_int": Schema(Schema.Type.INTEGER),
+            "an_int": IntegerSchema(),
             "a_string": Schema(Schema.Type.STRING),
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },
@@ -148,7 +154,7 @@ def test_patch_union(app: App) -> None:
     assert spec.components.schemas["SimpleModel"] == Schema(
         Schema.Type.OBJECT,
         properties={
-            "an_int": Schema(Schema.Type.INTEGER),
+            "an_int": IntegerSchema(),
             "a_string": Schema(Schema.Type.STRING),
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },
@@ -189,7 +195,7 @@ def test_custom_loader(app: App) -> None:
     assert spec.components.schemas["SimpleModel"] == Schema(
         Schema.Type.OBJECT,
         properties={
-            "an_int": Schema(Schema.Type.INTEGER),
+            "an_int": IntegerSchema(),
             "a_string": Schema(Schema.Type.STRING),
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },
@@ -202,14 +208,14 @@ def test_models_same_name(app: App) -> None:
     assert spec.components.schemas["SimpleModel"] == Schema(
         Schema.Type.OBJECT,
         {
-            "an_int": Schema(type=Schema.Type.INTEGER),
+            "an_int": IntegerSchema(),
             "a_string": Schema(Schema.Type.STRING),
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },
     )
     assert spec.components.schemas["SimpleModel2"] == Schema(
         Schema.Type.OBJECT,
-        {"a_different_int": Schema(type=Schema.Type.INTEGER)},
+        {"a_different_int": IntegerSchema()},
         required=["a_different_int"],
     )
 
@@ -248,7 +254,7 @@ def test_response_union_none(app: App) -> None:
     assert spec.components.schemas["SimpleModel"] == Schema(
         Schema.Type.OBJECT,
         properties={
-            "an_int": Schema(Schema.Type.INTEGER),
+            "an_int": IntegerSchema(),
             "a_string": Schema(Schema.Type.STRING),
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },
@@ -311,10 +317,7 @@ def test_generic_model(app: App) -> None:
 
     assert spec.components.schemas["GenericModel[int]"] == Schema(
         Schema.Type.OBJECT,
-        properties={
-            "a": Schema(Schema.Type.INTEGER),
-            "b": ArraySchema(Schema(Schema.Type.INTEGER)),
-        },
+        properties={"a": IntegerSchema(), "b": ArraySchema(IntegerSchema())},
         required=["a"],
     )
     assert spec.components.schemas["GenericModel[SimpleModel]"] == Schema(
@@ -328,7 +331,7 @@ def test_generic_model(app: App) -> None:
     assert spec.components.schemas["SimpleModel"] == Schema(
         Schema.Type.OBJECT,
         properties={
-            "an_int": Schema(Schema.Type.INTEGER),
+            "an_int": IntegerSchema(),
             "a_string": Schema(Schema.Type.STRING),
             "a_float": Schema(Schema.Type.NUMBER, format="double"),
         },
@@ -367,14 +370,10 @@ def test_generic_response_model(app: App) -> None:
         required=["a"],
     )
     assert spec.components.schemas["ResponseGenericModelInner"] == Schema(
-        Schema.Type.OBJECT,
-        properties={"a": Schema(Schema.Type.INTEGER)},
-        required=["a"],
+        Schema.Type.OBJECT, properties={"a": IntegerSchema()}, required=["a"]
     )
     assert spec.components.schemas["ResponseGenericModelListInner"] == Schema(
-        Schema.Type.OBJECT,
-        properties={"a": Schema(Schema.Type.INTEGER)},
-        required=["a"],
+        Schema.Type.OBJECT, properties={"a": IntegerSchema()}, required=["a"]
     )
 
 
@@ -419,9 +418,7 @@ def test_sum_types_model(app: App) -> None:
         required=["inner", "opt_string"],
     )
     assert spec.components.schemas["SumTypesRequestInner"] == Schema(
-        Schema.Type.OBJECT,
-        properties={"a": Schema(Schema.Type.INTEGER)},
-        required=["a"],
+        Schema.Type.OBJECT, properties={"a": IntegerSchema()}, required=["a"]
     )
     assert spec.components.schemas["SumTypesResponseModel"] == Schema(
         Schema.Type.OBJECT,
@@ -436,9 +433,7 @@ def test_sum_types_model(app: App) -> None:
         required=["inner"],
     )
     assert spec.components.schemas["SumTypesResponseInner"] == Schema(
-        Schema.Type.OBJECT,
-        properties={"a": Schema(Schema.Type.INTEGER)},
-        required=["a"],
+        Schema.Type.OBJECT, properties={"a": IntegerSchema()}, required=["a"]
     )
 
 
@@ -526,4 +521,42 @@ def test_model_with_datetime(app: App) -> None:
             "d": Schema(Schema.Type.STRING, format="date"),
         },
         required=["a", "b"],
+    )
+
+
+def test_same_name_models() -> None:
+    """Models with the same name are handled."""
+
+    @define
+    class Model1:
+        a: int
+
+    Model2: TypeAlias = Model1
+
+    @define
+    class Model1:  # type: ignore
+        b: float
+
+    app = App[None]()
+
+    @app.get("/")
+    def handler1() -> Model1:
+        return Model1(1.0)  # type: ignore
+
+    @app.get("/2")
+    def handler2(m: ReqBody[Model2]) -> None:
+        return None
+
+    spec = app.make_openapi_spec()
+
+    assert spec.components.schemas
+
+    # This gets picked up first since it's a parameter.
+    assert spec.components.schemas["Model1"] == Schema(
+        Schema.Type.OBJECT, properties={"a": IntegerSchema()}, required=["a"]
+    )
+    assert spec.components.schemas["Model12"] == Schema(
+        Schema.Type.OBJECT,
+        properties={"b": Schema(Schema.Type.NUMBER, format="double")},
+        required=["b"],
     )

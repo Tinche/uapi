@@ -3,7 +3,7 @@ from collections.abc import Callable, Coroutine
 from functools import partial
 from inspect import Parameter, Signature, signature
 from logging import Logger
-from typing import Any, ClassVar, TypeAlias, TypeVar
+from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -16,7 +16,7 @@ from aiohttp.web import StreamResponse as FrameworkResponse
 from aiohttp.web_app import Application
 
 from . import ResponseException
-from .base import App as BaseApp
+from .base import AsyncApp as BaseApp
 from .path import parse_curly_path_params
 from .requests import (
     HeaderSpec,
@@ -30,86 +30,40 @@ from .requests import (
     is_header,
     is_req_body_attrs,
 )
-from .responses import dict_to_headers, make_exception_adapter, make_return_adapter
+from .responses import dict_to_headers, make_exception_adapter, make_response_adapter
+from .shorthands import ResponseShorthand, T_co
 from .status import BadRequest, BaseResponse, get_status_code
 from .types import Method, RouteName
 
 __all__ = ["App", "AiohttpApp"]
 
 C = TypeVar("C")
-
-
-def make_aiohttp_incanter(converter: Converter) -> Incanter:
-    """Create the framework incanter for Aiohttp."""
-    res = Incanter()
-
-    def query_factory(p: Parameter):
-        def read_query(_request: FrameworkRequest):
-            return converter.structure(
-                _request.query[p.name]
-                if p.default is Signature.empty
-                else _request.query.get(p.name, p.default),
-                p.annotation,
-            )
-
-        return read_query
-
-    res.register_hook_factory(
-        lambda p: p.annotation is not FrameworkRequest, query_factory
-    )
-
-    def string_query_factory(p: Parameter) -> Callable[[FrameworkRequest], Any]:
-        def read_query(_request: FrameworkRequest):
-            return (
-                _request.query[p.name]
-                if p.default is Signature.empty
-                else _request.query.get(p.name, p.default)
-            )
-
-        return read_query
-
-    res.register_hook_factory(
-        lambda p: p.annotation in (Signature.empty, str), string_query_factory
-    )
-    res.register_hook_factory(
-        is_header,
-        lambda p: make_header_dependency(
-            *get_header_type(p), p.name, converter, p.default
-        ),
-    )
-    res.register_hook_factory(
-        lambda p: get_cookie_name(p.annotation, p.name) is not None,
-        lambda p: make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
-    )
-
-    async def request_bytes(_request: FrameworkRequest) -> bytes:
-        return await _request.read()
-
-    res.register_hook(lambda p: p.annotation is ReqBytes, request_bytes)
-
-    res.register_hook_factory(
-        is_req_body_attrs, partial(attrs_body_factory, converter=converter)
-    )
-
-    res.register_hook_factory(
-        is_form, lambda p: _make_form_dependency(get_form_type(p), converter)
-    )
-
-    # RouteNames and methods get an empty hook, so the parameter propagates to the base incanter.
-    res.hook_factory_registry.insert(
-        0, Hook(lambda p: p.annotation in (RouteName, Method), None)
-    )
-
-    return res
+C_contra = TypeVar("C_contra", contravariant=True)
 
 
 @define
-class AiohttpApp(BaseApp):
+class AiohttpApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
     framework_incant: Incanter = Factory(
-        lambda self: make_aiohttp_incanter(self.converter), takes_self=True
+        lambda self: _make_aiohttp_incanter(self.converter), takes_self=True
     )
     _framework_req_cls: ClassVar[type] = FrameworkRequest
     _framework_resp_cls: ClassVar[type] = FrameworkResponse
+
+    def add_response_shorthand(
+        self, shorthand: type[ResponseShorthand[T_co]]
+    ) -> "AiohttpApp[T_co | C_contra]":
+        """Add a response shorthand to the App.
+
+        Response shorthands enable additional return types for handlers.
+
+        The type will be matched by identity and an `is_subclass` check.
+
+        :param type: The type to add to possible handler return annotations.
+        :param response_adapter: A callable, used to convert a value of the new type
+            into a `BaseResponse`.
+        """
+        self._shorthands = (*self._shorthands, shorthand)
+        return self  # type: ignore
 
     @staticmethod
     def _path_param_parser(p: str) -> tuple[str, list[str]]:
@@ -120,10 +74,11 @@ class AiohttpApp(BaseApp):
         exc_adapter = make_exception_adapter(self.converter)
 
         for (method, path), (handler, name, _) in self._route_map.items():
-            ra = make_return_adapter(
+            ra = make_response_adapter(
                 signature(handler, eval_str=True).return_annotation,
                 FrameworkResponse,
                 self.converter,
+                self._shorthands,
             )
             path_params = parse_curly_path_params(path)
             hooks = [Hook.for_name(p, None) for p in path_params]
@@ -257,10 +212,74 @@ class AiohttpApp(BaseApp):
             await sleep(3600)
 
 
-App: TypeAlias = AiohttpApp
+App: TypeAlias = AiohttpApp[FrameworkResponse]
 
 
-def make_header_dependency(
+def _make_aiohttp_incanter(converter: Converter) -> Incanter:
+    """Create the framework incanter for Aiohttp."""
+    res = Incanter()
+
+    def query_factory(p: Parameter):
+        def read_query(_request: FrameworkRequest):
+            return converter.structure(
+                _request.query[p.name]
+                if p.default is Signature.empty
+                else _request.query.get(p.name, p.default),
+                p.annotation,
+            )
+
+        return read_query
+
+    res.register_hook_factory(
+        lambda p: p.annotation is not FrameworkRequest, query_factory
+    )
+
+    def string_query_factory(p: Parameter) -> Callable[[FrameworkRequest], Any]:
+        def read_query(_request: FrameworkRequest):
+            return (
+                _request.query[p.name]
+                if p.default is Signature.empty
+                else _request.query.get(p.name, p.default)
+            )
+
+        return read_query
+
+    res.register_hook_factory(
+        lambda p: p.annotation in (Signature.empty, str), string_query_factory
+    )
+    res.register_hook_factory(
+        is_header,
+        lambda p: _make_header_dependency(
+            *get_header_type(p), p.name, converter, p.default
+        ),
+    )
+    res.register_hook_factory(
+        lambda p: get_cookie_name(p.annotation, p.name) is not None,
+        lambda p: _make_cookie_dependency(get_cookie_name(p.annotation, p.name), default=p.default),  # type: ignore
+    )
+
+    async def request_bytes(_request: FrameworkRequest) -> bytes:
+        return await _request.read()
+
+    res.register_hook(lambda p: p.annotation is ReqBytes, request_bytes)
+
+    res.register_hook_factory(
+        is_req_body_attrs, partial(attrs_body_factory, converter=converter)
+    )
+
+    res.register_hook_factory(
+        is_form, lambda p: _make_form_dependency(get_form_type(p), converter)
+    )
+
+    # RouteNames and methods get an empty hook, so the parameter propagates to the base incanter.
+    res.hook_factory_registry.insert(
+        0, Hook(lambda p: p.annotation in (RouteName, Method), None)
+    )
+
+    return res
+
+
+def _make_header_dependency(
     type: type,
     headerspec: HeaderSpec,
     name: str,
@@ -299,7 +318,7 @@ def make_header_dependency(
     return read_opt_conv_header
 
 
-def make_cookie_dependency(cookie_name: str, default=Signature.empty):
+def _make_cookie_dependency(cookie_name: str, default=Signature.empty):
     if default is Signature.empty:
 
         def read_cookie(_request: FrameworkRequest) -> str:

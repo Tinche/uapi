@@ -1,11 +1,11 @@
-from asyncio import Event
+from asyncio import CancelledError, Event, create_task
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 
 from flask import Response, request
 from uapi import ResponseException
-from uapi.flask import App
+from uapi.flask import App, FlaskApp
 from uapi.status import NoContent
 from uapi.types import Method, RouteName
 
@@ -73,13 +73,24 @@ def make_app() -> App:
     return app
 
 
-async def run_on_flask(app: App, port: int, shutdown_event: Event):
+async def run_on_flask(app: FlaskApp, port: int):
     config = Config()
     config.bind = [f"localhost:{port}"]
 
-    await serve(
-        app.to_framework_app(__name__),
-        config,
-        shutdown_trigger=shutdown_event.wait,  # type: ignore
-        mode="wsgi",
+    event = Event()
+
+    t = create_task(
+        serve(
+            app.to_framework_app(__name__),
+            config,
+            shutdown_trigger=event.wait,  # type: ignore
+            mode="wsgi",
+        )
     )
+
+    try:
+        await t
+    except CancelledError:
+        event.set()
+        await t
+        raise

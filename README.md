@@ -14,11 +14,11 @@ An _uapi_ app can be easily integrated into an existing project based on one of 
 Using _uapi_ enables you to:
 
 - write **either async or sync** styles of handlers, depending on the underlying framework used.
-- use and customize a **function composition** (dependency injection) system, based on [incant](https://incant.threeofwands.com).
+- use and customize a [**function composition** (dependency injection) system](https://uapi.threeofwands.com/en/stable/composition.html), based on [incant](https://incant.threeofwands.com).
 - automatically **serialize and deserialize** data through [attrs](https://www.attrs.org) and [cattrs](https://catt.rs).
-- generate and use **OpenAPI** descriptions of your endpoints.
+- generate and use [**OpenAPI**](https://uapi.threeofwands.com/en/stable/openapi.html) descriptions of your endpoints.
 - optionally **type-check** your handlers with [Mypy](https://mypy.readthedocs.io/en/stable/).
-- write and use reusable and **powerful middleware**, which integrates with the OpenAPI schema.
+- write and use reusable and [**powerful middleware**](https://uapi.threeofwands.com/en/stable/addons.html), which integrates into the OpenAPI schema.
 - **integrate** with existing apps based on [Django](https://docs.djangoproject.com/en/stable/), [Starlette](https://www.starlette.io/), [Flask](https://flask.palletsprojects.com), [Quart](https://pgjones.gitlab.io/quart/) or [aiohttp](https://docs.aiohttp.org).
 
 Here's a simple taste (install Flask and gunicorn first):

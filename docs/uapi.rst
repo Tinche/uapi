@@ -94,6 +94,14 @@ uapi.responses module
    :undoc-members:
    :show-inheritance:
 
+uapi.shorthands module
+----------------------
+
+.. automodule:: uapi.shorthands
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 uapi.starlette module
 ---------------------
 

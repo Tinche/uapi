@@ -1,4 +1,4 @@
-from asyncio import Event, create_task, new_event_loop
+from asyncio import create_task, new_event_loop
 from asyncio.exceptions import CancelledError
 from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
@@ -8,6 +8,7 @@ import pytest
 from .aiohttp import make_app as make_aiohttp_app
 from .aiohttp import run_on_aiohttp
 from .django import run_on_django
+from .django_uapi_app.views import app
 from .flask import make_app as make_flask_app
 from .flask import run_on_flask
 from .quart import make_app as make_quart_app
@@ -37,13 +38,12 @@ async def server(request, unused_tcp_port_factory: Callable[..., int]):
         with suppress(CancelledError):
             await t
     elif request.param == "flask":
-        shutdown_event = Event()
-        t = create_task(run_on_flask(make_flask_app(), unused_tcp_port, shutdown_event))
+        t = create_task(run_on_flask(make_flask_app(), unused_tcp_port))
         yield unused_tcp_port
-        shutdown_event.set()
-        await t
+        t.cancel()
+        with suppress(CancelledError):
+            await t
     elif request.param == "quart":
-        shutdown_event = Event()
         t = create_task(run_on_quart(make_quart_app(), unused_tcp_port))
         yield unused_tcp_port
         t.cancel()
@@ -56,11 +56,11 @@ async def server(request, unused_tcp_port_factory: Callable[..., int]):
         with suppress(CancelledError):
             await t
     elif request.param == "django":
-        shutdown_event = Event()
-        t = create_task(run_on_django(unused_tcp_port, shutdown_event))
+        t = create_task(run_on_django(app, unused_tcp_port))
         yield unused_tcp_port
-        shutdown_event.set()
-        await t
+        t.cancel()
+        with suppress(CancelledError):
+            await t
     else:
         raise Exception("Unknown server framework")
 
@@ -81,13 +81,13 @@ async def server_with_openapi(
         with suppress(CancelledError):
             await t
     elif request.param == "flask":
-        shutdown_event = Event()
         flask_app = make_flask_app()
         flask_app.serve_openapi()
-        t = create_task(run_on_flask(flask_app, unused_tcp_port, shutdown_event))
+        t = create_task(run_on_flask(flask_app, unused_tcp_port))
         yield unused_tcp_port
-        shutdown_event.set()
-        await t
+        t.cancel()
+        with suppress(CancelledError):
+            await t
     elif request.param == "quart":
         quart_app = make_quart_app()
         quart_app.serve_openapi()
@@ -105,10 +105,10 @@ async def server_with_openapi(
         with suppress(CancelledError):
             await t
     elif request.param == "django":
-        shutdown_event = Event()
-        t = create_task(run_on_django(unused_tcp_port, shutdown_event))
+        t = create_task(run_on_django(app, unused_tcp_port))
         yield unused_tcp_port
-        shutdown_event.set()
-        await t
+        t.cancel()
+        with suppress(CancelledError):
+            await t
     else:
         raise Exception("Unknown server framework")

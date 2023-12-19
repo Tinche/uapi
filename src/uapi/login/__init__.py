@@ -4,7 +4,7 @@ from typing import Generic, TypeVar
 from attrs import frozen
 
 from .. import ResponseException
-from ..base import App
+from ..base import AsyncApp
 from ..sessions.redis import AsyncRedisSessionStore, AsyncSession
 from ..status import BaseResponse, Forbidden, Headers
 
@@ -42,7 +42,7 @@ class AsyncLoginSession(Generic[T]):
 
 
 def configure_async_login(
-    app: App,
+    app: AsyncApp,
     user_id_cls: type[T],
     redis_session_store: AsyncRedisSessionStore,
     forbidden_response: BaseResponse = Forbidden(None),

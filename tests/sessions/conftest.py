@@ -1,4 +1,4 @@
-from asyncio import CancelledError, Event, create_task
+from asyncio import CancelledError, create_task
 from collections.abc import Callable
 from contextlib import suppress
 
@@ -7,6 +7,7 @@ import pytest
 from uapi.aiohttp import App as AiohttpApp
 from uapi.cookies import CookieSettings
 from uapi.flask import App as FlaskApp
+from uapi.flask import FlaskApp as OriginFlaskApp
 from uapi.quart import App as QuartApp
 from uapi.sessions import Session, configure_secure_sessions
 from uapi.starlette import App as StarletteApp
@@ -25,7 +26,7 @@ def configure_secure_session_app(
         app, "test", settings=CookieSettings(max_age=2, secure=False)
     )
 
-    if isinstance(app, FlaskApp):
+    if isinstance(app, OriginFlaskApp):
 
         @app.get("/")
         def index(session: Session) -> str:
@@ -75,15 +76,14 @@ async def secure_cookie_session_app(
         t.cancel()
         with suppress(CancelledError):
             await t
-
     elif request.param == "flask":
         flask_app = FlaskApp()
         configure_secure_session_app(flask_app)
-        shutdown_event = Event()
-        t = create_task(run_on_flask(flask_app, unused_tcp_port, shutdown_event))
+        t = create_task(run_on_flask(flask_app, unused_tcp_port))
         yield unused_tcp_port
-        shutdown_event.set()
-        await t
+        t.cancel()
+        with suppress(CancelledError):
+            await t
     elif request.param == "quart":
         quart_app = QuartApp()
         configure_secure_session_app(quart_app)

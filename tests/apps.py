@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated, TypeAlias, TypeVar
 
 from uapi import Cookie, FormBody, Header, Method, ReqBody, ResponseException, RouteName
-from uapi.base import App
+from uapi.base import App, AsyncApp
 from uapi.cookies import CookieSettings, set_cookie
 from uapi.requests import HeaderSpec, JsonBodyLoader
 from uapi.status import Created, Forbidden, NoContent, Ok
@@ -30,7 +30,7 @@ CustomReqBody: TypeAlias = Annotated[T, JsonBodyLoader("application/vnd.uapi.v1+
 
 
 def make_generic_subapp() -> App:
-    app = App()
+    app = App[str]()
 
     @app.get("/subapp")
     def subapp() -> str:
@@ -39,7 +39,7 @@ def make_generic_subapp() -> App:
     return app
 
 
-def configure_base_async(app: App) -> None:
+def configure_base_async(app: AsyncApp) -> None:
     @app.get("/")
     @app.post("/", name="hello-post")
     async def hello() -> str:
