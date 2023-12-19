@@ -228,19 +228,11 @@ class SchemaBuilder:
         """Set up the default build rules."""
         from .attrschema import build_attrs_schema
 
-        def build_sequence_schema(type: Any, builder: SchemaBuilder) -> AnySchema:
-            arg = get_args(type)[0]
-            inner = builder.get_schema_for_type(arg)
-            if isinstance(inner, ArraySchema):
-                raise Exception("Nested arrays are unsupported.")
-            return ArraySchema(inner)
-
         return [
             (
                 cls.PYTHON_PRIMITIVES_TO_OPENAPI.__contains__,
                 lambda t, _: cls.PYTHON_PRIMITIVES_TO_OPENAPI[t],
             ),
-            (is_sequence, build_sequence_schema),
             (has, build_attrs_schema),
         ]
 
