@@ -155,7 +155,7 @@ def make_attrs_shorthand(
 
         @staticmethod
         def is_union_member(value: Any) -> bool:
-            return False
+            return has(value.__class__) and not isinstance(value, BaseResponse)
 
         @staticmethod
         def make_openapi_response(type: Any, builder: SchemaBuilder) -> Response | None:

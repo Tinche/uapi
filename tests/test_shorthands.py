@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import pytest
+from attrs import define
 from httpx import AsyncClient
 
 from uapi.aiohttp import AiohttpApp
@@ -113,5 +114,49 @@ async def test_shorthand_unions(unused_tcp_port) -> None:
             assert resp.status_code == 200
             assert resp.headers["content-type"] == "text/plain"
             assert await resp.aread() == b"text"
+    finally:
+        t.cancel()
+
+
+async def test_attrs_shorthand_unions(unused_tcp_port) -> None:
+    """Attrs shorthands in unions work."""
+    app = App()
+
+    @define
+    class C:
+        a: int
+
+    @app.get("/")
+    async def handler(q: int = 0) -> Created[str] | C:
+        return C(q) if not q else Created("test")
+
+    @app.get("/2")
+    async def handler_2(q: int = 0) -> str | C:
+        return C(q) if not q else "test"
+
+    t = create_task(run_on_quart(app, unused_tcp_port))
+
+    try:
+        async with AsyncClient() as client:
+            resp = await client.get(f"http://localhost:{unused_tcp_port}/")
+            assert resp.status_code == 200
+            assert (await resp.aread()) == b'{"a":0}'
+
+            resp = await client.get(
+                f"http://localhost:{unused_tcp_port}/", params={"q": "1"}
+            )
+            assert resp.status_code == 201
+            assert (await resp.aread()) == b'"test"'
+
+            resp = await client.get(f"http://localhost:{unused_tcp_port}/2")
+            assert resp.status_code == 200
+            assert (await resp.aread()) == b'{"a":0}'
+
+            resp = await client.get(
+                f"http://localhost:{unused_tcp_port}/2", params={"q": "1"}
+            )
+            assert resp.status_code == 200
+            assert (await resp.aread()) == b"test"
+
     finally:
         t.cancel()
