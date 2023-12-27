@@ -427,7 +427,7 @@ def configure_base_sync(app: App) -> None:
     @app.get("/generic-model-dicts")
     def generic_model_dict(
         m: ReqBody[GenericModel[dict[str, str]]]
-    ) -> GenericModel[dict]:
+    ) -> GenericModel[dict[str, str]]:
         """OpenAPI should handle generic models with dicts."""
         return GenericModel({})
 

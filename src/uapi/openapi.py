@@ -277,6 +277,8 @@ def _structure_schemas(val, _):
     if "oneOf" in val:
         return converter.structure(val, OneOfSchema)
 
+    if "type" not in val:
+        return Schema()
     type = Schema.Type(val["type"])
     if type is Schema.Type.ARRAY:
         return converter.structure(val, ArraySchema)
@@ -288,6 +290,8 @@ def _structure_schemas(val, _):
 def _structure_schema_or_ref(val, _) -> Schema | IntegerSchema | Reference:
     if "$ref" in val:
         return converter.structure(val, Reference)
+    if "type" not in val:
+        return Schema()
     type = Schema.Type(val["type"])
     if type is Schema.Type.INTEGER:
         return converter.structure(val, IntegerSchema)
