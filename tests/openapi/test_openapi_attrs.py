@@ -560,3 +560,41 @@ def test_same_name_models() -> None:
         properties={"b": Schema(Schema.Type.NUMBER, format="double")},
         required=["b"],
     )
+
+
+def test_generic_dicts(app: App) -> None:
+    spec: OpenAPI = app.make_openapi_spec()
+
+    op = spec.paths["/generic-model-dicts"]
+    assert op is not None
+    assert op.get is not None
+
+    assert op.get.parameters == []
+    assert op.get.requestBody == RequestBody(
+        {
+            "application/json": MediaType(
+                Reference("#/components/schemas/GenericModel[dict]")
+            )
+        },
+        required=True,
+    )
+
+    assert op.get.responses["200"]
+    assert op.get.responses["200"].content["application/json"].schema == Reference(
+        "#/components/schemas/GenericModel[dict]"
+    )
+
+    assert spec.components.schemas["GenericModel[dict]"] == Schema(
+        Schema.Type.OBJECT,
+        properties={
+            "a": Schema(
+                Schema.Type.OBJECT, additionalProperties=Schema(Schema.Type.STRING)
+            ),
+            "b": ArraySchema(
+                Schema(
+                    Schema.Type.OBJECT, additionalProperties=Schema(Schema.Type.STRING)
+                )
+            ),
+        },
+        required=["a"],
+    )

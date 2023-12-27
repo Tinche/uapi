@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import suppress
 from datetime import date, datetime
 from enum import Enum, unique
 from typing import Any, ClassVar, Literal, TypeAlias
 
 from attrs import Factory, define, field, frozen, has
 from cattrs import override
-from cattrs._compat import get_args, is_generic, is_sequence
+from cattrs._compat import get_args, is_generic, is_mapping, is_sequence
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn
 from cattrs.preconf.json import make_converter
 
@@ -27,6 +28,11 @@ class Reference:
 
 @frozen
 class Schema:
+    """The generic schema base class.
+
+    Consider using a specialized version (like `IntegerSchema`) instead.
+    """
+
     @unique
     class Type(Enum):
         OBJECT = "object"
@@ -37,7 +43,7 @@ class Schema:
         NULL = "null"
         ARRAY = "array"
 
-    type: Type
+    type: Type | None = None
     properties: dict[str, AnySchema | Reference] | None = None
     format: str | None = None
     additionalProperties: bool | Schema | IntegerSchema | Reference = False
@@ -198,15 +204,37 @@ class SchemaBuilder:
         self, type: Any
     ) -> Reference | Schema | IntegerSchema | ArraySchema:
         # First check inline types.
+        # TODO: Use the rules to build this, instead of duplicating
+        # the logic here.
         if type in self.PYTHON_PRIMITIVES_TO_OPENAPI:
             return self.PYTHON_PRIMITIVES_TO_OPENAPI[type]
+        if type is Any:
+            return Schema()
         if is_sequence(type):
             # Arrays get created inline.
             arg = get_args(type)[0]
             inner = self.get_schema_for_type(arg)
             if not isinstance(inner, ArraySchema):
                 return ArraySchema(inner)
-            raise Exception("Nested arrays are unsupported.")
+            raise Exception("Nested arrays are unsupported")
+
+        mapping = False
+        # TODO: remove this when cattrs 24.1 releases
+        with suppress(TypeError):
+            mapping = is_mapping(type)
+        if mapping:
+            # Dicts also get created inline.
+            args = get_args(type)
+
+            key_type, value_type = args if len(args) == 2 else (Any, Any)
+            # OpenAPI doesn't support anything else.
+            if key_type not in (Any, str):
+                raise Exception(f"Can't handle {type}")
+
+            value_schema = self.get_schema_for_type(value_type)
+            if not isinstance(value_schema, ArraySchema):
+                return Schema(Schema.Type.OBJECT, additionalProperties=value_schema)
+            raise Exception(f"Can't handle {type}")
 
         name = self._name_for(type)
         if name not in self.components and type not in self._build_queue:
@@ -233,6 +261,7 @@ class SchemaBuilder:
                 cls.PYTHON_PRIMITIVES_TO_OPENAPI.__contains__,
                 lambda t, _: cls.PYTHON_PRIMITIVES_TO_OPENAPI[t],
             ),
+            (lambda t: t is Any, lambda _, __: Schema()),
             (has, build_attrs_schema),
         ]
 
@@ -248,6 +277,8 @@ def _structure_schemas(val, _):
     if "oneOf" in val:
         return converter.structure(val, OneOfSchema)
 
+    if "type" not in val:
+        return Schema()
     type = Schema.Type(val["type"])
     if type is Schema.Type.ARRAY:
         return converter.structure(val, ArraySchema)
@@ -259,6 +290,8 @@ def _structure_schemas(val, _):
 def _structure_schema_or_ref(val, _) -> Schema | IntegerSchema | Reference:
     if "$ref" in val:
         return converter.structure(val, Reference)
+    if "type" not in val:
+        return Schema()
     type = Schema.Type(val["type"])
     if type is Schema.Type.INTEGER:
         return converter.structure(val, IntegerSchema)

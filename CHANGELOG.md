@@ -10,6 +10,15 @@ The **third number** is for emergencies when we need to start branches for older
 
 <!-- changelog follows -->
 
+## [v24.1.0](https://github.com/tinche/uapi/compare/v23.3.0...HEAD) - UNRELEASED
+
+### Added
+
+- `typing.Any` is now supported in the OpenAPI schema, rendering to an empty schema.
+  ([#58](https://github.com/Tinche/uapi/pull/58))
+- Dictionaries are now supported in the OpenAPI schema, rendering to object schemas with `additionalProperties`.
+  ([#58](https://github.com/Tinche/uapi/pull/58))
+
 ## [v23.3.0](https://github.com/tinche/uapi/compare/v23.2.0...v23.3.0) - 2023-12-20
 
 ### Changed
