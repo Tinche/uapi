@@ -46,6 +46,10 @@ _uapi_ comes with OpenAPI schema support for the following types:
 - bytes (`type: string, format: binary`)
 - dates (`type: string, format: date`)
 - datetimes (`type: string, format: date-time`)
+- lists (`type: array`)
+- dictionaries (`type: object`, with `additionalProperties`)
+- attrs classes (`type: object`)
+- `typing.Any` (empty schema)
 
 ## Operation Summaries and Descriptions
 

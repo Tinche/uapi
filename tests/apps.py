@@ -156,6 +156,8 @@ def configure_base_async(app: AsyncApp) -> None:
     ) -> str:
         return test_header
 
+    # Models and loaders.
+
     @app.put("/custom-loader")
     async def custom_loader(body: CustomReqBody[NestedModel]) -> Ok[str]:
         return Ok(str(body.simple_model.an_int))
@@ -190,6 +192,13 @@ def configure_base_async(app: AsyncApp) -> None:
     async def generic_model(m: ReqBody[GenericModel[int]]) -> GenericModel[SimpleModel]:
         """OpenAPI should handle generic models."""
         return GenericModel(SimpleModel(1))
+
+    @app.get("/generic-model-dicts")
+    async def generic_model_dict(
+        m: ReqBody[GenericModel[dict[str, str]]]
+    ) -> GenericModel[dict[str, str]]:
+        """OpenAPI should handle generic models with dicts."""
+        return GenericModel({})
 
     @app.get("/response-model")
     async def response_model() -> ResponseModel:
@@ -378,6 +387,8 @@ def configure_base_sync(app: App) -> None:
     def header_renamed(test_header: Annotated[str, HeaderSpec("test_header")]) -> str:
         return test_header
 
+    # Models and loaders.
+
     @app.put("/custom-loader")
     def custom_loader(body: CustomReqBody[NestedModel]) -> Ok[str]:
         return Ok(str(body.simple_model.an_int))
@@ -412,6 +423,13 @@ def configure_base_sync(app: App) -> None:
     def generic_model(m: ReqBody[GenericModel[int]]) -> GenericModel[SimpleModel]:
         """OpenAPI should handle generic models."""
         return GenericModel(SimpleModel(1))
+
+    @app.get("/generic-model-dicts")
+    def generic_model_dict(
+        m: ReqBody[GenericModel[dict[str, str]]]
+    ) -> GenericModel[dict]:
+        """OpenAPI should handle generic models with dicts."""
+        return GenericModel({})
 
     @app.get("/response-model")
     def response_model() -> ResponseModel:
