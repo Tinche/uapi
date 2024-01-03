@@ -143,8 +143,9 @@ class FlaskApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
 
         return f
 
-    def run(self, import_name: str, port: int = 8000):
-        self.to_framework_app(import_name).run(port=port)
+    def run(self, import_name: str, host: str | None = None, port: int = 8000):
+        """Start serving the app using the Flask development server."""
+        self.to_framework_app(import_name).run(host=host, port=port)
 
     @staticmethod
     def _path_param_parser(p: str) -> tuple[str, list[str]]:

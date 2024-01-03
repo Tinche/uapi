@@ -68,4 +68,4 @@ def make_app() -> App:
 
 
 async def run_on_quart(app: App, port: int) -> None:
-    await app.run(__name__, port, handle_signals=False, log_level="critical")
+    await app.run(__name__, port=port, handle_signals=False, log_level="critical")

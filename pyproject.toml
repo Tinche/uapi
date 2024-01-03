@@ -43,6 +43,7 @@ test = [
     "uapi[lint, frameworks]",
     "python-multipart>=0.0.6",
     "pytest-mypy-plugins>=3.0.0",
+    "pytest-xdist>=3.5.0",
 ]
 frameworks = [
     "aiohttp==3.9.0b0",
