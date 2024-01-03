@@ -5,7 +5,7 @@
 groups = ["default", "docs", "lint", "test", "frameworks"]
 strategy = ["cross_platform"]
 lock_version = "4.4.1"
-content_hash = "sha256:a15d35d87dbaa62f1b15e8fbfae8b6d56419f3a2425245d7f49e16854e1cd8d9"
+content_hash = "sha256:41090707373f4b14467254321d4f75dd7a511baa4db674a494a3ff9b28b82b94"
 
 [[package]]
 name = "aiofiles"
@@ -417,6 +417,16 @@ summary = "Backport of PEP 654 (exception groups)"
 files = [
     {file = "exceptiongroup-1.1.3-py3-none-any.whl", hash = "sha256:343280667a4585d195ca1cf9cef84a4e178c4b6cf2274caef9859782b567d5e3"},
     {file = "exceptiongroup-1.1.3.tar.gz", hash = "sha256:097acd85d473d75af5bb98e41b61ff7fe35efe6675e4f9370ec6ec5126d160e9"},
+]
+
+[[package]]
+name = "execnet"
+version = "2.0.2"
+requires_python = ">=3.7"
+summary = "execnet: rapid multi-Python deployment"
+files = [
+    {file = "execnet-2.0.2-py3-none-any.whl", hash = "sha256:88256416ae766bc9e8895c76a87928c0012183da3cc4fc18016e6f050e025f41"},
+    {file = "execnet-2.0.2.tar.gz", hash = "sha256:cc59bc4423742fd71ad227122eb0dd44db51efb3dc4095b45ac9a08c770096af"},
 ]
 
 [[package]]
@@ -1036,6 +1046,20 @@ dependencies = [
 files = [
     {file = "pytest-mypy-plugins-3.0.0.tar.gz", hash = "sha256:05a728c7cbc4f33610f97fe9266b2c3eb209e41c28935011b4fc9531662625f6"},
     {file = "pytest_mypy_plugins-3.0.0-py3-none-any.whl", hash = "sha256:a1e3f51b68898bc25713cc53718a28d9dc0cfd51d28a537ef18c7df3b123ed84"},
+]
+
+[[package]]
+name = "pytest-xdist"
+version = "3.5.0"
+requires_python = ">=3.7"
+summary = "pytest xdist plugin for distributed testing, most importantly across multiple CPUs"
+dependencies = [
+    "execnet>=1.1",
+    "pytest>=6.2.0",
+]
+files = [
+    {file = "pytest-xdist-3.5.0.tar.gz", hash = "sha256:cbb36f3d67e0c478baa57fa4edc8843887e0f6cfc42d677530a36d7472b32d8a"},
+    {file = "pytest_xdist-3.5.0-py3-none-any.whl", hash = "sha256:d075629c7e00b611df89f490a5063944bee7a4362a5ff11c7cc7824a03dfce24"},
 ]
 
 [[package]]

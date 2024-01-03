@@ -68,4 +68,4 @@ def make_app() -> App:
 
 
 async def run_on_starlette(app: App, port: int) -> None:
-    await app.run(port, handle_signals=False)
+    await app.run(port=port, handle_signals=False)
