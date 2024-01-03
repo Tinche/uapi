@@ -178,6 +178,7 @@ class StarletteApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
 
     async def run(
         self,
+        host: str = "127.0.0.1",
         port: int = 8000,
         handle_signals: bool = True,
         log_level: str | int | None = None,
@@ -189,7 +190,11 @@ class StarletteApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
         from uvicorn import Config, Server
 
         config = Config(
-            self.to_framework_app(), port=port, access_log=False, log_level=log_level
+            self.to_framework_app(),
+            host=host,
+            port=port,
+            access_log=False,
+            log_level=log_level,
         )
 
         if handle_signals:

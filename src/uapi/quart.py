@@ -164,6 +164,7 @@ class QuartApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
     async def run(
         self,
         import_name: str,
+        host: str = "127.0.0.1",
         port: int = 8000,
         handle_signals: bool = True,
         log_level: str | int | None = None,
@@ -176,6 +177,7 @@ class QuartApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
 
         config = Config(
             self.to_framework_app(import_name),
+            host=host,
             port=port,
             access_log=False,
             log_level=log_level,
