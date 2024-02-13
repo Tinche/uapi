@@ -160,7 +160,7 @@ from uapi.status import BadRequest
 
 T = TypeVar("T")
 
-def make_error_response(exc: Exception, bytes: payload) -> BadRequest[None]:
+def make_error_response(exc: Exception, payload: bytes) -> BadRequest[None]:
     # Examine the exception.
     return BadRequest("Bad payload buddy")
 
