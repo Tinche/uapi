@@ -35,7 +35,7 @@ lint = [
     "mypy>=1.4.1",
 ]
 test = [
-    "coverage",
+    "coverage>=7.6.1",
     "pytest-asyncio",
     "httpx",
     "hypercorn",
