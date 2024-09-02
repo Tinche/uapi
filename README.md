@@ -1,10 +1,10 @@
 # uapi
 
 [![Documentation](https://img.shields.io/badge/Docs-Read%20The%20Docs-black)](https://uapi.threeofwands.com)
-[![Build status](https://github.com/Tinche/uapi/workflows/CI/badge.svg)](https://github.com/Tinche/uapi/actions?workflow=CI)
-[![coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Tinche/fe982b645791164107bd8f6699ed0a38/raw/covbadge.json)](https://github.com/Tinche/uapi/actions/workflows/main.yml)
-[![Code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License: Apache2](https://img.shields.io/badge/license-Apache2-C06524)](https://github.com/Tinche/uapi/blob/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/uapi.svg)](https://pypi.python.org/pypi/uapi)
+[![Supported Python Versions](https://img.shields.io/pypi/pyversions/uapi.svg)](https://github.com/Tinche/uapi)
+[![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Tinche/fe982b645791164107bd8f6699ed0a38/raw/covbadge.json)](https://github.com/Tinche/uapi/actions/workflows/main.yml)
 
 _uapi_ is an elegant, high-level, extremely low-overhead Python microframework for writing HTTP APIs, either synchronously or asynchronously.
 
