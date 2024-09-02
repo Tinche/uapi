@@ -21,6 +21,7 @@ The **third number** is for emergencies when we need to start branches for older
 - {meth}`uapi.flask.FlaskApp.run`, {meth}`uapi.quart.QuartApp.run` and {meth}`uapi.starlette.StarletteApp.run` now expose `host` parameters.
   ([#59](https://github.com/Tinche/uapi/pull/59))
 - _uapi_ is now tested against Python 3.13.
+  ([#60](https://github.com/Tinche/uapi/pull/60))
 
 ## [v23.3.0](https://github.com/tinche/uapi/compare/v23.2.0...v23.3.0) - 2023-12-20
 
