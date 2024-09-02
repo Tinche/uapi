@@ -35,10 +35,6 @@ jobs:
 
       - name: "Run Tox"
         run: |
-          set -xe
-          python -VV
-          python -Im site
-          python -Im pip install --upgrade pip wheel pdm
           python -Im pip install --upgrade tox tox-gh-actions
           python -Im tox
 
