@@ -47,7 +47,7 @@ test = [
     "pytest-xdist>=3.5.0",
 ]
 frameworks = [
-    "aiohttp==3.9.0b0",
+    "aiohttp>=3.10.5",
     "flask",
     "quart",
     "starlette",
