@@ -12,6 +12,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Typing :: Typed",
 ]
@@ -20,7 +21,7 @@ dependencies = [
     "incant >= 23.2.0",
     "itsdangerous",
     "attrs >= 23.1.0",
-    "orjson >= 3.9.10",
+    "orjson>=3.10.7",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
@@ -46,7 +47,7 @@ test = [
     "pytest-xdist>=3.5.0",
 ]
 frameworks = [
-    "aiohttp==3.9.0b0",
+    "aiohttp>=3.10.5",
     "flask",
     "quart",
     "starlette",
