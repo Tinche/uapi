@@ -3,7 +3,8 @@ from collections.abc import Callable, Coroutine, Generator
 from contextlib import contextmanager, suppress
 from functools import partial
 from inspect import Signature, signature
-from typing import Any, ClassVar, Generic, TypeAlias, TypeVar, override
+from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
+from typing_extensions import override
 
 from attrs import Factory, define
 from cattrs import Converter
