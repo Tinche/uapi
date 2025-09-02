@@ -67,5 +67,5 @@ def make_app() -> App:
     return app
 
 
-async def run_on_starlette(app: App, port: int) -> None:
-    await app.run(port=port, handle_signals=False)
+async def run_on_starlette(app: App, port: int, host: str = "127.0.0.1") -> None:
+    await app.run(host=host, port=port, handle_signals=False)
