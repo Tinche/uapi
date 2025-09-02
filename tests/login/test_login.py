@@ -1,6 +1,5 @@
-from asyncio import CancelledError, create_task, sleep
+from asyncio import sleep, TaskGroup
 from collections.abc import Callable
-from contextlib import suppress
 from datetime import timedelta
 
 import pytest
@@ -45,99 +44,107 @@ async def configure_login_app(app: FrameworkApp) -> None:
         return "OK"
 
 
-@pytest.fixture(scope="session")
-async def login_app(unused_tcp_port_factory: Callable[..., int]):
+@pytest.fixture(scope="module")
+async def login_app_port(unused_tcp_port_factory: Callable[..., int]):
     unused_tcp_port = unused_tcp_port_factory()
     app = FrameworkApp()
     await configure_login_app(app)
-    t = create_task(run_on_framework(app, unused_tcp_port))
-    yield unused_tcp_port
+    async with TaskGroup() as tg:
+        t = tg.create_task(run_on_framework(app, unused_tcp_port))
+        print("Task created")
 
-    t.cancel()
-    with suppress(CancelledError):
-        await t
+        yield unused_tcp_port
+
+        t.cancel()
 
 
-async def test_login_logout(login_app: int):
+@pytest.mark.asyncio(loop_scope="module")
+async def test_login_logout(login_app_port: int):
     """Test a normal login/logout workflow."""
     user_id = 10
     async with AsyncClient() as client:
-        resp = await client.get(f"http://localhost:{login_app}/")
+        resp = await client.get(f"http://localhost:{login_app_port}/")
         assert resp.text == "no user"
 
         resp = await client.post(
-            f"http://localhost:{login_app}/login", params={"user_id": str(user_id)}
+            f"http://localhost:{login_app_port}/login", params={"user_id": str(user_id)}
         )
 
         assert resp.status_code == 201
 
-        resp = await client.get(f"http://localhost:{login_app}/")
+        resp = await client.get(f"http://localhost:{login_app_port}/")
         assert resp.text == str(user_id)
 
         async with AsyncClient() as new_client:
-            resp = await new_client.get(f"http://localhost:{login_app}/")
+            resp = await new_client.get(f"http://localhost:{login_app_port}/")
             assert resp.text == "no user"
 
-        resp = await client.get(f"http://localhost:{login_app}/")
+        resp = await client.get(f"http://localhost:{login_app_port}/")
         assert resp.text == str(user_id)
 
-        resp = await client.post(f"http://localhost:{login_app}/logout")
+        resp = await client.post(f"http://localhost:{login_app_port}/logout")
         assert resp.text == ""
         assert resp.status_code == 204
         assert not resp.cookies
 
-        resp = await client.get(f"http://localhost:{login_app}/")
+        resp = await client.get(f"http://localhost:{login_app_port}/")
         assert resp.text == "no user"
 
 
-async def test_session_expiry(login_app: int):
+@pytest.mark.asyncio(loop_scope="module")
+async def test_session_expiry(login_app_port: int):
     """Test session expiry."""
     user_id = 10
     async with AsyncClient() as client:
-        resp = await client.get(f"http://localhost:{login_app}/")
+        resp = await client.get(f"http://localhost:{login_app_port}/")
         assert resp.text == "no user"
 
         resp = await client.post(
-            f"http://localhost:{login_app}/login", params={"user_id": user_id}
+            f"http://localhost:{login_app_port}/login", params={"user_id": user_id}
         )
 
         assert resp.status_code == 201
 
-        resp = await client.get(f"http://localhost:{login_app}/")
+        resp = await client.get(f"http://localhost:{login_app_port}/")
         assert resp.text == str(user_id)
 
         await sleep(2)
 
-        resp = await client.get(f"http://localhost:{login_app}/")
+        resp = await client.get(f"http://localhost:{login_app_port}/")
         assert resp.text == "no user"
 
 
-async def test_logging_out_others(login_app: int):
+@pytest.mark.asyncio(loop_scope="module")
+async def test_logging_out_others(login_app_port: int):
     """Test whether other users can be logged out."""
     user_id = 10
     admin_id = 11
     async with AsyncClient() as client:  # This is the user.
-        resp = await client.get(f"http://localhost:{login_app}/")
+        resp = await client.get(f"http://localhost:{login_app_port}/")
         assert resp.text == "no user"
 
         resp = await client.post(
-            f"http://localhost:{login_app}/login", params={"user_id": user_id}
+            f"http://localhost:{login_app_port}/login", params={"user_id": user_id}
         )
 
         assert resp.status_code == 201
 
-        resp = await client.get(f"http://localhost:{login_app}/")
+        resp = await client.get(f"http://localhost:{login_app_port}/")
         assert resp.text == str(user_id)
 
         async with AsyncClient() as new_client:  # This is the admin.
-            resp = await new_client.delete(f"http://localhost:{login_app}/sessions/10")
+            resp = await new_client.delete(
+                f"http://localhost:{login_app_port}/sessions/10"
+            )
             assert resp.status_code == 403
 
             await new_client.post(
-                f"http://localhost:{login_app}/login", params={"user_id": admin_id}
+                f"http://localhost:{login_app_port}/login", params={"user_id": admin_id}
             )
-            resp = await new_client.delete(f"http://localhost:{login_app}/sessions/10")
+            resp = await new_client.delete(
+                f"http://localhost:{login_app_port}/sessions/10"
+            )
             assert resp.status_code == 200
 
-        resp = await client.get(f"http://localhost:{login_app}/")
+        resp = await client.get(f"http://localhost:{login_app_port}/")
         assert resp.text == "no user"
