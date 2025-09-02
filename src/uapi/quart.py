@@ -1,9 +1,9 @@
 from asyncio import create_task, sleep
-from collections.abc import Callable, Coroutine
-from contextlib import suppress
+from collections.abc import Callable, Coroutine, Generator
+from contextlib import contextmanager, suppress
 from functools import partial
 from inspect import Signature, signature
-from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
+from typing import Any, ClassVar, Generic, TypeAlias, TypeVar, override
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -189,8 +189,11 @@ class QuartApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
         else:
 
             class NoSignalsServer(Server):
-                def install_signal_handlers(self) -> None:
-                    return
+                @override
+                @contextmanager
+                def capture_signals(self) -> Generator[None, None, None]:
+                    """Capture no signals if asked not to."""
+                    yield
 
             server = NoSignalsServer(config=config)
 
@@ -217,17 +220,21 @@ def _make_quart_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         lambda _: True,
         lambda p: lambda: converter.structure(
-            request.args[p.name]
-            if p.default is Signature.empty
-            else request.args.get(p.name, p.default),
+            (
+                request.args[p.name]
+                if p.default is Signature.empty
+                else request.args.get(p.name, p.default)
+            ),
             p.annotation,
         ),
     )
     res.register_hook_factory(
         lambda p: p.annotation in (Signature.empty, str),
-        lambda p: lambda: request.args[p.name]
-        if p.default is Signature.empty
-        else request.args.get(p.name, p.default),
+        lambda p: lambda: (
+            request.args[p.name]
+            if p.default is Signature.empty
+            else request.args.get(p.name, p.default)
+        ),
     )
     res.register_hook_factory(
         is_header,

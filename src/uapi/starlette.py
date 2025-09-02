@@ -1,9 +1,9 @@
 from asyncio import create_task, sleep
-from collections.abc import Callable, Coroutine
-from contextlib import suppress
+from collections.abc import Callable, Coroutine, Generator
+from contextlib import contextmanager, suppress
 from functools import partial
 from inspect import Parameter, Signature, signature
-from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
+from typing import Any, ClassVar, Generic, TypeAlias, TypeVar, override
 
 from attrs import Factory, define
 from cattrs import Converter
@@ -203,8 +203,11 @@ class StarletteApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
         else:
 
             class NoSignalsServer(Server):
-                def install_signal_handlers(self) -> None:
-                    return
+                @override
+                @contextmanager
+                def capture_signals(self) -> Generator[None, None, None]:
+                    """Capture no signals if asked not to."""
+                    yield
 
             server = NoSignalsServer(config=config)
 
@@ -231,9 +234,11 @@ def _make_starlette_incanter(converter: Converter) -> Incanter:
     def query_factory(p: Parameter) -> Callable[[FrameworkRequest], Any]:
         def read_query(_request: FrameworkRequest) -> Any:
             return converter.structure(
-                _request.query_params[p.name]
-                if p.default is Signature.empty
-                else _request.query_params.get(p.name, p.default),
+                (
+                    _request.query_params[p.name]
+                    if p.default is Signature.empty
+                    else _request.query_params.get(p.name, p.default)
+                ),
                 p.annotation,
             )
 
