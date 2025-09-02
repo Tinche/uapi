@@ -22,7 +22,7 @@ dependencies = [
     "incant >= 23.2.0",
     "itsdangerous",
     "attrs >= 23.1.0",
-    "orjson>=3.10.7",
+    "orjson>=3.11.3",
 ]
 requires-python = ">=3.10"
 readme = "README.md"
