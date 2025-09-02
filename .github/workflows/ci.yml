@@ -26,7 +26,7 @@ jobs:
           python-version: "${{ matrix.python-version }}"
           allow-python-prereleases: true
           cache: true
-          version: "2.18.1"
+          version: "2.25.9"
 
       - name: "Start Redis"
         uses: "supercharge/redis-github-action@1.2.0"
