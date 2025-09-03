@@ -4,11 +4,11 @@ from contextlib import contextmanager, suppress
 from functools import partial
 from inspect import Signature, signature
 from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
-from typing_extensions import override
 
 from attrs import Factory, define
 from cattrs import Converter
 from incant import Hook, Incanter
+from typing_extensions import override
 from werkzeug.datastructures import Headers
 
 from quart import Quart, request
@@ -174,7 +174,7 @@ class QuartApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
 
         Cancel the task running this to shut down uvicorn.
         """
-        from uvicorn import Config, Server
+        from uvicorn import Config, Server  # noqa: PLC0415
 
         config = Config(
             self.to_framework_app(import_name),
@@ -293,7 +293,7 @@ def _make_header_dependency(
 
         return read_opt_header
 
-    handler = converter._structure_func.dispatch(type)
+    handler = converter.get_structure_hook(type)
     if default is Signature.empty:
 
         def read_conv_header() -> str:
@@ -324,7 +324,7 @@ def _make_cookie_dependency(cookie_name: str, default=Signature.empty):
 def _make_form_dependency(
     type: type[C], converter: Converter
 ) -> Callable[[], Coroutine[None, None, C]]:
-    handler = converter._structure_func.dispatch(type)
+    handler = converter.get_structure_hook(type)
 
     async def read_form() -> C:
         try:

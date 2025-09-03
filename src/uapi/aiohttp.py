@@ -35,7 +35,7 @@ from .shorthands import ResponseShorthand, T_co
 from .status import BadRequest, BaseResponse, get_status_code
 from .types import Method, RouteName
 
-__all__ = ["App", "AiohttpApp"]
+__all__ = ["AiohttpApp", "App"]
 
 C = TypeVar("C")
 C_contra = TypeVar("C_contra", contravariant=True)
@@ -222,9 +222,11 @@ def _make_aiohttp_incanter(converter: Converter) -> Incanter:
     def query_factory(p: Parameter):
         def read_query(_request: FrameworkRequest):
             return converter.structure(
-                _request.query[p.name]
-                if p.default is Signature.empty
-                else _request.query.get(p.name, p.default),
+                (
+                    _request.query[p.name]
+                    if p.default is Signature.empty
+                    else _request.query.get(p.name, p.default)
+                ),
                 p.annotation,
             )
 
@@ -304,7 +306,7 @@ def _make_header_dependency(
 
         return read_opt_header
 
-    handler = converter._structure_func.dispatch(type)
+    handler = converter.get_structure_hook(type)
     if default is Signature.empty:
 
         def read_conv_header(_request: FrameworkRequest) -> str:
@@ -335,7 +337,7 @@ def _make_cookie_dependency(cookie_name: str, default=Signature.empty):
 def _make_form_dependency(
     type: type[C], converter: Converter
 ) -> Callable[[FrameworkRequest], Coroutine[None, None, C]]:
-    handler = converter._structure_func.dispatch(type)
+    handler = converter.get_structure_hook(type)
 
     async def read_form(_request: FrameworkRequest) -> C:
         try:

@@ -11,11 +11,11 @@ from .openapi import MediaType, Response, SchemaBuilder
 from .status import BaseResponse, NoContent, Ok
 
 __all__ = [
-    "ResponseShorthand",
-    "ResponseAdapter",
-    "NoneShorthand",
-    "StrShorthand",
     "BytesShorthand",
+    "NoneShorthand",
+    "ResponseAdapter",
+    "ResponseShorthand",
+    "StrShorthand",
 ]
 
 T_co = TypeVar("T_co", covariant=True)
@@ -143,7 +143,7 @@ def make_attrs_shorthand(
 
         @staticmethod
         def response_adapter_factory(type: Any) -> ResponseAdapter:
-            hook = converter._unstructure_func.dispatch(type)
+            hook = converter.get_unstructure_hook(type)
             headers = {"content-type": "application/json"}
 
             def response_adapter(

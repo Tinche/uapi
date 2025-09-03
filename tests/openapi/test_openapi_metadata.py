@@ -1,4 +1,5 @@
 """Tests for OpenAPI metadata, like summaries and descriptions."""
+
 from collections.abc import Callable
 
 from uapi.aiohttp import App

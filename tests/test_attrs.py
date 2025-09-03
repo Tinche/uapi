@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 from json import dumps
 
+import pytest
 from cattrs import unstructure
 from httpx import AsyncClient
-import pytest
 
 from tests.models import NestedModel
 

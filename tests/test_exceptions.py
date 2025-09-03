@@ -1,7 +1,7 @@
 """Tests for ResponseException scenarios."""
 
-from httpx import AsyncClient
 import pytest
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio(loop_scope="session")

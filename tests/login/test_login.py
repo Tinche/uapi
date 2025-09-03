@@ -1,4 +1,4 @@
-from asyncio import sleep, TaskGroup
+from asyncio import TaskGroup, sleep
 from collections.abc import Callable
 from datetime import timedelta
 
@@ -51,7 +51,6 @@ async def login_app_port(unused_tcp_port_factory: Callable[..., int]):
     await configure_login_app(app)
     async with TaskGroup() as tg:
         t = tg.create_task(run_on_framework(app, unused_tcp_port))
-        print("Task created")
 
         yield unused_tcp_port
 

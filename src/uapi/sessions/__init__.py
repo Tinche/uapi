@@ -46,7 +46,7 @@ def configure_secure_sessions(
         )
 
     def get_session(
-        session: Annotated[str | None, Cookie(cookie_name)] = None
+        session: Annotated[str | None, Cookie(cookie_name)] = None,
     ) -> Session:
         if session is None:
             res = Session()

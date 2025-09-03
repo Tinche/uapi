@@ -1,4 +1,5 @@
 """Forms work with the OpenAPI schema."""
+
 from uapi.base import App
 from uapi.openapi import IntegerSchema, MediaType, Reference, RequestBody, Schema
 

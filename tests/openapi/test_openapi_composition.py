@@ -1,4 +1,5 @@
 """Test OpenAPI while composing."""
+
 from uapi.base import App
 from uapi.openapi import MediaType, OpenAPI, Response, Schema
 

@@ -1,4 +1,5 @@
 """Test the OpenAPI schema generation for attrs classes."""
+
 from typing import TypeAlias
 
 from attrs import define

@@ -1,7 +1,7 @@
 """Test the composition context."""
 
-from httpx import AsyncClient
 import pytest
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio(loop_scope="session")
