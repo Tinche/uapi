@@ -1,4 +1,4 @@
-test *args='tests -x --ff --mypy-only-local-stub':
+test *args='tests -x --ff --mypy-only-local-stub -n auto':
 	pdm run pytest {{args}}
 
 lint:
