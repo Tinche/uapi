@@ -54,9 +54,9 @@ class _AppBase:
     converter: Converter = Factory(make_converter)
     #: The incanter used to compose handlers and middleware.
     incant: Incanter = Factory(Incanter)
-    _route_map: dict[
-        tuple[Method, str], tuple[Callable, RouteName, RouteTags]
-    ] = Factory(dict)
+    _route_map: dict[tuple[Method, str], tuple[Callable, RouteName, RouteTags]] = (
+        Factory(dict)
+    )
     _openapi_security: list[OpenAPISecuritySpec] = Factory(list)
     _shorthands: Sequence[type[ResponseShorthand]] = field(
         default=Factory(
@@ -76,7 +76,7 @@ class _AppBase:
         self, app: "App", prefix: str | None = None, name_prefix: str | None = None
     ) -> None:
         """Register all routes from a different app under an optional path prefix."""
-        if not type(app) == App:
+        if type(app) is not App:
             raise Exception("Incompatible apps.")
         for (method, path), (handler, name, tags) in app._route_map.items():
             if name_prefix is not None:
@@ -159,7 +159,7 @@ class _AppBase:
         self, path: str = "/swaggerui", openapi_path: str = "/openapi.json"
     ):
         """Start serving the Swagger UI at the given path."""
-        from .openapi_ui import swaggerui
+        from .openapi_ui import swaggerui  # noqa: PLC0415
 
         fixed_path = swaggerui.replace("$OPENAPIURL", openapi_path)
 
@@ -174,7 +174,7 @@ class _AppBase:
 
     def serve_redoc(self, path: str = "/redoc", openapi_path: str = "/openapi.json"):
         """Start serving the ReDoc UI at the given path."""
-        from .openapi_ui import redoc
+        from .openapi_ui import redoc  # noqa: PLC0415
 
         fixed_path = redoc.replace("$OPENAPIURL", openapi_path)
 
@@ -187,7 +187,7 @@ class _AppBase:
         self, path: str = "/elements", openapi_path: str = "/openapi.json"
     ):
         """Start serving the OpenAPI Elements UI at the given path."""
-        from .openapi_ui import elements as elements_html
+        from .openapi_ui import elements as elements_html  # noqa: PLC0415
 
         fixed_path = elements_html.replace("$OPENAPIURL", openapi_path)
 

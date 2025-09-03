@@ -1,6 +1,6 @@
 from asyncio import create_task, sleep
-from collections.abc import Callable, Coroutine
-from contextlib import suppress
+from collections.abc import Callable, Coroutine, Generator
+from contextlib import contextmanager, suppress
 from functools import partial
 from inspect import Parameter, Signature, signature
 from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
@@ -8,6 +8,7 @@ from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
 from attrs import Factory, define
 from cattrs import Converter
 from incant import Hook, Incanter
+from typing_extensions import override
 
 from starlette.applications import Starlette
 from starlette.requests import Request as FrameworkRequest
@@ -187,7 +188,7 @@ class StarletteApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
 
         Cancel the task running this to shut down uvicorn.
         """
-        from uvicorn import Config, Server
+        from uvicorn import Config, Server  # noqa: PLC0415
 
         config = Config(
             self.to_framework_app(),
@@ -203,8 +204,11 @@ class StarletteApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
         else:
 
             class NoSignalsServer(Server):
-                def install_signal_handlers(self) -> None:
-                    return
+                @override
+                @contextmanager
+                def capture_signals(self) -> Generator[None, None, None]:
+                    """Capture no signals if asked not to."""
+                    yield
 
             server = NoSignalsServer(config=config)
 
@@ -231,9 +235,11 @@ def _make_starlette_incanter(converter: Converter) -> Incanter:
     def query_factory(p: Parameter) -> Callable[[FrameworkRequest], Any]:
         def read_query(_request: FrameworkRequest) -> Any:
             return converter.structure(
-                _request.query_params[p.name]
-                if p.default is Signature.empty
-                else _request.query_params.get(p.name, p.default),
+                (
+                    _request.query_params[p.name]
+                    if p.default is Signature.empty
+                    else _request.query_params.get(p.name, p.default)
+                ),
                 p.annotation,
             )
 
@@ -312,7 +318,7 @@ def _make_header_dependency(
 
         return read_opt_header
 
-    handler = converter._structure_func.dispatch(type)
+    handler = converter.get_structure_hook(type)
     if default is Signature.empty:
 
         def read_conv_header(_request: FrameworkRequest) -> str:
@@ -354,7 +360,7 @@ def _extract_cookies(headers: Headers) -> tuple[dict[str, str], list[str]]:
 def _make_form_dependency(
     type: type[C], converter: Converter
 ) -> Callable[[FrameworkRequest], Coroutine[None, None, C]]:
-    handler = converter._structure_func.dispatch(type)
+    handler = converter.get_structure_hook(type)
 
     async def read_form(_request: FrameworkRequest) -> C:
         try:

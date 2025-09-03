@@ -254,7 +254,8 @@ class SchemaBuilder:
     @classmethod
     def default_build_rules(cls) -> list[tuple[Predicate, BuildHook]]:
         """Set up the default build rules."""
-        from .attrschema import build_attrs_schema
+        # For circular deps.
+        from .attrschema import build_attrs_schema  # noqa: PLC0415
 
         return [
             (
@@ -304,25 +305,29 @@ converter.register_structure_hook(
 )
 converter.register_structure_hook(
     Schema | ArraySchema | Reference,
-    lambda v, _: converter.structure(v, Reference)
-    if "$ref" in v
-    else (
-        converter.structure(v, ArraySchema)
-        if "items" in v
-        else converter.structure(v, Schema)
+    lambda v, _: (
+        converter.structure(v, Reference)
+        if "$ref" in v
+        else (
+            converter.structure(v, ArraySchema)
+            if "items" in v
+            else converter.structure(v, Schema)
+        )
     ),
 )
 converter.register_structure_hook(
     bool | Schema | IntegerSchema | Reference,
-    lambda v, _: v
-    if isinstance(v, bool)
-    else (
-        converter.structure(v, Reference)
-        if "$ref" in v
+    lambda v, _: (
+        v
+        if isinstance(v, bool)
         else (
-            converter.structure(v, IntegerSchema)
-            if v["type"] == "integer"
-            else converter.structure(v, Schema)
+            converter.structure(v, Reference)
+            if "$ref" in v
+            else (
+                converter.structure(v, IntegerSchema)
+                if v["type"] == "integer"
+                else converter.structure(v, Schema)
+            )
         )
     ),
 )

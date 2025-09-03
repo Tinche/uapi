@@ -43,8 +43,7 @@ def _make_delete_cookie_header(name: str) -> dict:
 
 
 #: A cookie dependency.
-class Cookie(str):
-    ...
+class Cookie(str): ...
 
 
 def set_cookie(

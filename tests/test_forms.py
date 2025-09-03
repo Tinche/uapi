@@ -1,7 +1,10 @@
 """Tests for forms."""
+
+import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_simple_form(server):
     """Simplest of forms work."""
     async with AsyncClient() as client:
@@ -15,6 +18,7 @@ async def test_simple_form(server):
         assert resp.read() == b"2"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_wrong_content_type(server):
     """Wrong content types are rejected."""
     async with AsyncClient() as client:
@@ -29,6 +33,7 @@ async def test_wrong_content_type(server):
         assert resp.status_code == 400
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_validation_failure(server):
     """Validation failures are handled properly."""
     async with AsyncClient() as client:

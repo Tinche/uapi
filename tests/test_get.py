@@ -1,6 +1,8 @@
+import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_index(server):
     async with AsyncClient() as client:
         resp = await client.get(f"http://localhost:{server}")
@@ -9,6 +11,7 @@ async def test_index(server):
         assert resp.headers["content-type"] == "text/plain"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_query_parameter_unannotated(server):
     """Test query parameter handling for unannotated parameters."""
     async with AsyncClient() as client:
@@ -19,6 +22,7 @@ async def test_query_parameter_unannotated(server):
         assert resp.text == "testsuffix"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_query_parameter_string(server):
     """Test query parameter handling for string annotated parameters."""
     async with AsyncClient() as client:
@@ -29,6 +33,7 @@ async def test_query_parameter_string(server):
         assert resp.text == "testsuffix"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_query_parameter(server):
     """Test query parameter handling."""
     async with AsyncClient() as client:
@@ -37,6 +42,7 @@ async def test_query_parameter(server):
         assert resp.text == "11"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_query_parameter_default(server):
     """Test query parameter handling."""
     async with AsyncClient() as client:
@@ -50,6 +56,7 @@ async def test_query_parameter_default(server):
         assert resp.text == "1"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_response_bytes(server):
     """Test byte responses."""
     async with AsyncClient() as client:
@@ -59,6 +66,7 @@ async def test_response_bytes(server):
         assert resp.read() == b"2"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_response_model(server):
     """Test models in the response."""
     async with AsyncClient() as client:
@@ -71,6 +79,7 @@ async def test_response_model(server):
         )
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_response_model_custom_status(server):
     """Test models in the response."""
     async with AsyncClient() as client:
@@ -84,6 +93,7 @@ async def test_response_model_custom_status(server):
         )
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_user_response_class(server):
     """Test user response classes."""
     async with AsyncClient() as client:

@@ -1,4 +1,5 @@
 """Tests for response shorthands."""
+
 from asyncio import create_task
 from datetime import datetime, timezone
 from typing import Any
@@ -37,11 +38,13 @@ class DatetimeShorthand(ResponseShorthand[datetime]):
 )
 async def test_custom_shorthand(
     unused_tcp_port: int,
-    app_type: type[QuartApp]
-    | type[AiohttpApp]
-    | type[StarletteApp]
-    | type[FlaskApp]
-    | type[DjangoApp],
+    app_type: (
+        type[QuartApp]
+        | type[AiohttpApp]
+        | type[StarletteApp]
+        | type[FlaskApp]
+        | type[DjangoApp]
+    ),
 ) -> None:
     """Custom shorthands work."""
     app = app_type[None]().add_response_shorthand(DatetimeShorthand)  # type: ignore

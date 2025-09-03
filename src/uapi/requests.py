@@ -19,9 +19,9 @@ class JsonBodyLoader:
     """Metadata for customized loading and structuring of JSON bodies."""
 
     content_type: str | None = "application/json"
-    error_handler: Callable[
-        [Exception, bytes], BaseResponse
-    ] = lambda _, __: BadRequest("invalid payload")
+    error_handler: Callable[[Exception, bytes], BaseResponse] = (
+        lambda _, __: BadRequest("invalid payload")
+    )
 
 
 @frozen

@@ -162,17 +162,21 @@ def _make_flask_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         lambda _: True,
         lambda p: lambda: converter.structure(
-            request.args[p.name]
-            if p.default is Signature.empty
-            else request.args.get(p.name, p.default),
+            (
+                request.args[p.name]
+                if p.default is Signature.empty
+                else request.args.get(p.name, p.default)
+            ),
             p.annotation,
         ),
     )
     res.register_hook_factory(
         lambda p: p.annotation in (Signature.empty, str),
-        lambda p: lambda: request.args[p.name]
-        if p.default is Signature.empty
-        else request.args.get(p.name, p.default),
+        lambda p: lambda: (
+            request.args[p.name]
+            if p.default is Signature.empty
+            else request.args.get(p.name, p.default)
+        ),
     )
     res.register_hook_factory(
         is_header,
@@ -230,7 +234,7 @@ def _make_header_dependency(
 
         return read_opt_header
 
-    handler = converter._structure_func.dispatch(type)
+    handler = converter.get_structure_hook(type)
 
     if default is Signature.empty:
 
@@ -260,7 +264,7 @@ def _make_cookie_dependency(cookie_name: str, default=Signature.empty):
 
 
 def _make_form_dependency(type: type[C], converter: Converter) -> Callable[[], C]:
-    handler = converter._structure_func.dispatch(type)
+    handler = converter.get_structure_hook(type)
 
     def read_form() -> C:
         try:

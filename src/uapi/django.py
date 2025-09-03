@@ -228,9 +228,11 @@ def _make_django_incanter(converter: Converter) -> Incanter:
     def query_factory(p: Parameter):
         def read_query(_request: FrameworkRequest) -> Any:
             return converter.structure(
-                _request.GET[p.name]
-                if p.default is Signature.empty
-                else _request.GET.get(p.name, p.default),
+                (
+                    _request.GET[p.name]
+                    if p.default is Signature.empty
+                    else _request.GET.get(p.name, p.default)
+                ),
                 p.annotation,
             )
 
@@ -287,7 +289,7 @@ def _make_django_incanter(converter: Converter) -> Incanter:
 
 
 def _make_method_router(
-    methods_to_handlers: dict[Method, Callable]
+    methods_to_handlers: dict[Method, Callable],
 ) -> Callable[[FrameworkRequest], FrameworkResponse]:
     def method_router(request: FrameworkRequest) -> FrameworkResponse:
         if request.method in methods_to_handlers:
@@ -322,7 +324,7 @@ def _make_header_dependency(
 
         return read_opt_header
 
-    handler = converter._structure_func.dispatch(type)
+    handler = converter.get_structure_hook(type)
     if default is Signature.empty:
 
         def read_conv_header(_request: FrameworkRequest) -> str:
@@ -353,7 +355,7 @@ def _make_cookie_dependency(cookie_name: str, default=Signature.empty):
 def _make_form_dependency(
     type: type[C], converter: Converter
 ) -> Callable[[FrameworkRequest], C]:
-    handler = converter._structure_func.dispatch(type)
+    handler = converter.get_structure_hook(type)
 
     def read_form(_request: FrameworkRequest) -> C:
         try:

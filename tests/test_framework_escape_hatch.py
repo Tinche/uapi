@@ -1,7 +1,10 @@
 """Tests for framework escape hatches."""
+
+import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_framework_req(server: int) -> None:
     """Frameworks use framework requests for this endpoint."""
     async with AsyncClient() as client:
@@ -12,6 +15,7 @@ async def test_framework_req(server: int) -> None:
         assert resp.text == "framework_request1"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_no_body_native_response_post(server: int) -> None:
     async with AsyncClient() as client:
         resp = await client.post(
@@ -21,6 +25,7 @@ async def test_no_body_native_response_post(server: int) -> None:
         assert resp.text == "post"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_native_resp_subclass(server: int) -> None:
     """Subclasses of the native response work."""
     async with AsyncClient() as client:

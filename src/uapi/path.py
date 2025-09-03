@@ -1,4 +1,5 @@
 """For path parameters."""
+
 from re import compile, sub
 
 _angle_path_pattern = compile(r"<([a-zA-Z_:]+)>")

@@ -1,6 +1,6 @@
 from asyncio import create_task, sleep
-from collections.abc import Callable, Coroutine
-from contextlib import suppress
+from collections.abc import Callable, Coroutine, Generator
+from contextlib import contextmanager, suppress
 from functools import partial
 from inspect import Signature, signature
 from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
@@ -8,6 +8,7 @@ from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
 from attrs import Factory, define
 from cattrs import Converter
 from incant import Hook, Incanter
+from typing_extensions import override
 from werkzeug.datastructures import Headers
 
 from quart import Quart, request
@@ -173,7 +174,7 @@ class QuartApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
 
         Cancel the task running this to shut down uvicorn.
         """
-        from uvicorn import Config, Server
+        from uvicorn import Config, Server  # noqa: PLC0415
 
         config = Config(
             self.to_framework_app(import_name),
@@ -189,8 +190,11 @@ class QuartApp(Generic[C_contra], BaseApp[C_contra | FrameworkResponse]):
         else:
 
             class NoSignalsServer(Server):
-                def install_signal_handlers(self) -> None:
-                    return
+                @override
+                @contextmanager
+                def capture_signals(self) -> Generator[None, None, None]:
+                    """Capture no signals if asked not to."""
+                    yield
 
             server = NoSignalsServer(config=config)
 
@@ -217,17 +221,21 @@ def _make_quart_incanter(converter: Converter) -> Incanter:
     res.register_hook_factory(
         lambda _: True,
         lambda p: lambda: converter.structure(
-            request.args[p.name]
-            if p.default is Signature.empty
-            else request.args.get(p.name, p.default),
+            (
+                request.args[p.name]
+                if p.default is Signature.empty
+                else request.args.get(p.name, p.default)
+            ),
             p.annotation,
         ),
     )
     res.register_hook_factory(
         lambda p: p.annotation in (Signature.empty, str),
-        lambda p: lambda: request.args[p.name]
-        if p.default is Signature.empty
-        else request.args.get(p.name, p.default),
+        lambda p: lambda: (
+            request.args[p.name]
+            if p.default is Signature.empty
+            else request.args.get(p.name, p.default)
+        ),
     )
     res.register_hook_factory(
         is_header,
@@ -285,7 +293,7 @@ def _make_header_dependency(
 
         return read_opt_header
 
-    handler = converter._structure_func.dispatch(type)
+    handler = converter.get_structure_hook(type)
     if default is Signature.empty:
 
         def read_conv_header() -> str:
@@ -316,7 +324,7 @@ def _make_cookie_dependency(cookie_name: str, default=Signature.empty):
 def _make_form_dependency(
     type: type[C], converter: Converter
 ) -> Callable[[], Coroutine[None, None, C]]:
-    handler = converter._structure_func.dispatch(type)
+    handler = converter.get_structure_hook(type)
 
     async def read_form() -> C:
         try:

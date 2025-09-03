@@ -1,8 +1,10 @@
+import pytest
 from httpx import AsyncClient
 
 from uapi.status import Forbidden, get_status_code
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_head_exc(server):
     """A head request, fulfilled by a ResponseException."""
     async with AsyncClient() as client:

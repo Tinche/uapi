@@ -83,7 +83,7 @@ async def run_on_flask(app: FlaskApp, port: int):
         serve(
             app.to_framework_app(__name__),
             config,
-            shutdown_trigger=event.wait,  # type: ignore
+            shutdown_trigger=event.wait,
             mode="wsgi",
         )
     )

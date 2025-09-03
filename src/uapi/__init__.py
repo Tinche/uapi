@@ -10,12 +10,12 @@ __all__ = [
     "Header",
     "HeaderSpec",
     "Method",
-    "redirect_to_get",
-    "redirect",
     "ReqBody",
     "ReqBytes",
     "ResponseException",
     "RouteName",
+    "redirect",
+    "redirect_to_get",
 ]
 
 

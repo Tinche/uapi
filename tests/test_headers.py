@@ -1,6 +1,8 @@
+import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_simple_header(server: int) -> None:
     """Headers work properly."""
     async with AsyncClient() as client:
@@ -11,6 +13,7 @@ async def test_simple_header(server: int) -> None:
         assert resp.text == "test"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_missing_header(server: int) -> None:
     """Missing headers provide errors."""
     async with AsyncClient() as client:
@@ -18,6 +21,7 @@ async def test_missing_header(server: int) -> None:
         assert resp.status_code in (400, 500)
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_header_with_str_default(server: int) -> None:
     """String headers with defaults work properly."""
     async with AsyncClient() as client:
@@ -33,6 +37,7 @@ async def test_header_with_str_default(server: int) -> None:
         assert resp.text == "1"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_header_with_default(server: int) -> None:
     """Headers with defaults work properly."""
     async with AsyncClient() as client:
@@ -47,6 +52,7 @@ async def test_header_with_default(server: int) -> None:
         assert resp.text == "1"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_nonstring_header(server: int) -> None:
     """Non-string headers without defaults work properly."""
     async with AsyncClient() as client:
@@ -57,6 +63,7 @@ async def test_nonstring_header(server: int) -> None:
         assert resp.text == "1"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_header_name_override(server: int) -> None:
     """Headers can override their names."""
     async with AsyncClient() as client:

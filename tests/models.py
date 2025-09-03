@@ -26,7 +26,7 @@ class SimpleModelNoDefaults:
 class NestedModel:
     """A nested model."""
 
-    simple_model: SimpleModel = SimpleModel()
+    simple_model: SimpleModel = Factory(SimpleModel)
     a_dict: dict[str, str] = Factory(dict)
     a_list: list[SimpleModel] = Factory(list)
 
@@ -52,8 +52,8 @@ class ModelWithDatetime:
 
     a: datetime
     b: date
-    c: datetime = datetime.now(timezone.utc)
-    d: date = datetime.now(timezone.utc).date()
+    c: datetime = Factory(lambda: datetime.now(timezone.utc))
+    d: date = Factory(lambda: datetime.now(timezone.utc).date())
 
 
 T = TypeVar("T")

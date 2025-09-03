@@ -10,8 +10,8 @@ urlpatterns: list = []
 
 
 async def run_on_django(app: DjangoApp, port: int) -> None:
-    from django.conf import settings
-    from django.core.handlers.wsgi import WSGIHandler
+    from django.conf import settings  # noqa: PLC0415
+    from django.core.handlers.wsgi import WSGIHandler  # noqa: PLC0415
 
     urlpatterns.clear()
     urlpatterns.extend(app.to_urlpatterns())
@@ -27,7 +27,7 @@ async def run_on_django(app: DjangoApp, port: int) -> None:
     event = Event()
 
     t = create_task(
-        serve(application, config, shutdown_trigger=event.wait, mode="wsgi")  # type: ignore
+        serve(application, config, shutdown_trigger=event.wait, mode="wsgi")
     )
 
     try:

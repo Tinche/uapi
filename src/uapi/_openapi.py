@@ -1,4 +1,5 @@
 """Internal OpenAPI functionality."""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -355,9 +356,9 @@ def routes_to_paths(
     summary_transformer: SummaryTransformer,
     description_transformer: DescriptionTransformer,
 ) -> dict[str, OpenAPI.PathItem]:
-    res: dict[
-        str, dict[Method, tuple[Callable, Callable, RouteName, RouteTags]]
-    ] = defaultdict(dict)
+    res: dict[str, dict[Method, tuple[Callable, Callable, RouteName, RouteTags]]] = (
+        defaultdict(dict)
+    )
 
     for (method, path), (handler, orig_handler, name, tags) in routes.items():
         path = path_param_parser(path)[0]
@@ -468,7 +469,7 @@ def return_type_to_statuses(t: type) -> dict[int, Any]:
         ):
             if hasattr(typ, "__origin__"):
                 status = get_status_code(typ.__origin__)
-                typ = typ.__args__[0]
+                typ = typ.__args__[0]  # type: ignore[union-attr]
             else:
                 status = get_status_code(typ)
                 typ = type(None)

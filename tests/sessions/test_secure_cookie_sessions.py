@@ -1,8 +1,10 @@
 from asyncio import sleep
 
+import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_login_logout(secure_cookie_session_app: int) -> None:
     """Test logging in and out."""
     username = "MyCoolUsername"
@@ -38,6 +40,7 @@ async def test_login_logout(secure_cookie_session_app: int) -> None:
         assert resp.text == "not-logged-in"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_session_expiry(secure_cookie_session_app: int):
     """Test path parameter handling."""
     username = "MyCoolUsername"

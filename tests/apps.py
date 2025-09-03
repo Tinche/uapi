@@ -89,7 +89,7 @@ def configure_base_async(app: AsyncApp) -> None:
         return a_cookie
 
     async def put_cookie_optional(
-        a_cookie: Annotated[str | None, Cookie("A-COOKIE")] = None
+        a_cookie: Annotated[str | None, Cookie("A-COOKIE")] = None,
     ) -> str:
         return a_cookie if a_cookie is not None else "missing"
 
@@ -152,7 +152,7 @@ def configure_base_async(app: AsyncApp) -> None:
 
     @app.get("/header-renamed")
     async def header_renamed(
-        test_header: Annotated[str, HeaderSpec("test_header")]
+        test_header: Annotated[str, HeaderSpec("test_header")],
     ) -> str:
         return test_header
 
@@ -164,7 +164,7 @@ def configure_base_async(app: AsyncApp) -> None:
 
     @app.patch("/custom-loader-no-ct")
     async def custom_loader_no_ct(
-        body: Annotated[NestedModel, JsonBodyLoader(None)]
+        body: Annotated[NestedModel, JsonBodyLoader(None)],
     ) -> Ok[str]:
         """No content-type required."""
         return Ok(str(body.simple_model.an_int + 1))
@@ -173,7 +173,7 @@ def configure_base_async(app: AsyncApp) -> None:
     async def custom_loader_error(
         body: Annotated[
             NestedModel, JsonBodyLoader(error_handler=lambda e, _: Forbidden(str(e)))
-        ]
+        ],
     ) -> Ok[str]:
         """Custom validation error."""
         return Ok("")
@@ -195,7 +195,7 @@ def configure_base_async(app: AsyncApp) -> None:
 
     @app.get("/generic-model-dicts")
     async def generic_model_dict(
-        m: ReqBody[GenericModel[dict[str, str]]]
+        m: ReqBody[GenericModel[dict[str, str]]],
     ) -> GenericModel[dict[str, str]]:
         """OpenAPI should handle generic models with dicts."""
         return GenericModel({})
@@ -205,9 +205,9 @@ def configure_base_async(app: AsyncApp) -> None:
         return ResponseModel([])
 
     @app.get("/response-generic-model")
-    async def response_generic_model() -> ResponseGenericModel[
-        ResponseGenericModelInner, ResponseGenericModelListInner
-    ]:
+    async def response_generic_model() -> (
+        ResponseGenericModel[ResponseGenericModelInner, ResponseGenericModelListInner]
+    ):
         return ResponseGenericModel(ResponseGenericModelInner(1))
 
     @app.get("/response-union-nocontent")
@@ -226,7 +226,7 @@ def configure_base_async(app: AsyncApp) -> None:
 
     @app.post("/dictionary-models")
     async def dictionary_models(
-        payload: ReqBody[dict[str, SimpleModel]]
+        payload: ReqBody[dict[str, SimpleModel]],
     ) -> ModelWithDict:
         return ModelWithDict(payload)
 
@@ -324,7 +324,7 @@ def configure_base_sync(app: App) -> None:
         return a_cookie
 
     def put_cookie_optional(
-        a_cookie: Annotated[str | None, Cookie("A-COOKIE")] = None
+        a_cookie: Annotated[str | None, Cookie("A-COOKIE")] = None,
     ) -> str:
         return a_cookie if a_cookie is not None else "missing"
 
@@ -395,7 +395,7 @@ def configure_base_sync(app: App) -> None:
 
     @app.patch("/custom-loader-no-ct")
     def custom_loader_no_ct(
-        body: Annotated[NestedModel, JsonBodyLoader(None)]
+        body: Annotated[NestedModel, JsonBodyLoader(None)],
     ) -> Ok[str]:
         """No content-type required."""
         return Ok(str(body.simple_model.an_int + 1))
@@ -404,7 +404,7 @@ def configure_base_sync(app: App) -> None:
     def custom_loader_error(
         body: Annotated[
             NestedModel, JsonBodyLoader(error_handler=lambda e, _: Forbidden(str(e)))
-        ]
+        ],
     ) -> Ok[str]:
         """Custom validation error."""
         return Ok("")
@@ -426,7 +426,7 @@ def configure_base_sync(app: App) -> None:
 
     @app.get("/generic-model-dicts")
     def generic_model_dict(
-        m: ReqBody[GenericModel[dict[str, str]]]
+        m: ReqBody[GenericModel[dict[str, str]]],
     ) -> GenericModel[dict[str, str]]:
         """OpenAPI should handle generic models with dicts."""
         return GenericModel({})

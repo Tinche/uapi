@@ -52,6 +52,7 @@ async def redis_session_app(unused_tcp_port_factory: Callable[..., int]):
         await t
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_login_logout(redis_session_app: int):
     """Test path parameter handling."""
     username = "MyCoolUsername"
@@ -84,6 +85,7 @@ async def test_login_logout(redis_session_app: int):
         assert resp.text == "naughty!"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_session_expiry(redis_session_app: int) -> None:
     """Test path parameter handling."""
     username = "MyCoolUsername"
@@ -106,6 +108,7 @@ async def test_session_expiry(redis_session_app: int) -> None:
         assert resp.text == "naughty!"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_openapi_security() -> None:
     app = AiohttpApp()
     await configure_redis_session_app(app)

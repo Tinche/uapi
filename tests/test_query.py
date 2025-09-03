@@ -1,6 +1,8 @@
+import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_query_post(server):
     """Test query params in posts."""
     async with AsyncClient() as client:

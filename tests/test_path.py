@@ -1,7 +1,10 @@
 """Tests for path parameters."""
+
+import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_path_parameter(server):
     """Test path parameter handling."""
     async with AsyncClient() as client:
@@ -10,6 +13,7 @@ async def test_path_parameter(server):
         assert resp.text == "16"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_path_string(server):
     """Posting to a path URL which returns a string."""
     async with AsyncClient() as client:

@@ -15,7 +15,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
         redis-version: [6]
 
     steps:
@@ -26,12 +26,14 @@ jobs:
           python-version: "${{ matrix.python-version }}"
           allow-python-prereleases: true
           cache: true
-          version: "2.18.1"
+          version: "2.25.9"
 
       - name: "Start Redis"
         uses: "supercharge/redis-github-action@1.2.0"
         with:
           redis-version: "${{ matrix.redis-version }}"
+
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff  # v3.0.0
 
       - name: "Run Tox"
         run: |

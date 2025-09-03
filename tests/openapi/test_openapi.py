@@ -1,10 +1,13 @@
 """Test the OpenAPI schema generation."""
+
+import pytest
 from httpx import AsyncClient
 
 from uapi.base import App
 from uapi.openapi import IntegerSchema, OpenAPI, Parameter, Response, Schema, converter
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_get_index(server_with_openapi: int) -> None:
     async with AsyncClient() as client:
         resp = await client.get(f"http://localhost:{server_with_openapi}/openapi.json")
@@ -281,7 +284,7 @@ def test_tags(app: App) -> None:
         for method in ("get", "post", "put", "delete", "patch"):
             if getattr(path_item, method) is not None:
                 if (path, method) in tagged_routes:
-                    assert ["query"] == getattr(path_item, method).tags
+                    assert getattr(path_item, method).tags == ["query"]
                 else:
                     assert not getattr(path_item, method).tags
 

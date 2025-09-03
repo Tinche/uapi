@@ -1,4 +1,5 @@
 """Test models with the same name, different modules."""
+
 from attrs import define
 
 

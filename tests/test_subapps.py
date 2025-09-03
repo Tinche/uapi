@@ -1,7 +1,10 @@
+import pytest
 from httpx import AsyncClient
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_subapp(server):
+    """Requests to subapps work."""
     async with AsyncClient() as client:
         resp = await client.get(f"http://localhost:{server}/subapp")
         assert resp.status_code == 200

@@ -1,4 +1,5 @@
 """JSON schema for attrs."""
+
 from types import NoneType
 from typing import Any
 
