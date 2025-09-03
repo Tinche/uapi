@@ -1,7 +1,10 @@
 """Test the composition context."""
+
 from httpx import AsyncClient
+import pytest
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_route_name(server: int):
     async with AsyncClient() as client:
         resp = await client.get(f"http://localhost:{server}/comp/route-name")
@@ -17,6 +20,7 @@ async def test_route_name(server: int):
         assert (await resp.aread()) == b"route-name-native-post"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_request_method(server: int):
     async with AsyncClient() as client:
         resp = await client.get(f"http://localhost:{server}/comp/req-method")

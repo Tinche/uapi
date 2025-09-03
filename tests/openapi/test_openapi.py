@@ -1,10 +1,13 @@
 """Test the OpenAPI schema generation."""
+
 from httpx import AsyncClient
+import pytest
 
 from uapi.base import App
 from uapi.openapi import IntegerSchema, OpenAPI, Parameter, Response, Schema, converter
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_get_index(server_with_openapi: int) -> None:
     async with AsyncClient() as client:
         resp = await client.get(f"http://localhost:{server_with_openapi}/openapi.json")

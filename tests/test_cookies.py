@@ -1,6 +1,8 @@
 from httpx import AsyncClient
+import pytest
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_put_cookie(server: int):
     """Cookies work (and on a PUT request)."""
     async with AsyncClient() as client:
@@ -11,6 +13,7 @@ async def test_put_cookie(server: int):
         assert resp.text == "test"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_put_cookie_optional(server):
     """Optional cookies work."""
     async with AsyncClient() as client:

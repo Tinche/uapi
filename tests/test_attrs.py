@@ -3,10 +3,12 @@ from json import dumps
 
 from cattrs import unstructure
 from httpx import AsyncClient
+import pytest
 
 from tests.models import NestedModel
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_model(server) -> None:
     model = NestedModel()
     unstructured = unstructure(model)
@@ -18,6 +20,7 @@ async def test_model(server) -> None:
         assert resp.json() == unstructured
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_model_wrong_content_type(server) -> None:
     """The server should refuse invalid content types, for security."""
     model = NestedModel()
@@ -31,6 +34,7 @@ async def test_model_wrong_content_type(server) -> None:
         assert resp.status_code == 415
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_model_error(server: int) -> None:
     """The server returns error on invalid data."""
     async with AsyncClient() as client:
@@ -40,6 +44,7 @@ async def test_model_error(server: int) -> None:
         assert resp.status_code == 400
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_patch_custom_loader_no_ct(server: int) -> None:
     """No content-type required or validated on this endpoint."""
     async with AsyncClient() as client:
@@ -58,6 +63,7 @@ async def test_patch_custom_loader_no_ct(server: int) -> None:
         assert resp.text == "3"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_model_custom_error(server: int) -> None:
     """The server returns custom errors."""
     async with AsyncClient() as client:
@@ -68,6 +74,7 @@ async def test_model_custom_error(server: int) -> None:
         assert resp.text == "While structuring NestedModel (1 sub-exception)"
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_attrs_union(server: int) -> None:
     """Unions of attrs classes work."""
     async with AsyncClient() as client:
@@ -85,6 +92,7 @@ async def test_attrs_union(server: int) -> None:
         assert resp.json() == {"a_float": 1.0, "a_string": "1", "an_int": 1}
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_attrs_union_nocontent(server: int) -> None:
     """Unions of attrs classes and NoContent work."""
     async with AsyncClient() as client:
@@ -98,6 +106,7 @@ async def test_attrs_union_nocontent(server: int) -> None:
         assert resp.read() == b""
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_attrs_union_none(server: int) -> None:
     """Unions of attrs classes and None work."""
     async with AsyncClient() as client:
@@ -111,6 +120,7 @@ async def test_attrs_union_none(server: int) -> None:
         assert resp.read() == b""
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_generic_model(server) -> None:
     async with AsyncClient() as client:
         resp = await client.post(
@@ -123,6 +133,7 @@ async def test_generic_model(server) -> None:
         }
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_dictionary_models(server) -> None:
     async with AsyncClient() as client:
         resp = await client.post(
@@ -137,6 +148,7 @@ async def test_dictionary_models(server) -> None:
         }
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_datetime_models(server) -> None:
     """datetime and date models work."""
     a_val = "2020-01-01T00:00:00+00:00"

@@ -1,7 +1,10 @@
 """Tests for ResponseException scenarios."""
+
 from httpx import AsyncClient
+import pytest
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_attrs_exception(server):
     """Response exceptions work properly in all code paths."""
     async with AsyncClient() as client:

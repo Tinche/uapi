@@ -1,7 +1,10 @@
 from httpx import AsyncClient
+import pytest
 
 
+@pytest.mark.asyncio(loop_scope="session")
 async def test_put_custom_loader(server: int) -> None:
+    """Put requests work. Customer loaders work."""
     async with AsyncClient() as client:
         resp = await client.put(
             f"http://localhost:{server}/custom-loader",
