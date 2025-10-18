@@ -1,5 +1,10 @@
-test *args='tests -x --ff --mypy-only-local-stub -n auto':
-	pdm run pytest {{args}}
+python := ""
 
-lint:
-	pdm run mypy src/ tests/ && pdm run ruff check src/ tests/ && pdm run black --check src/ tests/
+sync version="":
+    uv sync {{ if python != '' { '-p ' + python } else if version != '' { '-p ' + version } else  { '' } }} --all-groups --all-extras
+
+test *args='tests -x --ff --mypy-only-local-stub -n auto':
+	uv run pytest {{args}}
+
+lint: sync
+	uv run mypy src/ tests/ && uv run ruff check src/ tests/ && uv run black --check src/ tests/
