@@ -10,7 +10,7 @@ The **third number** is for emergencies when we need to start branches for older
 
 <!-- changelog follows -->
 
-## [v24.1.0](https://github.com/tinche/uapi/compare/v23.3.0...HEAD) - UNRELEASED
+## [v25.1.0](https://github.com/tinche/uapi/compare/v23.3.0...HEAD) - UNRELEASED
 
 ### Added
 
@@ -24,6 +24,8 @@ The **third number** is for emergencies when we need to start branches for older
   ([#60](https://github.com/Tinche/uapi/pull/60) [#65](https://github.com/Tinche/uapi/pull/65))
 - Python 3.10 is no longer supported.
   ([#65](https://github.com/Tinche/uapi/pull/65)
+- Switch to [`uv`](https://docs.astral.sh/uv/) and [`just`](https://just.systems/man/en/) in lieu of PDM, tox and Make.
+  ([#69](https://github.com/Tinche/uapi/pull/69))
 
 ## [v23.3.0](https://github.com/tinche/uapi/compare/v23.2.0...v23.3.0) - 2023-12-20
 
@@ -37,6 +39,7 @@ The **third number** is for emergencies when we need to start branches for older
   ([#57](https://github.com/Tinche/uapi/pull/57))
 - _uapi_ is now tested against Mypy.
   ([#57](https://github.com/Tinche/uapi/pull/57))
+
 
 ## [v23.2.0](https://github.com/tinche/uapi/compare/v23.1.0...v23.2.0) - 2023-12-10
 
