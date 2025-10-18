@@ -24,3 +24,8 @@ covall:
     uv run coverage combine
     uv run coverage report
     @rm .coverage*
+
+docs output_dir="_build": ## generate Sphinx HTML documentation, including API docs
+	make -C docs -e BUILDDIR={{output_dir}} clean
+	make -C docs -e BUILDDIR={{output_dir}} doctest
+	make -C docs -e BUILDDIR={{output_dir}} html
