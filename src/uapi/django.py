@@ -5,8 +5,6 @@ from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
 
 from attrs import Factory, define
 from cattrs import Converter
-from incant import Hook, Incanter
-
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpRequest as FrameworkRequest
 from django.http import HttpResponse as FrameworkResponse
@@ -14,6 +12,7 @@ from django.urls import URLPattern
 from django.urls import path as django_path
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from incant import Hook, Incanter
 
 from . import ResponseException
 from .base import App as BaseApp
