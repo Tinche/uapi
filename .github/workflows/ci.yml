@@ -17,10 +17,14 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14"]
         redis-version: [6]
+      fail-fast: false
 
     steps:
       - uses: "actions/checkout@v4"
-
+        with:
+          persist-credentials: false
+      
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff  # v3.0.0
       - uses: hynek/setup-cached-uv@757bedc3f972eb7227a1aa657651f15a8527c817  # v2.3.0
 
       - name: "Start Redis"
@@ -28,11 +32,9 @@ jobs:
         with:
           redis-version: "${{ matrix.redis-version }}"
 
-      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff  # v3.0.0
-
-      - name: "Run Tox"
+      - name: "Run Tests"
         run: |
-          uv run --with tox-gh-actions tox
+          just python=${{ matrix.python-version }} covcleanup="false" cov
 
       - name: Upload coverage data
         uses: actions/upload-artifact@v4
@@ -49,34 +51,31 @@ jobs:
 
     steps:
       - uses: "actions/checkout@v4"
-
-      - uses: "actions/setup-python@v5"
         with:
-          cache: "pip"
-          python-version: "3.12"
-
-      - run: "python -Im pip install --upgrade coverage[toml]"
+          persist-credentials: false
 
       - name: Download coverage data
         uses: actions/download-artifact@v4
         with:
           pattern: coverage-data-*
           merge-multiple: true
+      
+      - uses: hynek/setup-cached-uv@757bedc3f972eb7227a1aa657651f15a8527c817  # v2.3.0
 
       - name: "Combine coverage"
         run: |
-          python -Im coverage combine
-          python -Im coverage html --skip-covered --skip-empty
-          python -Im coverage json
+          uv run --group test coverage combine
+          uv run --group test coverage html
+          uv run --group test coverage json
 
           # Report and write to summary.
-          python -Im coverage report | sed 's/^/    /' >> $GITHUB_STEP_SUMMARY
+          uv run --group test coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
 
-          export TOTAL=$(python -c "import json;print(json.load(open('coverage.json'))['totals']['percent_covered_display'])")
+          export TOTAL=$(uv run python -c "import json;print(json.load(open('coverage.json'))['totals']['percent_covered_display'])")
           echo "total=$TOTAL" >> $GITHUB_ENV
 
           # Report again and fail if under the threshold.
-          python -Im coverage report --fail-under=97
+          uv run --group test coverage report --fail-under=100
 
       - name: "Upload HTML report."
         uses: "actions/upload-artifact@v4"
@@ -99,28 +98,40 @@ jobs:
           maxColorRange: 90
           valColorRange: ${{ env.total }}
 
+  lint:
+    name: "Run linters"
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v4"
+        with:
+          persist-credentials: false
+
+      - uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff  # v3.0.0
+      - uses: hynek/setup-cached-uv@757bedc3f972eb7227a1aa657651f15a8527c817  # v2.3.0
+
+      - name: "Run linters"
+        run: |
+          just lint
+
   package:
     name: "Build & verify package"
     runs-on: "ubuntu-latest"
 
     steps:
-      - uses: "actions/checkout@v3"
-
-      - uses: "actions/setup-python@v4"
+      - uses: "actions/checkout@v4"
         with:
-          python-version: "3.11"
+          persist-credentials: false
 
-      - name: "Install tools"
-        run: "python -m pip install twine check-wheel-contents build"
+      - uses: hynek/setup-cached-uv@757bedc3f972eb7227a1aa657651f15a8527c817
 
       - name: "Build package"
-        run: "python -m build"
+        run: "uvx --from build pyproject-build"
 
       - name: "List result"
         run: "ls -l dist"
 
       - name: "Check wheel contents"
-        run: "check-wheel-contents dist/*.whl"
+        run: "uvx check-wheel-contents dist/*.whl"
 
       - name: "Check long_description"
-        run: "python -m twine check dist/*"
+        run: "uvx twine check dist/*"
