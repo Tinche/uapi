@@ -32,8 +32,7 @@ jobs:
 
       - name: "Run Tox"
         run: |
-          python -Im pip install --upgrade tox tox-gh-actions
-          python -Im tox
+          uv run --with tox-gh-actions tox
 
       - name: Upload coverage data
         uses: actions/upload-artifact@v4
