@@ -50,6 +50,15 @@ def configure_base_async(app: AsyncApp) -> None:
     async def query_post(page: int) -> str:
         return str(page + 1)
 
+    @app.get("/query-list")
+    async def query_list(param: list[str]) -> str:
+        return str(sum(int(q) for q in param))
+
+    @app.get("/query-list-def")
+    async def query_list_def(param: list[str] = ["1", "2"]) -> str:
+        """Query lists with defaults."""
+        return str(sum(int(q) for q in param))
+
     @app.get("/response-bytes", tags=["query"])
     async def response_bytes() -> bytes:
         return b"2"
@@ -284,6 +293,15 @@ def configure_base_sync(app: App) -> None:
     @app.post("/query-post")
     def query_post(page: int) -> str:
         return str(page + 1)
+
+    @app.get("/query-list")
+    def query_list(param: list[str]) -> str:
+        return str(sum(int(q) for q in param))
+
+    @app.get("/query-list-def")
+    def query_list_def(param: list[str] = ["1", "2"]) -> str:
+        """Query lists with defaults."""
+        return str(sum(int(q) for q in param))
 
     @app.get("/response-bytes", tags=["query"])
     def response_bytes() -> bytes:
