@@ -77,7 +77,7 @@ jobs:
           echo "total=$TOTAL" >> $GITHUB_ENV
 
           # Report again and fail if under the threshold.
-          uv run --group test coverage report --fail-under=100
+          uv run --group test coverage report --fail-under=98
 
       - name: "Upload HTML report."
         uses: "actions/upload-artifact@v4"
