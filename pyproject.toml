@@ -49,6 +49,7 @@ ignore_missing_imports = true
 [tool.coverage.run]
 parallel = true
 source_pkgs = ["uapi"]
+patch = ["subprocess"]
 
 [tool.ruff]
 src = ["src", "tests"]
