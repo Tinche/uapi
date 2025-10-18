@@ -580,7 +580,7 @@ name = "exceptiongroup"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0b/9f/a65090624ecf468cdca03533906e7c69ed7588582240cfe7cc9e770b50eb/exceptiongroup-1.3.0.tar.gz", hash = "sha256:b241f5885f560bc56a59ee63ca4c6a8bfa46ae4ad651af316d4e81817bb9fd88", size = 29749, upload-time = "2025-05-10T17:42:51.123Z" }
 wheels = [
@@ -2390,14 +2390,18 @@ dependencies = [
 
 [package.dev-dependencies]
 docs = [
+    { name = "aiohttp" },
+    { name = "django" },
+    { name = "flask" },
     { name = "furo" },
     { name = "myst-parser" },
+    { name = "quart" },
     { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "sphinx-autobuild", version = "2024.10.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "sphinx-autobuild", version = "2025.8.25", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "sphinx-inline-tabs" },
-    { name = "uapi" },
+    { name = "starlette" },
 ]
 frameworks = [
     { name = "aiohttp" },
@@ -2412,15 +2416,22 @@ lint = [
     { name = "ruff" },
 ]
 test = [
+    { name = "aiohttp" },
     { name = "aioredis" },
+    { name = "black" },
     { name = "coverage" },
+    { name = "django" },
+    { name = "flask" },
     { name = "httpx" },
     { name = "hypercorn" },
+    { name = "mypy" },
     { name = "pytest-asyncio" },
     { name = "pytest-mypy-plugins" },
     { name = "pytest-xdist" },
     { name = "python-multipart" },
-    { name = "uapi" },
+    { name = "quart" },
+    { name = "ruff" },
+    { name = "starlette" },
     { name = "uvicorn" },
 ]
 
@@ -2435,12 +2446,16 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 docs = [
+    { name = "aiohttp", specifier = ">=3.12.15" },
+    { name = "django" },
+    { name = "flask" },
     { name = "furo" },
     { name = "myst-parser" },
+    { name = "quart", specifier = ">=0.20.0" },
     { name = "sphinx" },
     { name = "sphinx-autobuild", specifier = ">=2021.3.14" },
     { name = "sphinx-inline-tabs" },
-    { name = "uapi", extras = ["frameworks"] },
+    { name = "starlette" },
 ]
 frameworks = [
     { name = "aiohttp", specifier = ">=3.12.15" },
@@ -2455,15 +2470,22 @@ lint = [
     { name = "ruff" },
 ]
 test = [
+    { name = "aiohttp", specifier = ">=3.12.15" },
     { name = "aioredis", specifier = "==1.3.1" },
+    { name = "black", specifier = ">=25.1.0" },
     { name = "coverage", specifier = ">=7.6.1" },
+    { name = "django" },
+    { name = "flask" },
     { name = "httpx" },
     { name = "hypercorn" },
+    { name = "mypy", specifier = ">=1.17.1" },
     { name = "pytest-asyncio" },
     { name = "pytest-mypy-plugins", specifier = ">=3.0.0" },
     { name = "pytest-xdist", specifier = ">=3.5.0" },
     { name = "python-multipart", specifier = ">=0.0.6" },
-    { name = "uapi", extras = ["lint", "frameworks"] },
+    { name = "quart", specifier = ">=0.20.0" },
+    { name = "ruff" },
+    { name = "starlette" },
     { name = "uvicorn" },
 ]
 

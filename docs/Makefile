@@ -4,7 +4,7 @@
 # You can set these variables from the command line, and also
 # from the environment for the first two.
 SPHINXOPTS    ?=
-SPHINXBUILD   ?= uv run sphinx-build -M
+SPHINXBUILD   ?= uv run --group docs sphinx-build -M
 SOURCEDIR     = .
 BUILDDIR      = _build
 
@@ -20,10 +20,10 @@ help:
 	$(SPHINXBUILD) $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 apidoc:
-	pdm run sphinx-apidoc -o . ../src/uapi -f
+	uv run --group docs sphinx-apidoc -o . ../src/uapi -f
 
 ## htmllive       to rebuild and reload HTML files in your browser
 .PHONY: htmllive
-htmllive: SPHINXBUILD = uv run sphinx-autobuild -b
+htmllive: SPHINXBUILD = uv run --group docs sphinx-autobuild -b
 htmllive: SPHINXERRORHANDLING = --re-ignore="/\.idea/|/venv/|/topic/"
 htmllive: html
