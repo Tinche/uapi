@@ -1,6 +1,6 @@
 """Tests for response shorthands."""
 
-from asyncio import create_task
+from asyncio import create_task, sleep
 from datetime import datetime, timezone
 from typing import Any
 
@@ -57,6 +57,8 @@ async def test_custom_shorthand(
         t = create_task(run_on_quart(app, unused_tcp_port))
     elif app_type is AiohttpApp:
         t = create_task(run_on_aiohttp(app, unused_tcp_port))
+        # Compensate for flaky startup.
+        await sleep(0)
     elif app_type is StarletteApp:
         t = create_task(run_on_starlette(app, unused_tcp_port))
     elif app_type is FlaskApp:
