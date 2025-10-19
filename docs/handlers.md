@@ -49,12 +49,33 @@ To receive query parameters, annotate a handler parameter with any type that has
 The {class}`App <uapi.base.App>`'s dependency injection system is configured to fulfill handler parameters from query parameters by default; directly when annotated as strings or Any or through the App's converter if any other type.
 Query parameters may have default values.
 
+```{note}
+Technically, HTTP requests may contain multiple query parameters with the same name.
+Unless the parameter is annotated as a list or sequence, all underlying frameworks return the *first* value encountered, except Django; it returns the last.
+```
+
 Query params will be present in the [OpenAPI schema](openapi.md); parameters with defaults will be rendered as `required=False`.
 
 ```python
 @app.get("/query_handler")
 async def query_handler(string_query: str, int_query: int = 0) -> None:
     # The int_query param will be the result of `app.converter.structure(int_query, int)`
+    return
+```
+
+When a required query parameter is not provided, the result depends on the underlying framework used:
+
+* Starlette, aiohttp and Django return a `500 Internal Server Error`.
+* Quart and Flask return a `400 Bad Request` error.
+
+#### Multiple Query Parameters
+
+To receive multiple query parameters, annotate a handler parameter with `list[str]`.
+
+```python
+@app.get("/query_handler")
+async def query_handler(string_query: list[str]) -> None:
+    # `string_query` can be provided multiple times.
     return
 ```
 

@@ -163,6 +163,7 @@ def build_operation(
                 builder.get_schema_for_type(form_type)
             )
         else:
+            # Query params
             if is_union_type(arg_type):
                 refs: list[Reference | Schema | IntegerSchema] = []
                 for union_member in arg_type.__args__:
@@ -170,7 +171,9 @@ def build_operation(
                         refs.append(Schema(Schema.Type.NULL))
                     elif union_member in builder.PYTHON_PRIMITIVES_TO_OPENAPI:
                         refs.append(builder.PYTHON_PRIMITIVES_TO_OPENAPI[union_member])
-                param_schema: OneOfSchema | Schema | IntegerSchema = OneOfSchema(refs)
+                param_schema: AnySchema | Reference = OneOfSchema(refs)
+            elif getattr(arg_type, "__origin__", None) is list:
+                param_schema = builder.get_schema_for_type(arg_type)
             else:
                 param_schema = builder.PYTHON_PRIMITIVES_TO_OPENAPI.get(
                     arg_param.annotation, builder.PYTHON_PRIMITIVES_TO_OPENAPI[str]

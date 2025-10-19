@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from contextlib import suppress
 from datetime import date, datetime
 from enum import Enum, unique
 from typing import Any, ClassVar, Literal, TypeAlias
@@ -218,10 +217,7 @@ class SchemaBuilder:
                 return ArraySchema(inner)
             raise Exception("Nested arrays are unsupported")
 
-        mapping = False
-        # TODO: remove this when cattrs 24.1 releases
-        with suppress(TypeError):
-            mapping = is_mapping(type)
+        mapping = is_mapping(type)
         if mapping:
             # Dicts also get created inline.
             args = get_args(type)
