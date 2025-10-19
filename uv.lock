@@ -2438,7 +2438,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "attrs", specifier = ">=23.1.0" },
-    { name = "cattrs", specifier = ">=23.2.2" },
+    { name = "cattrs", specifier = ">=25.3.0" },
     { name = "incant", specifier = ">=23.2.0" },
     { name = "itsdangerous" },
     { name = "orjson", specifier = ">=3.11.3" },
