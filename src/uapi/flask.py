@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import partial
 from inspect import Parameter, Signature, signature
 from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
@@ -179,6 +179,25 @@ def _make_flask_incanter(converter: Converter) -> Incanter:
         ),
     )
 
+    def nonstring_list_query_factory(p: Parameter) -> Callable[[], Sequence]:
+        def read_query():
+            return (
+                converter.structure(request.args.getlist(p.name), p.annotation)
+                if p.default is Signature.empty
+                else (
+                    converter.structure(request.args.getlist(p.name), p.annotation)
+                    if p.name in request.args
+                    else p.default
+                )
+            )
+
+        return read_query
+
+    res.register_hook_factory(
+        lambda p: getattr(p.annotation, "__origin__", None) in (list, Sequence),
+        nonstring_list_query_factory,
+    )
+
     def string_list_query_factory(p: Parameter) -> Callable[[], list[str]]:
         def read_query() -> list[str]:
             return (
@@ -195,25 +214,6 @@ def _make_flask_incanter(converter: Converter) -> Incanter:
 
     res.register_hook_factory(
         lambda p: p.annotation == list[str], string_list_query_factory
-    )
-
-    def nonstring_list_query_factory(p: Parameter) -> Callable[[], list]:
-        def read_query():
-            return (
-                converter.structure(request.args.getlist(p.name), p.annotation)
-                if p.default is Signature.empty
-                else (
-                    converter.structure(request.args.getlist(p.name), p.annotation)
-                    if p.name in request.args
-                    else p.default
-                )
-            )
-
-        return read_query
-
-    res.register_hook_factory(
-        lambda p: getattr(p.annotation, "__origin__", None) is list,
-        nonstring_list_query_factory,
     )
 
     res.register_hook_factory(

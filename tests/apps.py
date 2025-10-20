@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated, TypeAlias, TypeVar
 
@@ -62,6 +63,12 @@ def configure_base_async(app: AsyncApp) -> None:
     @app.get("/query-list-nonstring")
     async def query_list_nonstring(param: list[int]) -> str:
         """Query lists with non-strings work."""
+        return str(sum(param))
+
+    @app.get("/query-seq")
+    async def query_list_seq(param: Sequence[int]) -> str:
+        """Query sequences work."""
+        assert isinstance(param, tuple)
         return str(sum(param))
 
     @app.get("/response-bytes", tags=["query"])
@@ -311,6 +318,12 @@ def configure_base_sync(app: App) -> None:
     @app.get("/query-list-nonstring")
     def query_list_nonstring(param: list[int]) -> str:
         """Query lists with non-strings work."""
+        return str(sum(param))
+
+    @app.get("/query-seq")
+    def query_list_seq(param: Sequence[int]) -> str:
+        """Query sequences work."""
+        assert isinstance(param, tuple)
         return str(sum(param))
 
     @app.get("/response-bytes", tags=["query"])

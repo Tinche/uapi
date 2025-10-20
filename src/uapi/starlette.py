@@ -1,5 +1,5 @@
 from asyncio import create_task, sleep
-from collections.abc import Callable, Coroutine, Generator
+from collections.abc import Callable, Coroutine, Generator, Sequence
 from contextlib import contextmanager, suppress
 from functools import partial
 from inspect import Parameter, Signature, signature
@@ -262,26 +262,6 @@ def _make_starlette_incanter(converter: Converter) -> Incanter:
         lambda p: p.annotation in (Signature.empty, str), string_query_factory
     )
 
-    def string_list_query_factory(
-        p: Parameter,
-    ) -> Callable[[FrameworkRequest], list[str]]:
-        def read_query(_request: FrameworkRequest):
-            return (
-                _request.query_params.getlist(p.name)
-                if p.default is Signature.empty
-                else (
-                    _request.query_params.getlist(p.name)
-                    if p.name in _request.query_params
-                    else p.default
-                )
-            )
-
-        return read_query
-
-    res.register_hook_factory(
-        lambda p: p.annotation == list[str], string_list_query_factory
-    )
-
     def nonstring_list_query_factory(
         p: Parameter,
     ) -> Callable[[FrameworkRequest], list]:
@@ -301,8 +281,28 @@ def _make_starlette_incanter(converter: Converter) -> Incanter:
         return read_query
 
     res.register_hook_factory(
-        lambda p: getattr(p.annotation, "__origin__", None) is list,
+        lambda p: getattr(p.annotation, "__origin__", None) in (list, Sequence),
         nonstring_list_query_factory,
+    )
+
+    def string_list_query_factory(
+        p: Parameter,
+    ) -> Callable[[FrameworkRequest], list[str]]:
+        def read_query(_request: FrameworkRequest):
+            return (
+                _request.query_params.getlist(p.name)
+                if p.default is Signature.empty
+                else (
+                    _request.query_params.getlist(p.name)
+                    if p.name in _request.query_params
+                    else p.default
+                )
+            )
+
+        return read_query
+
+    res.register_hook_factory(
+        lambda p: p.annotation == list[str], string_list_query_factory
     )
 
     res.register_hook_factory(

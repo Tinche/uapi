@@ -45,3 +45,14 @@ async def test_query_nonstring_list(server: int):
         )
         assert resp.status_code == 200
         assert resp.read() == b"6"
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_query_seq(server: int):
+    """Multiple query params can be gathered into sequences."""
+    async with AsyncClient() as client:
+        resp = await client.get(
+            f"http://localhost:{server}/query-seq", params={"param": ["1", "2", "3"]}
+        )
+        assert resp.status_code == 200
+        assert resp.read() == b"6"

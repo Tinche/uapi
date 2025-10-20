@@ -70,15 +70,23 @@ When a required query parameter is not provided, the result depends on the under
 
 #### Multiple Query Parameters
 
-To receive multiple query parameters, annotate a handler parameter with `list[T]`.
-When `T` is `str`, the underlying framework's result will be directly returned;
-otherwise the result will be structured into `list[T]` by the App converter.
+To receive multiple query parameters, annotate a handler parameter with `list[T]` or [`Sequence[T]`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence).
+When `list[str]` is used, the underlying framework's result will be directly returned;
+otherwise the result will be structured into the parameter type by the App converter.
+Because the underlying frameworks generally support only basic parsing of query parameters, this is usually only useful with simple types, like `list[int]` or `Sequence[int]`.
 
 ```python
 @app.get("/query_handler")
 async def query_handler(string_query: list[str]) -> None:
     # `string_query` can be provided multiple times.
     return
+```
+
+```{note}
+A multiple query parameter without a default value will be marked as `required` in the OpenAPI schema
+even though technically it is not.
+This is done mostly for consistency.
+Assign a default value to make it non-required.
 ```
 
 ### Path Parameters
