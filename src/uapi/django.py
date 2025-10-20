@@ -267,6 +267,27 @@ def _make_django_incanter(converter: Converter) -> Incanter:
 
         return read_query
 
+    def nonstring_list_query_factory(
+        p: Parameter,
+    ) -> Callable[[FrameworkRequest], list]:
+        def read_query(_request: FrameworkRequest):
+            return (
+                converter.structure(_request.GET.getlist(p.name), p.annotation)
+                if p.default is Signature.empty
+                else (
+                    converter.structure(_request.GET.getlist(p.name), p.annotation)
+                    if p.name in _request.GET
+                    else p.default
+                )
+            )
+
+        return read_query
+
+    res.register_hook_factory(
+        lambda p: getattr(p.annotation, "__origin__", None) is list,
+        nonstring_list_query_factory,
+    )
+
     res.register_hook_factory(
         lambda p: p.annotation == list[str], string_list_query_factory
     )

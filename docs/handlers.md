@@ -70,7 +70,9 @@ When a required query parameter is not provided, the result depends on the under
 
 #### Multiple Query Parameters
 
-To receive multiple query parameters, annotate a handler parameter with `list[str]`.
+To receive multiple query parameters, annotate a handler parameter with `list[T]`.
+When `T` is `str`, the underlying framework's result will be directly returned;
+otherwise the result will be structured into `list[T]` by the App converter.
 
 ```python
 @app.get("/query_handler")

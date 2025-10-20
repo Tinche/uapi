@@ -59,6 +59,11 @@ def configure_base_async(app: AsyncApp) -> None:
         """Query lists with defaults."""
         return str(sum(int(q) for q in param))
 
+    @app.get("/query-list-nonstring")
+    async def query_list_nonstring(param: list[int]) -> str:
+        """Query lists with non-strings work."""
+        return str(sum(param))
+
     @app.get("/response-bytes", tags=["query"])
     async def response_bytes() -> bytes:
         return b"2"
@@ -302,6 +307,11 @@ def configure_base_sync(app: App) -> None:
     def query_list_def(param: list[str] = ["1", "2"]) -> str:
         """Query lists with defaults."""
         return str(sum(int(q) for q in param))
+
+    @app.get("/query-list-nonstring")
+    def query_list_nonstring(param: list[int]) -> str:
+        """Query lists with non-strings work."""
+        return str(sum(param))
 
     @app.get("/response-bytes", tags=["query"])
     def response_bytes() -> bytes:
