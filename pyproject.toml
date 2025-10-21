@@ -17,7 +17,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "cattrs >= 23.2.2",
+    "cattrs>=25.3.0",
     "incant >= 23.2.0",
     "itsdangerous",
     "attrs >= 23.1.0",

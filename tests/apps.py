@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated, TypeAlias, TypeVar
 
@@ -49,6 +50,26 @@ def configure_base_async(app: AsyncApp) -> None:
     @app.post("/query-post")
     async def query_post(page: int) -> str:
         return str(page + 1)
+
+    @app.get("/query-list")
+    async def query_list(param: list[str]) -> str:
+        return str(sum(int(q) for q in param))
+
+    @app.get("/query-list-def")
+    async def query_list_def(param: list[str] = ["1", "2"]) -> str:
+        """Query lists with defaults."""
+        return str(sum(int(q) for q in param))
+
+    @app.get("/query-list-nonstring")
+    async def query_list_nonstring(param: list[int]) -> str:
+        """Query lists with non-strings work."""
+        return str(sum(param))
+
+    @app.get("/query-seq")
+    async def query_list_seq(param: Sequence[int]) -> str:
+        """Query sequences work."""
+        assert isinstance(param, tuple)
+        return str(sum(param))
 
     @app.get("/response-bytes", tags=["query"])
     async def response_bytes() -> bytes:
@@ -284,6 +305,26 @@ def configure_base_sync(app: App) -> None:
     @app.post("/query-post")
     def query_post(page: int) -> str:
         return str(page + 1)
+
+    @app.get("/query-list")
+    def query_list(param: list[str]) -> str:
+        return str(sum(int(q) for q in param))
+
+    @app.get("/query-list-def")
+    def query_list_def(param: list[str] = ["1", "2"]) -> str:
+        """Query lists with defaults."""
+        return str(sum(int(q) for q in param))
+
+    @app.get("/query-list-nonstring")
+    def query_list_nonstring(param: list[int]) -> str:
+        """Query lists with non-strings work."""
+        return str(sum(param))
+
+    @app.get("/query-seq")
+    def query_list_seq(param: Sequence[int]) -> str:
+        """Query sequences work."""
+        assert isinstance(param, tuple)
+        return str(sum(param))
 
     @app.get("/response-bytes", tags=["query"])
     def response_bytes() -> bytes:

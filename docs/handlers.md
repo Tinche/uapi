@@ -49,6 +49,11 @@ To receive query parameters, annotate a handler parameter with any type that has
 The {class}`App <uapi.base.App>`'s dependency injection system is configured to fulfill handler parameters from query parameters by default; directly when annotated as strings or Any or through the App's converter if any other type.
 Query parameters may have default values.
 
+```{note}
+Technically, HTTP requests may contain multiple query parameters with the same name.
+Unless the parameter is annotated as a list or sequence, all underlying frameworks return the *first* value encountered, except Django; it returns the last.
+```
+
 Query params will be present in the [OpenAPI schema](openapi.md); parameters with defaults will be rendered as `required=False`.
 
 ```python
@@ -56,6 +61,32 @@ Query params will be present in the [OpenAPI schema](openapi.md); parameters wit
 async def query_handler(string_query: str, int_query: int = 0) -> None:
     # The int_query param will be the result of `app.converter.structure(int_query, int)`
     return
+```
+
+When a required query parameter is not provided, the result depends on the underlying framework used:
+
+* Starlette, aiohttp and Django return a `500 Internal Server Error`.
+* Quart and Flask return a `400 Bad Request` error.
+
+#### Multiple Query Parameters
+
+To receive multiple query parameters, annotate a handler parameter with `list[T]` or [`Sequence[T]`](https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence).
+When `list[str]` is used, the underlying framework's result will be directly returned;
+otherwise the result will be structured into the parameter type by the App converter.
+Because the underlying frameworks generally support only basic parsing of query parameters, this is usually only useful with simple types, like `list[int]` or `Sequence[int]`.
+
+```python
+@app.get("/query_handler")
+async def query_handler(string_query: list[str]) -> None:
+    # `string_query` can be provided multiple times.
+    return
+```
+
+```{note}
+A multiple query parameter without a default value will be marked as `required` in the OpenAPI schema
+even though technically it is not.
+This is done mostly for consistency.
+Assign a default value to make it non-required.
 ```
 
 ### Path Parameters

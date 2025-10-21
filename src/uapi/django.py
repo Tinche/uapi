@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import partial
 from inspect import Parameter, Signature, signature
 from typing import Any, ClassVar, Generic, TypeAlias, TypeVar
@@ -253,6 +253,43 @@ def _make_django_incanter(converter: Converter) -> Incanter:
 
     res.register_hook_factory(
         lambda p: p.annotation in (Signature.empty, str), string_query_factory
+    )
+
+    def nonstring_list_query_factory(
+        p: Parameter,
+    ) -> Callable[[FrameworkRequest], Sequence]:
+        def read_query(_request: FrameworkRequest):
+            return (
+                converter.structure(_request.GET.getlist(p.name), p.annotation)
+                if p.default is Signature.empty
+                else (
+                    converter.structure(_request.GET.getlist(p.name), p.annotation)
+                    if p.name in _request.GET
+                    else p.default
+                )
+            )
+
+        return read_query
+
+    res.register_hook_factory(
+        lambda p: getattr(p.annotation, "__origin__", None) in (list, Sequence),
+        nonstring_list_query_factory,
+    )
+
+    def string_list_query_factory(
+        p: Parameter,
+    ) -> Callable[[FrameworkRequest], list[str]]:
+        def read_query(_request: FrameworkRequest) -> list[str]:
+            return (
+                _request.GET.getlist(p.name)
+                if p.default is Signature.empty
+                else _request.GET.getlist(p.name, p.default)
+            )
+
+        return read_query
+
+    res.register_hook_factory(
+        lambda p: p.annotation == list[str], string_list_query_factory
     )
 
     res.register_hook_factory(
