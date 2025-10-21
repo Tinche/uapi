@@ -18,6 +18,8 @@ The **third number** is for emergencies when we need to start branches for older
   ([#58](https://github.com/Tinche/uapi/pull/58))
 - Dictionaries are now supported in the OpenAPI schema, rendering to object schemas with `additionalProperties`.
   ([#58](https://github.com/Tinche/uapi/pull/58))
+- Multiple query parameters can now be received by annotating a parameter with `list` or `Sequence`.
+  ([#68](https://github.com/Tinche/uapi/pull/68))
 - {meth}`uapi.flask.FlaskApp.run`, {meth}`uapi.quart.QuartApp.run` and {meth}`uapi.starlette.StarletteApp.run` now expose `host` parameters.
   ([#59](https://github.com/Tinche/uapi/pull/59))
 - _uapi_ is now tested against Python 3.13 and 3.14.
