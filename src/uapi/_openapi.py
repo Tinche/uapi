@@ -172,7 +172,7 @@ def build_operation(
                     elif union_member in builder.PYTHON_PRIMITIVES_TO_OPENAPI:
                         refs.append(builder.PYTHON_PRIMITIVES_TO_OPENAPI[union_member])
                 param_schema: AnySchema | Reference = OneOfSchema(refs)
-            elif getattr(arg_type, "__origin__", None) is list:
+            elif getattr(arg_type, "__origin__", None) in (list, Sequence):
                 param_schema = builder.get_schema_for_type(arg_type)
             else:
                 param_schema = builder.PYTHON_PRIMITIVES_TO_OPENAPI.get(

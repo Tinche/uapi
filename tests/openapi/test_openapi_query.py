@@ -92,3 +92,39 @@ def test_get_query_list(app: App) -> None:
     ]
     assert len(op.get.responses) == 1
     assert op.get.responses["200"]
+
+
+def test_get_query_list_nonstring(app: App) -> None:
+    spec: OpenAPI = app.make_openapi_spec()
+
+    op = spec.paths["/query-list-nonstring"]
+    assert op is not None
+    assert op.get
+    assert op.get.parameters == [
+        Parameter(
+            name="param",
+            kind=Parameter.Kind.QUERY,
+            required=True,
+            schema=ArraySchema(IntegerSchema()),
+        )
+    ]
+    assert len(op.get.responses) == 1
+    assert op.get.responses["200"]
+
+
+def test_get_query_seq(app: App) -> None:
+    spec: OpenAPI = app.make_openapi_spec()
+
+    op = spec.paths["/query-seq"]
+    assert op is not None
+    assert op.get
+    assert op.get.parameters == [
+        Parameter(
+            name="param",
+            kind=Parameter.Kind.QUERY,
+            required=True,
+            schema=ArraySchema(IntegerSchema()),
+        )
+    ]
+    assert len(op.get.responses) == 1
+    assert op.get.responses["200"]
